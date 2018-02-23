@@ -1,0 +1,18 @@
+# Binaries for programs and plugins
+*.exe
+/resgate
+
+# debug files
+/debug
+
+# Local configuration
+/config.json
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Editor specifics
+.vscode/*
