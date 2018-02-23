@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"./mq/nats"
-	"./service"
+	"github.com/jirenius/resgate/mq/nats"
+	"github.com/jirenius/resgate/service"
 )
 
 var (
