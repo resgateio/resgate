@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"../../mq"
+	"github.com/jirenius/resgate/mq"
 	"github.com/jirenius/timerqueue"
 	nats "github.com/nats-io/go-nats"
 )

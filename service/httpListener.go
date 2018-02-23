@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"../httpApi"
-	"../reserr"
+	"github.com/jirenius/resgate/httpApi"
+	"github.com/jirenius/resgate/reserr"
 )
 
 func (s *Service) initHTTPListener() {

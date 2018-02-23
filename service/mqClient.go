@@ -1,6 +1,6 @@
 package service
 
-import "../resourceCache"
+import "github.com/jirenius/resgate/resourceCache"
 
 const mqWorkers = 10
 

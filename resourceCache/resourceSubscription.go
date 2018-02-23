@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"../mq/codec"
+	"github.com/jirenius/resgate/mq/codec"
 )
 
 type subscriptionState byte

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"../../reserr"
+	"github.com/jirenius/resgate/reserr"
 )
 
 type Request struct {

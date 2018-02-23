@@ -4,8 +4,8 @@ import (
 	"errors"
 	"sync"
 
-	"../mq"
-	"../mq/codec"
+	"github.com/jirenius/resgate/mq"
+	"github.com/jirenius/resgate/mq/codec"
 )
 
 type responseType byte

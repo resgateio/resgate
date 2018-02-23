@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"../mq"
-	"../mq/codec"
+	"github.com/jirenius/resgate/mq"
+	"github.com/jirenius/resgate/mq/codec"
 	"github.com/jirenius/timerqueue"
 )
 

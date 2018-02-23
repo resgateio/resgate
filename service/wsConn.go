@@ -8,12 +8,12 @@ import (
 	"os"
 	"sync"
 
-	"../mq"
-	"../mq/codec"
-	"../reserr"
-	"../resourceCache"
-	"../rpc"
 	"github.com/gorilla/websocket"
+	"github.com/jirenius/resgate/mq"
+	"github.com/jirenius/resgate/mq/codec"
+	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/resourceCache"
+	"github.com/jirenius/resgate/rpc"
 	"github.com/rs/xid"
 )
 

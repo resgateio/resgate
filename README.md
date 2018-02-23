@@ -19,50 +19,54 @@ resgate
 
 A simple example of a service and client application. For more in depth examples, see the [RES protocol documentation](https://github.com/jirenius/resgate/blob/master/resprotocol.md).
 
-### Service
+### Service (Node.js)
 
-Node.js demo service. Requires *nats* client:
+Create an empty folder and install the *nats* client:
 
 ```
 npm install nats
 ```
 
+Create file `service.js` :
+
 ```javascript
-// Node.js demo service
 const nats = require('nats').connect("nats://localhost:4222");
 
 let myModel = {message: "Hello world"};
 
-// Access listener. Everyone gets access
+// Access listener. Everyone gets read access
 nats.subscribe('access.exampleService.>', (request, replyTo, subject) => {
-	nats.publish(replyTo, JSON.stringify({result: {read: true}}));
+	nats.publish(replyTo, JSON.stringify({result: {get: true}}));
 });
 
-// Get listener
+// Get listener. Reply with the json encoded model
 nats.subscribe('get.exampleService.myModel', (request, replyTo, subject) => {
 	nats.publish(replyTo, JSON.stringify({result: {model: myModel}}));
 });
 ```
 
+Start the service:
+
+```
+node service.js
+```
+
 ### Client
 
-Javascript client. Requires *resclient* and *modapp*:
-```
-npm install resclient
-npm install modapp
-```
+Javascript client.  
+Copy the code to [requirebin.com](http://requirebin.com/) and try it out from there.
 
 ```javascript
-import ResClient from 'resclient';
-import eventBus from 'modapp/eventBus';
+let ResClient = require('resclient').default;
+let eventBus = require('modapp/eventBus').default;
 
-const client = new ResClient(eventBus, 'ws://localhost:8080/ws');
+const client = new ResClient(eventBus, 'ws://localhost:8181/ws');
 
 client.getResource('exampleService.myModel').then(model => {
-	alert(model.message);
+	console.log("Message: ", model.message);
 
 	// Listen to changes for 5 seconds, eventually unsubscribing
-	let onChange = () => alert("Updated message: " + model.message);
+	let onChange = () => console.log("Updated message: " + model.message);
 	model.on('change', onChange);
 	setTimeout(() => model.off('change', onChange), 5000);
 });

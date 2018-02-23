@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"strings"
 
-	"../httpApi"
-	"../reserr"
-	"../resourceCache"
-	"../rpc"
+	"github.com/jirenius/resgate/httpApi"
+	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/resourceCache"
+	"github.com/jirenius/resgate/rpc"
 )
 
 type subscriptionState byte

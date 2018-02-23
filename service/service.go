@@ -7,8 +7,8 @@ import (
 	"os"
 	"sync"
 
-	"../mq"
-	"../resourceCache"
+	"github.com/jirenius/resgate/mq"
+	"github.com/jirenius/resgate/resourceCache"
 )
 
 // Service is a RES gateway implementation

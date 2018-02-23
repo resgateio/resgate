@@ -1,8 +1,8 @@
 package resourceCache
 
 import (
-	"../mq/codec"
-	"../reserr"
+	"github.com/jirenius/resgate/mq/codec"
+	"github.com/jirenius/resgate/reserr"
 )
 
 type Access struct {
