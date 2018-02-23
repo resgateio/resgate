@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"../reserr"
+	"github.com/jirenius/resgate/reserr"
 )
 
 // Requester has the methods required to perform a rpc request
