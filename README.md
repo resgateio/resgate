@@ -21,6 +21,8 @@ A simple example of a service and client application. For more in depth examples
 
 ### Service (Node.js)
 
+There is currently no public library for the RES-Service protocol, but because of the simplicity of the protocol, no library is required.
+
 Create an empty folder and install the *nats* client:
 
 ```
@@ -34,14 +36,27 @@ const nats = require('nats').connect("nats://localhost:4222");
 
 let myModel = {message: "Hello world"};
 
-// Access listener. Everyone gets read access
-nats.subscribe('access.exampleService.>', (request, replyTo, subject) => {
-	nats.publish(replyTo, JSON.stringify({result: {get: true}}));
+// Access listener. Everyone gets read access and access to call the set-method
+nats.subscribe('access.exampleService.myModel', (request, replyTo, subject) => {
+	nats.publish(replyTo, JSON.stringify({result: {get: true, call: "set"}}));
 });
 
 // Get listener. Reply with the json encoded model
 nats.subscribe('get.exampleService.myModel', (request, replyTo, subject) => {
 	nats.publish(replyTo, JSON.stringify({result: {model: myModel}}));
+});
+
+// Set listener for updating the myModel.message property
+nats.subscribe('call.exampleService.myModel.set', (request, replyTo, subject) => {
+	let req = JSON.parse(request);
+	let p = req.params || {};
+	// Check if the message property was changed
+	if (typeof p.message === 'string' && p.message !== myModel.message) {
+		myModel.message = p.message;
+		nats.publish('event.exampleService.myModel.change', JSON.stringify({data: {message: p.message}}));
+	}
+	// Reply success by sending an empty result
+	nats.publish(replyTo, JSON.stringify({result: null}));
 });
 ```
 
@@ -54,7 +69,8 @@ node service.js
 ### Client
 
 Javascript client.  
-Copy the code to [requirebin.com](http://requirebin.com/) and try it out from there.
+Copy the code to [requirebin.com](http://requirebin.com/) and try it out from there.  
+Try running it in two separate tabs!
 
 ```javascript
 let ResClient = require('resclient').default;
@@ -63,12 +79,21 @@ let eventBus = require('modapp/eventBus').default;
 const client = new ResClient(eventBus, 'ws://localhost:8181/ws');
 
 client.getResource('exampleService.myModel').then(model => {
-	console.log("Message: ", model.message);
+	// Create an input element
+	let input = document.createElement('input');
+	input.value = model.message;
+	document.body.appendChild(input);
 
-	// Listen to changes for 5 seconds, eventually unsubscribing
-	let onChange = () => console.log("Updated message: " + model.message);
-	model.on('change', onChange);
-	setTimeout(() => model.off('change', onChange), 5000);
+	// Call set to update the remote model
+	input.addEventListener('input', () => {
+		model.set({message: input.value});
+	});
+
+	// Listen for model change events.
+	// The model will be unsubscribed after calling model.off
+	model.on('change', () => {
+		input.value = model.message;
+	});
 });
 ```
 
