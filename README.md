@@ -17,11 +17,12 @@ resgate
 
 ## Hello world example
 
-A simple example of a service and client application. For more in depth examples, see the [RES protocol documentation](https://github.com/jirenius/resgate/blob/master/resprotocol.md).
+A simple example of a service exposing a single resource, `exampleService.myModel`, and client application that accesses the resource.  
+For more in depth information, see the [RES protocol documentation](https://github.com/jirenius/resgate/blob/master/resprotocol.md).
 
 ### Service (Node.js)
 
-There is currently no public library for the RES-Service protocol, but because of the simplicity of the protocol, no library is required.
+Because of the simplicity of the RES-Service protocol, a service can be created without the need of a library. We can just subscribe and publish directly to the NATS server.
 
 Create an empty folder and install the *nats* client:
 
@@ -53,11 +54,17 @@ nats.subscribe('call.exampleService.myModel.set', (request, replyTo, subject) =>
 	// Check if the message property was changed
 	if (typeof p.message === 'string' && p.message !== myModel.message) {
 		myModel.message = p.message;
+		// The model is updated. Send a change event.
 		nats.publish('event.exampleService.myModel.change', JSON.stringify({data: {message: p.message}}));
 	}
 	// Reply success by sending an empty result
 	nats.publish(replyTo, JSON.stringify({result: null}));
 });
+
+// System resets tells resgate that the service has been (re)started.
+// Resgate will then update any cached resource from exampleService
+nats.publish('system.reset', JSON.stringify({resources: ['exampleService.>']}));
+
 ```
 
 Start the service:
@@ -68,8 +75,7 @@ node service.js
 
 ### Client
 
-Javascript client.  
-Copy the code to [requirebin.com](http://requirebin.com/) and try it out from there.  
+Copy the javascript code to [requirebin.com](http://requirebin.com/) and try it out from there.  
 Try running it in two separate tabs!
 
 ```javascript
@@ -78,6 +84,7 @@ let eventBus = require('modapp/eventBus').default;
 
 const client = new ResClient(eventBus, 'ws://localhost:8181/ws');
 
+// Get the model from the service.
 client.getResource('exampleService.myModel').then(model => {
 	// Create an input element
 	let input = document.createElement('input');
