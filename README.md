@@ -6,7 +6,7 @@ A [Go](http://golang.org) project implementing the RES protocol.
 If you just want to start using resgate, and you have:
 * [installed Go](https://golang.org/doc/install) and [set your `$GOPATH`](https://golang.org/cmd/go/#GOPATH_environment_variable)
 * Added `$GOPATH/bin` (where your binaries ends up) to your `PATH`
-* [installed NATS server](https://nats.io/download/nats-io/gnatsd/) and set it to listen on port 4222
+* [installed NATS server](https://nats.io/download/nats-io/gnatsd/) and have it running.
 
 Install and run resgate:
 
@@ -82,7 +82,7 @@ Try running it in two separate tabs!
 let ResClient = require('resclient').default;
 let eventBus = require('modapp/eventBus').default;
 
-const client = new ResClient(eventBus, 'ws://localhost:8181/ws');
+const client = new ResClient(eventBus, 'ws://localhost:8080/ws');
 
 // Get the model from the service.
 client.getResource('exampleService.myModel').then(model => {
@@ -137,15 +137,31 @@ Configuration is a JSON encoded file. If no config file is found, a new file wil
 	"certFile": "/etc/ssl/certs/ssl-cert-snakeoil.pem",
 	// Key file path for tls encryption
 	"keyFile": "/etc/ssl/private/ssl-cert-snakeoil.key",
+	// Path for accessing the RES API websocket
+	"wsPath": "/ws",
 	// Path for accessing web resources
 	"apiPath": "/api/",
 	// Header authentication resource method for web resources.
 	// Missing value or null will disable header authentication.
 	// Eg. "authService.headerLogin"
 	"headerAuth": null,
-	// Timeout in seconds for message queue requests
+	// Timeout in seconds for NATS requests
 	"requestTimeout": 5
 }
+```
+
+## Running resgate
+
+By design, resgate will exit if it fails to connect to the NATS server, or if it loses the connection.
+This is to allow clients to try to reconnect to another resgate instance and resume from there, and to give resgate a fresh new start if something went wrong.
+
+A simple bash script can keep it running:
+
+```bash
+until resgate; do
+    echo "resgate exited with code $?.  Restarting.." >&2
+    sleep 1
+done
 ```
 
 ## Contributing

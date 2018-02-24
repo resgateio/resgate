@@ -20,7 +20,7 @@ var wsDisconnectTimeout = 3 * time.Second
 
 func (s *Service) initWsListener() {
 	s.conns = make(map[string]*wsConn)
-	s.mux.HandleFunc("/ws", s.wsHandler)
+	s.mux.HandleFunc(s.cfg.WSPath, s.wsHandler)
 }
 
 func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {

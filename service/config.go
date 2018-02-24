@@ -14,6 +14,7 @@ type Config struct {
 	NatsURL        string `json:"natsUrl"`
 	RequestTimeout int    `json:"requestTimeout"`
 
+	WSPath     string  `json:"wsPath"`
 	APIPath    string  `json:"apiPath"`
 	HeaderAuth *string `json:"headerAuth"`
 
@@ -30,6 +31,7 @@ func (c *Config) SetDefault() {
 	c.TLS = false
 	c.CertFile = "/etc/ssl/certs/ssl-cert-snakeoil.pem"
 	c.KeyFile = "/etc/ssl/private/ssl-cert-snakeoil.key"
+	c.WSPath = "/ws"
 	c.APIPath = "/api/"
 	c.HeaderAuth = nil
 
