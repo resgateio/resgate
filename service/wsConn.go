@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -34,8 +35,9 @@ type wsConn struct {
 	mu sync.Mutex
 }
 
-var wsConnChannelSize = 32
-var wsConnWorkerQueueSize = 256
+const wsConnChannelSize = 32
+const wsConnWorkerQueueSize = 256
+const cidPlaceholder = "{cid}"
 
 func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request) *wsConn {
 	s.mu.Lock()
@@ -292,9 +294,8 @@ func (c *wsConn) CallResource(resourceID, action string, params interface{}, cal
 }
 
 func (c *wsConn) AuthResource(resourceID, action string, params interface{}, callback func(result interface{}, err error)) {
-	c.serv.cache.Auth(c, resourceID, action, c.token, params, func(token json.RawMessage, result json.RawMessage, err error) {
+	c.serv.cache.Auth(c, c.ExpandCID(resourceID), action, c.token, params, func(result json.RawMessage, err error) {
 		c.Enqueue(func() {
-			c.setToken(token)
 			callback(result, err)
 		})
 	})
@@ -304,7 +305,7 @@ func (c *wsConn) UnsubscribeResource(resourceID string, cb func(ok bool)) {
 	cb(c.UnsubscribeById(resourceID))
 }
 
-func (c *wsConn) call(resourceID string, action string, params interface{}, cb func(result interface{}, err error)) {
+func (c *wsConn) call(resourceID, action string, params interface{}, cb func(result interface{}, err error)) {
 	sub, ok := c.subs[resourceID]
 	if !ok {
 		sub = NewSubscription(c, resourceID)
@@ -314,7 +315,7 @@ func (c *wsConn) call(resourceID string, action string, params interface{}, cb f
 		if err != nil {
 			cb(nil, err)
 		} else {
-			c.serv.cache.Call(c, resourceID, action, c.token, params, func(result interface{}, err error) {
+			c.serv.cache.Call(c, sub.ResourceID(), action, c.token, params, func(result json.RawMessage, err error) {
 				c.Enqueue(func() {
 					cb(result, err)
 				})
@@ -526,4 +527,8 @@ func (c *wsConn) handleConnToken(payload []byte) {
 	}
 
 	c.setToken(te.Token)
+}
+
+func (c *wsConn) ExpandCID(resourceID string) string {
+	return strings.Replace(resourceID, cidPlaceholder, c.cid, -1)
 }

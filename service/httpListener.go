@@ -81,8 +81,6 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		s.Logf("CALL: %s - %s", resourceID, action)
-
 		done := make(chan struct{})
 		c.Enqueue(func() {
 			c.CallResource(resourceID, action, params, responseSender(w, c, done))

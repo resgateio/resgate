@@ -27,7 +27,6 @@ type Subscriber interface {
 	CID() string
 	Loaded(resourceSub *ResourceSubscription, err error)
 	Event(event *ResourceEvent)
-	ResourceID() string
 	ResourceName() string
 	ResourceQuery() string
 }
@@ -115,8 +114,7 @@ func (c *Cache) Subscribe(sub Subscriber) {
 	eventSub.addSubscriber(sub)
 }
 
-func (c *Cache) Call(req codec.Requester, resourceID, action string, token, params interface{}, callback func(result interface{}, err error)) {
-
+func (c *Cache) Call(req codec.Requester, resourceID, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
 	payload := codec.CreateRequest(params, req, "", token)
 	subj := "call." + resourceID + "." + action
 	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
@@ -129,16 +127,16 @@ func (c *Cache) Call(req codec.Requester, resourceID, action string, token, para
 	})
 }
 
-func (c *Cache) Auth(req codec.AuthRequester, resourceID, action string, token, params interface{}, callback func(token, result json.RawMessage, err error)) {
+func (c *Cache) Auth(req codec.AuthRequester, resourceID, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
 	payload := codec.CreateAuthRequest(params, req, token)
 	subj := "auth." + resourceID + "." + action
 	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
 		if err != nil {
-			callback(nil, nil, err)
+			callback(nil, err)
 			return
 		}
 
-		callback(codec.DecodeAuthResponse(data))
+		callback(codec.DecodeCallResponse(data))
 	})
 }
 

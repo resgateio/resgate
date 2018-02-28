@@ -70,11 +70,6 @@ type Response struct {
 	Error  *reserr.Error   `json:"error"`
 }
 
-type AuthResponse struct {
-	Response
-	Token json.RawMessage `json:"token"`
-}
-
 type Event struct {
 	Data json.RawMessage `json:"data"`
 }
@@ -259,7 +254,7 @@ func DecodeAccessResponse(payload []byte) (*AccessResult, error) {
 	return r.Result, nil
 }
 
-func DecodeCallResponse(payload []byte) (interface{}, error) {
+func DecodeCallResponse(payload []byte) (json.RawMessage, error) {
 	var r Response
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
@@ -271,20 +266,6 @@ func DecodeCallResponse(payload []byte) (interface{}, error) {
 	}
 
 	return nil, r.Error
-}
-
-func DecodeAuthResponse(payload []byte) (json.RawMessage, json.RawMessage, error) {
-	var r AuthResponse
-	err := json.Unmarshal(payload, &r)
-	if err != nil {
-		return nil, nil, reserr.InternalError(err)
-	}
-
-	if r.Error == nil {
-		return r.Token, r.Result, nil
-	}
-
-	return nil, nil, r.Error
 }
 
 func DecodeConnTokenEvent(payload []byte) (*ConnTokenEvent, error) {

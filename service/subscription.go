@@ -24,6 +24,7 @@ type ConnSubscriber interface {
 	Access(sub *Subscription, callback func(*resourceCache.Access))
 	Send(data []byte)
 	Enqueue(f func()) bool
+	ExpandCID(string) string
 }
 
 type Subscription struct {
@@ -70,7 +71,7 @@ var (
 
 // NewSubscription creates a new Subscription
 func NewSubscription(c ConnSubscriber, resourceID string) *Subscription {
-	name, query := parseResourceID(resourceID)
+	name, query := parseResourceID(c.ExpandCID(resourceID))
 
 	sub := &Subscription{
 		resourceID:      resourceID,
