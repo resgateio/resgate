@@ -69,7 +69,7 @@ May be omitted, and the question mark separator MUST then also be omitted.
 
 * `userService.users` - A collection representing a list of users
 * `userService.user.42` - A model representing a user
-* `userService.user.42.roles`- A collection of roles held by a user
+* `userService.user.42.roles` - A collection of roles held by a user
 * `messageService.messages?start=0&limit=25` - A collection representing the first 25 messages of a list
 * `userService.users?q=Jane` - A collection of users with the name Jane
 
@@ -334,7 +334,50 @@ When a resource is modified, the service MUST send the defined events that descr
 
 Change events are sent when a [model](#model)'s properties has been changed.  
 The event payload is a key/value object describing the property that was change, and the new value.  
-Unchanged properties SHOULD NOT be included.
+Unchanged properties SHOULD NOT be included.  
+MUST NOT be sent on [collections](#collection).
+
+### Collection add event
+
+**Topic**  
+`event.<resourceName>.add`
+
+Add events are sent when a model is added to a [collection](#collection).  
+MUST NOT be sent on [models](#model).  
+The event payload has the following parameters:
+
+**resourceId**  
+Resource ID of the model that is added.
+MUST be a model resource ID.
+
+**idx**  
+Zero-based index number of where the model is inserted.  
+MUST be a number that is zero or greater and less than the length of the collection.
+
+### Collection remove event
+
+**Topic**  
+`event.<resourceName>.remove`
+
+Remove events are sent when a model is removed from a [collection](#collection).  
+MUST NOT be sent on [models](#model).  
+The event payload has the following parameters:
+
+**resourceId**  
+Resource ID of the model that is removed.
+MUST be a resource ID.
+
+**idx**  
+Zero-based index number of where the model was prior to removal.  
+The resource ID at the index MUST match the value of the *resoureceId* parameter.
+
+### Resource reaccess event
+
+**Topic**  
+`event.<resourceName>.reaccess`
+
+Reaccess events are sent when a model's access permissions has changed. It will trigger the gateways to postpone sending resource events to clients for the given resource until it has confirmed the clients still has access through a [access request](#access-request). Any client which no longer has access will have the resource unsubscribed.  
+The event has no payload.
 
 ### Custom event
 
