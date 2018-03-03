@@ -1,4 +1,41 @@
-# RES Protocol Overview
+# The RES-Service Protocol Specification
+
+## Table of contents
+- [Introduction](#introduction)
+  * [Features](#features)
+- [Getting started](#getting-started)
+- [Resources](#resources)
+  * [Resource ID](#resource-id)
+  * [Models](#models)
+  * [Collections](#collections)
+- [Request](#request)
+  * [Request subject](#request-subject)
+  * [Request payload](#request-payload)
+  * [Response](#response)
+  * [Error object](#error-object)
+  * [Pre-defined errors](#pre-defined-errors)
+- [Request types](#request-types)
+  * [Access request](#access-request)
+  * [Get request](#get-request)
+  * [Call request](#call-request)
+  * [Auth request](#auth-request)
+- [Events](#events)
+- [Resource events](#resource-events)
+  * [Model change event](#model-change-event)
+  * [Collection add event](#collection-add-event)
+  * [Collection remove event](#collection-remove-event)
+  * [Reaccess event](#reaccess-event)
+  * [Custom event](#custom-event)
+- [Connection events](#connection-events)
+  * [Connection token event](#connection-token-event)
+- [System events](#system-events)
+  * [System reset event](#system-reset-event)
+- [Query resources](#query-resources)
+  * [Query event](#query-event)
+  * [Query request](#query-request)
+
+
+# Introduction
 
 RES (REsource Subscription) is a protocol for creating scaleable client-server APIs consisting of resources served from stateless services connected by a messaging system. Clients subscribe to resources, and call upon their methods, through an API agnostic gateway acting as a bridge between the services and clients.
 
@@ -44,26 +81,28 @@ All resources may be accessed using ordinary web (http) requests. The same goes 
 **Simple**  
 The protocol is made to be simple. Simple to create services. Simple to access resources from the clients.
 
+
 # Getting started
 
 The best place to start is to [install resgate](https://github.com/jirenius/resgateway), a RES gateway implementation written in [Go](http://golang.org), using [NATS server](https://nats.io/documentation/server/gnatsd-intro/) as messaging system. The resgate README contains information on how to get started, and how to make a basic *Hello world* example service and client.
 
-# Introduction
 
-## Resources
+# Resources
 
 RES protocol is built around a concept of resources: model resources and collection resources. A model is a single object that may have simple properties and methods. A collection is an ordered list of models.  
 
-### Resource ID
+## Resource ID
 Each resource (model or collection) is identified by a unique *resource ID* string. A *resource ID* consist of a *resource name* and an optional *query*.  
 MUST be a string.
 
 **resource name**  
-A dot-separated string where the first part should be the name of the service owning the resource. The following parts should describe and identify the specific resource.
+Resource names are case-sensitive and must be non-empty alphanumeric strings with no embedded whitespace, and part-delimited using the dot character (`.`).  
+The first part SHOULD be the name of the service owning the resource. The following parts describes and identifies the specific resource.
 
 **query**  
-The query is separated from the resource name by a question mark (`?`). The format of the query is not enforced, but it is recommended to use URI queries in case the resources are to be accessed through web requests. May be omitted.  
-May be omitted, and the question mark separator MUST then also be omitted.
+The query is separated from the resource name by a question mark (`?`). The format of the query is not enforced, but it is recommended to use URI queries in case the resources are to be accessed through web requests.  
+May be omitted, and the question mark separator MUST then also be omitted.  
+If it exists, the resource is considered a [query resource](#query-resource).
 
 **Examples**
 
@@ -73,34 +112,30 @@ May be omitted, and the question mark separator MUST then also be omitted.
 * `messageService.messages?start=0&limit=25` - A collection representing the first 25 messages of a list
 * `userService.users?q=Jane` - A collection of users with the name Jane
 
-## Model
+## Models
 
 A model is a resource represented by a single JSON object. Models contain key/value pairs where the value may be anything except an object or array. For nested objects or arrays, a model may hold the resource ID's to other resources, but must not hold the actual resources.
 
-## Collection
+## Collections
 
 A collection is an array of model resources. A collection must not contain other collection resources or primitives.
 
 
-
-# RES-Service protocol
-
-A RES service communicates over a publish-subscribe messaging system such as a NATS server, using JSON (RFC 4627) as message encoding.
-
-## Requests
+# Request
 Services listens to requests published by the gateways on on behalf of the clients. A request consists of a [subject](#request-subject) (also called *topic*) and a [payload](#request-payload).
 
-### Request subject
+## Request subject
 
-A request subject is a string identiying the request. It has the following structure:
+A request subject is a string identiying the type of request, which resource it is made for, and in case of `call` and `auth` requests, which method is called.   
+It has the following structure:
 
 `<type>.<resourceName>.<method>`
 
 * type - the request type. May be either `access`, `get`, `call`, or `auth`.
-* resourceName - the resource ID for the resource, without the query part.
+* resourceName - the resource name of the [resource ID](#resource-id).
 * method - the request method. Only used for `call` or `auth` type requests.
 
-### Request payload
+## Request payload
 
 The payload is a JSON object containing the request parameters.  
 If no parameters are provided, the payload may be empty (0 bytes).
@@ -120,7 +155,7 @@ Is REQUIRED on error.
 MUST NOT exist on success.  
 The value MUST be an error object as defined in the [Error object](#error-object) section.  
 
-### Error object
+## Error object
 
 On error, the error member contains a value that is an object with the following members:
 
@@ -138,7 +173,7 @@ Additional data that may be omitted.
 The value is defined by the service.  
 It can be used to hold values for replacing placeholders in the message.  
 
-### Pre-defined errors
+## Pre-defined errors
 
 There are a number of predefined errors.
 
@@ -152,9 +187,12 @@ Code                    | Message            | Meaning
 
 ---
 
+
+# Request types
+
 ## Access request
 
-**Topic**  
+**Subject**  
 `access.<resourceName>`
 
 Access requests are sent to determine what kind of access a client has to a resource. The service handling the access request may be different from the service providing the resource.  
@@ -193,7 +231,7 @@ A `system.notFound` error MAY be sent if the resourceID doesn't exist, or if the
 
 ## Get request
 
-**Topic**  
+**Subject**  
 `get.<resourceName>`
 
 Get requests are sent to get the JSON representation of a resource.  
@@ -223,7 +261,7 @@ A `system.notFound` error SHOULD be sent if the resource ID doesn't exist, or if
 
 ## Call request
 
-**Topic**  
+**Subject**  
 `call.<resourceName>.<method>`
 
 Call requests are sent to invoke a method on the resource.  
@@ -256,7 +294,7 @@ A `system.invalidParams` error SHOULD be sent if any required parameter is missi
 
 ## Auth request
 
-**Topic**  
+**Subject**  
 `auth.<resourceName>.<method>`
 
 Auth requests are sent to invoke an authentication method on the resource.  
@@ -311,7 +349,8 @@ A `system.invalidParams` error SHOULD be sent if any required parameter is missi
 
 ---
 
-## Events
+
+# Events
 
 Services may send events to the messaging system that may be listen to by any gateway or service. Events are not persisted in the system, and any event that was not subscribed to when it was sent will not be retrievable. There are three types of events:
 
@@ -319,17 +358,21 @@ Services may send events to the messaging system that may be listen to by any ga
 * connection events - affects a client connection
 * system events - affects the system
 
-## Resource events
 
-Resource events for a given resource MUST be sent by the same service that handles the resource's requests, to ensure all responses and events are sent in chronological order.
+# Resource events
+
+**Subject**
+`event.<resourceName>.<eventName>`
+
+Resource events are sent for a given resource, and MUST be sent by the same service that handles the resource's requests. This is to ensure all responses and events for a resource are sent in chronological order.
 
 Events and responses from two different resources may be sent in non-chronological order, even if the resources are handled by the same service, or if a resource is a model of another collection resource.
 
 When a resource is modified, the service MUST send the defined events that describe the changes made. If a service fails to do so, maybe due to a program crash or a service loading stale data on restart, it MUST send a [System reset event](#system-reset-event) for the affected resources.
 
-### Model change event
+## Model change event
 
-**Topic**  
+**Subject**  
 `event.<resourceName>.change`
 
 Change events are sent when a [model](#model)'s properties has been changed.  
@@ -337,9 +380,9 @@ The event payload is a key/value object describing the property that was change,
 Unchanged properties SHOULD NOT be included.  
 MUST NOT be sent on [collections](#collection).
 
-### Collection add event
+## Collection add event
 
-**Topic**  
+**Subject**  
 `event.<resourceName>.add`
 
 Add events are sent when a model is added to a [collection](#collection).  
@@ -354,9 +397,9 @@ MUST be a model resource ID.
 Zero-based index number of where the model is inserted.  
 MUST be a number that is zero or greater and less than the length of the collection.
 
-### Collection remove event
+## Collection remove event
 
-**Topic**  
+**Subject**  
 `event.<resourceName>.remove`
 
 Remove events are sent when a model is removed from a [collection](#collection).  
@@ -371,19 +414,111 @@ MUST be a resource ID.
 Zero-based index number of where the model was prior to removal.  
 The resource ID at the index MUST match the value of the *resoureceId* parameter.
 
-### Resource reaccess event
+## Reaccess event
 
-**Topic**  
+**Subject**  
 `event.<resourceName>.reaccess`
 
-Reaccess events are sent when a model's access permissions has changed. It will trigger the gateways to postpone sending resource events to clients for the given resource until it has confirmed the clients still has access through a [access request](#access-request). Any client which no longer has access will have the resource unsubscribed.  
+Reaccess events are sent when a resource's access permissions has changed. It will invalidate any previous access response recieved for the resource.  
 The event has no payload.
 
-### Custom event
+## Custom event
 
-**Topic**  
+**Subject**  
 `event.<resourceName>.<eventName>`
 
 Custom events are used to send information that does not affect the state of the resource.  
 A custom event MUST NOT use a resource event name already defined by this document.  
 Payload is defined by the service, and will be passed to the client without alteration.
+
+
+# Connection events
+
+Connection events are sent for specific connection ID's (cid), and are listened to by the gateways. These events allow for the services to control the state of the connections.  
+
+## Connection token event
+
+**Subject**  
+`conn.<cid>.token`
+
+Sets the connection's authorization token, discarding any previously set token.  
+A change of token will invalidate any previous access response recieved using the old token.  
+The event payload has the following parameter:
+
+**token**  
+Authorization token.
+A `null` token clears any previously set token.
+
+
+# System events
+
+System events are used to send information having a system wide effect.
+
+## System reset event
+
+**Subject**  
+`system.reset`
+
+Signals that some resources are no longer to be considered up to date. Any service or gateway subscribing to such a resource should send a new [get request](#get-request) to get an up-to-date version.  
+A service MUST send a system reset event if it no longer can guarantee that it has sent the defined [resource events](#resource-events) that describe the changes made to its resources. This may be due to a service crashing between persisting a change and sending the event describing the change, or by restarting a service that only persisted its resource state in memory.  
+The event payload has the following parameter:
+
+**resources**  
+Array of resource name patterns. The patterns may use the following wild cards:
+* The asterisk (`*`) matches any part at any level of the resource name.  
+Eg. `userService.user.*.roles` - Pattern that matches all user's roles collections.
+* The greater than symbol (`>`) matches one or more parts at the end of a resource name, and must be the last part.  
+Eg. `messageService.>` - Patterm that matches all resources owned by *messageService*.
+
+MUST be an array of strings.
+
+
+# Query resources
+
+A query resource is a resource where its model properties or collection models may vary based on the query. It is used to request partial or filtered resources, such as for searches, filters, or pagination.
+
+## Query event
+
+**Subject**  
+`event.<resourceName>.query`
+
+Query events are sent when a [query resource](#query-resources) might have been modified. This happens when any of the data that the query resource is based upon is modified.
+
+Prior to sending the event, the service must generate a temporary inbox subject and subscribe to it. The inbox subject is sent as part of the event payload, and any subscriber receiving the event should send a [query request](#query-request) on that subject for each query they subscribe to on the given resource.
+
+The event payload has the following parameter:
+
+**subject**  
+A subject string to which a (#query-request) may be sent.  
+MUST be a string.
+
+## Query request
+
+**Subject**  
+Subject sent in a [query event](#query-event).
+
+Query requests are sent in response to a [query event](#query-event). The service should respond with a list of events to be applied to the query resource. These events must be based on the state of the underlaying data at the time when the query event was sent. This requires the service to keep track of the changes made to a query resource's underlaying data for as long as the temporary request subject is being subscribed to.  
+The request payload has the following parameters:
+
+**query**  
+Query parameters without the question mark separator.  
+MUST be a string.
+
+### Result
+
+**events**  
+An array of events for the query resource.  
+MUST be an array of [event query objects](#event-query-object)  
+May be omitted if there are no events.
+
+### Event query object
+
+An event query object has the following members:
+
+**event**  
+Event name as described in [resource events](#resource-events).  
+MUST be a string.
+
+**data**  
+Payload data as described in [resource events](#resource-events).  
+May be omitted if the event requires no payload.

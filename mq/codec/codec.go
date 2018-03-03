@@ -70,10 +70,6 @@ type Response struct {
 	Error  *reserr.Error   `json:"error"`
 }
 
-type Event struct {
-	Data json.RawMessage `json:"data"`
-}
-
 type QueryEvent struct {
 	Subject string `json:"subject"`
 }
@@ -156,17 +152,17 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 	return r.Result, nil
 }
 
-func DecodeEvent(payload []byte) (*Event, error) {
-	var ev Event
+func DecodeEvent(payload []byte) (json.RawMessage, error) {
+	var ev json.RawMessage
 	if payload == nil || len(payload) == 0 {
-		return &ev, nil
+		return ev, nil
 	}
 
 	err := json.Unmarshal(payload, &ev)
 	if err != nil {
 		return nil, reserr.InternalError(err)
 	}
-	return &ev, nil
+	return ev, nil
 }
 
 func DecodeQueryEvent(payload []byte) (*QueryEvent, error) {

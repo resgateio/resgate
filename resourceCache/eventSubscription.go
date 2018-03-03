@@ -240,7 +240,7 @@ func (e *EventSubscription) enqueueEvent(subj string, payload []byte) {
 				return
 			}
 
-			e.base.handleEvent(&ResourceEvent{Event: event, Data: ev.Data})
+			e.base.handleEvent(&ResourceEvent{Event: event, Data: ev})
 		}
 	})
 }
