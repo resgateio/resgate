@@ -79,13 +79,13 @@ type ConnTokenEvent struct {
 }
 
 type AddEventData struct {
-	ResourceID string `json:"resourceId"`
-	Idx        int    `json:"idx"`
+	RID string `json:"rid"`
+	Idx int    `json:"idx"`
 }
 
 type RemoveEventData struct {
-	ResourceID string `json:"resourceId"`
-	Idx        int    `json:"idx"`
+	RID string `json:"rid"`
+	Idx int    `json:"idx"`
 }
 
 type SystemReset struct {

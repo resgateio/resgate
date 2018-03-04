@@ -35,16 +35,16 @@ Create file `service.js` :
 ```javascript
 const nats = require('nats').connect("nats://localhost:4222");
 
-let myModel = {message: "Hello world"};
+let myModel = { message: "Hello world" };
 
 // Access listener. Everyone gets read access and access to call the set-method
 nats.subscribe('access.exampleService.myModel', (request, replyTo, subject) => {
-	nats.publish(replyTo, JSON.stringify({result: {get: true, call: "set"}}));
+	nats.publish(replyTo, JSON.stringify({ result: { get: true, call: "set" }}));
 });
 
 // Get listener. Reply with the json encoded model
 nats.subscribe('get.exampleService.myModel', (request, replyTo, subject) => {
-	nats.publish(replyTo, JSON.stringify({result: {model: myModel}}));
+	nats.publish(replyTo, JSON.stringify({ result: { model: myModel }}));
 });
 
 // Set listener for updating the myModel.message property
@@ -55,7 +55,7 @@ nats.subscribe('call.exampleService.myModel.set', (request, replyTo, subject) =>
 	if (typeof p.message === 'string' && p.message !== myModel.message) {
 		myModel.message = p.message;
 		// The model is updated. Send a change event.
-		nats.publish('event.exampleService.myModel.change', JSON.stringify({data: {message: p.message}}));
+		nats.publish('event.exampleService.myModel.change', JSON.stringify({ message: p.message }));
 	}
 	// Reply success by sending an empty result
 	nats.publish(replyTo, JSON.stringify({result: null}));
@@ -63,7 +63,7 @@ nats.subscribe('call.exampleService.myModel.set', (request, replyTo, subject) =>
 
 // System resets tells resgate that the service has been (re)started.
 // Resgate will then update any cached resource from exampleService
-nats.publish('system.reset', JSON.stringify({resources: ['exampleService.>']}));
+nats.publish('system.reset', JSON.stringify({ resources: [ 'exampleService.>' ]}));
 
 ```
 
@@ -80,9 +80,8 @@ Try running it in two separate tabs!
 
 ```javascript
 let ResClient = require('resclient').default;
-let eventBus = require('modapp/eventBus').default;
 
-const client = new ResClient(eventBus, 'ws://localhost:8080/ws');
+const client = new ResClient('ws://localhost:8080/ws');
 
 // Get the model from the service.
 client.getResource('exampleService.myModel').then(model => {
@@ -93,7 +92,7 @@ client.getResource('exampleService.myModel').then(model => {
 
 	// Call set to update the remote model
 	input.addEventListener('input', () => {
-		model.set({message: input.value});
+		model.set({ message: input.value });
 	});
 
 	// Listen for model change events.

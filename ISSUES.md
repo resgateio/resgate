@@ -8,7 +8,7 @@ This document is a notepad for issues and thoughts surrounding the RES protocol,
 The client has no way of requesting connection specific resources.
 
 **Suggested solution**  
-RES Protocol could define a placeholder that can be used as part of a resourceID:
+RES Protocol could define a placeholder that can be used as part of a resource ID:
 
 `get.authService.loggedUser.$cid`
 

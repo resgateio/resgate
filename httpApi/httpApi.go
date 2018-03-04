@@ -13,10 +13,10 @@ var (
 
 // Resource holds a resource information to be sent to the client
 type Resource struct {
-	APIPath    string
-	ResourceID string
-	Data       interface{}
-	Error      error
+	APIPath string
+	RID     string
+	Data    interface{}
+	Error   error
 }
 
 // MarshalJSON implements the json.Marshaler interface
@@ -26,16 +26,16 @@ func (r *Resource) MarshalJSON() ([]byte, error) {
 		Data  interface{} `json:"data,omitempty"`
 		Error error       `json:"error,omitempty"`
 	}{
-		HREF:  ResourceIDToPath(r.ResourceID, r.APIPath),
+		HREF:  RIDToPath(r.RID, r.APIPath),
 		Data:  r.Data,
 		Error: r.Error,
 	})
 }
 
-// PathToResourceID parses a raw URL path and returns the resourceID.
+// PathToRID parses a raw URL path and returns the resource ID.
 // The prefix is the beginning of the path which is not part of the
-// resourceID, and it should both start and end with /. Eg. "/api/"
-func PathToResourceID(path, query, prefix string) (string, error) {
+// resource ID, and it should both start and end with /. Eg. "/api/"
+func PathToRID(path, query, prefix string) (string, error) {
 	if len(path) == 0 {
 		return "", errInvalidPath
 	}
@@ -62,10 +62,10 @@ func PathToResourceID(path, query, prefix string) (string, error) {
 	return rid, nil
 }
 
-// PathToResourceIDAction parses a raw URL path and returns the resourceID and action.
+// PathToRIDAction parses a raw URL path and returns the resource ID and action.
 // The prefix is the beginning of the path which is not part of the
-// resourceID, and it should both start and end with /. Eg. "/api/"
-func PathToResourceIDAction(path, query, prefix string) (string, string, error) {
+// resource ID, and it should both start and end with /. Eg. "/api/"
+func PathToRIDAction(path, query, prefix string) (string, string, error) {
 	if len(path) == 0 {
 		return "", "", errInvalidPath
 	}
@@ -96,9 +96,9 @@ func PathToResourceIDAction(path, query, prefix string) (string, string, error) 
 	return rid, parts[len(parts)-1], nil
 }
 
-// ResourceIDToPath converts a resourceID to a URL path string.
+// RIDToPath converts a resource ID to a URL path string.
 // The prefix is the part of the path that should be prepended
-// to the resourceID path, and it should both start and end with /. Eg. "/api/".
-func ResourceIDToPath(resourceID, prefix string) string {
-	return prefix + strings.Replace(url.PathEscape(resourceID), ".", "/", -1)
+// to the resource ID path, and it should both start and end with /. Eg. "/api/".
+func RIDToPath(rid, prefix string) string {
+	return prefix + strings.Replace(url.PathEscape(rid), ".", "/", -1)
 }

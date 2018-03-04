@@ -203,8 +203,8 @@ func (c *wsConn) Send(data []byte) {
 	}
 }
 
-func (c *wsConn) GetResource(resourceID string, cb func(data interface{}, err error)) {
-	sub, err := c.Subscribe(resourceID, true)
+func (c *wsConn) GetResource(rid string, cb func(data interface{}, err error)) {
+	sub, err := c.Subscribe(rid, true)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -232,8 +232,8 @@ func (c *wsConn) GetResource(resourceID string, cb func(data interface{}, err er
 	})
 }
 
-func (c *wsConn) GetHTTPResource(resourceID string, prefix string, cb func(data interface{}, err error)) {
-	sub, err := c.Subscribe(resourceID, true)
+func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interface{}, err error)) {
+	sub, err := c.Subscribe(rid, true)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -261,8 +261,8 @@ func (c *wsConn) GetHTTPResource(resourceID string, prefix string, cb func(data 
 	})
 }
 
-func (c *wsConn) SubscribeResource(resourceID string, cb func(data interface{}, err error)) {
-	sub, err := c.Subscribe(resourceID, true)
+func (c *wsConn) SubscribeResource(rid string, cb func(data interface{}, err error)) {
+	sub, err := c.Subscribe(rid, true)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -289,33 +289,33 @@ func (c *wsConn) SubscribeResource(resourceID string, cb func(data interface{}, 
 	})
 }
 
-func (c *wsConn) CallResource(resourceID, action string, params interface{}, callback func(result interface{}, err error)) {
-	c.call(resourceID, action, params, callback)
+func (c *wsConn) CallResource(rid, action string, params interface{}, callback func(result interface{}, err error)) {
+	c.call(rid, action, params, callback)
 }
 
-func (c *wsConn) AuthResource(resourceID, action string, params interface{}, callback func(result interface{}, err error)) {
-	c.serv.cache.Auth(c, c.ExpandCID(resourceID), action, c.token, params, func(result json.RawMessage, err error) {
+func (c *wsConn) AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error)) {
+	c.serv.cache.Auth(c, c.ExpandCID(rid), action, c.token, params, func(result json.RawMessage, err error) {
 		c.Enqueue(func() {
 			callback(result, err)
 		})
 	})
 }
 
-func (c *wsConn) UnsubscribeResource(resourceID string, cb func(ok bool)) {
-	cb(c.UnsubscribeById(resourceID))
+func (c *wsConn) UnsubscribeResource(rid string, cb func(ok bool)) {
+	cb(c.UnsubscribeById(rid))
 }
 
-func (c *wsConn) call(resourceID, action string, params interface{}, cb func(result interface{}, err error)) {
-	sub, ok := c.subs[resourceID]
+func (c *wsConn) call(rid, action string, params interface{}, cb func(result interface{}, err error)) {
+	sub, ok := c.subs[rid]
 	if !ok {
-		sub = NewSubscription(c, resourceID)
+		sub = NewSubscription(c, rid)
 	}
 
 	sub.CanCall(action, func(err error) {
 		if err != nil {
 			cb(nil, err)
 		} else {
-			c.serv.cache.Call(c, sub.ResourceID(), action, c.token, params, func(result json.RawMessage, err error) {
+			c.serv.cache.Call(c, sub.RID(), action, c.token, params, func(result json.RawMessage, err error) {
 				c.Enqueue(func() {
 					cb(result, err)
 				})
@@ -324,40 +324,40 @@ func (c *wsConn) call(resourceID, action string, params interface{}, cb func(res
 	})
 }
 
-func (c *wsConn) subscribe(resourceID string, direct bool) (*Subscription, error) {
+func (c *wsConn) subscribe(rid string, direct bool) (*Subscription, error) {
 
-	sub, ok := c.subs[resourceID]
+	sub, ok := c.subs[rid]
 	if ok {
 		err := c.addCount(sub, direct)
 		return sub, err
 	}
 
-	sub = NewSubscription(c, resourceID)
+	sub = NewSubscription(c, rid)
 	_ = c.addCount(sub, direct)
 	c.serv.cache.Subscribe(sub)
 
-	c.subs[resourceID] = sub
+	c.subs[rid] = sub
 	return sub, nil
 }
 
 // subscribe gets existing subscription or creates a new one to cache
 // Will return error if number of allowed subscriptions for the resource is exceeded
-func (c *wsConn) Subscribe(resourceID string, direct bool) (*Subscription, error) {
+func (c *wsConn) Subscribe(rid string, direct bool) (*Subscription, error) {
 	if c.disposing {
 		return nil, reserr.ErrDisposing
 	}
 
-	return c.subscribe(resourceID, direct)
+	return c.subscribe(rid, direct)
 }
 
-func (c *wsConn) SubscribeAll(resourceIDs []string) ([]*Subscription, error) {
+func (c *wsConn) SubscribeAll(rids []string) ([]*Subscription, error) {
 	if c.disposing {
 		return nil, reserr.ErrDisposing
 	}
 
-	subs := make([]*Subscription, len(resourceIDs))
-	for i, resourceID := range resourceIDs {
-		sub, err := c.subscribe(resourceID, false)
+	subs := make([]*Subscription, len(rids))
+	for i, rid := range rids {
+		sub, err := c.subscribe(rid, false)
 
 		if err != nil {
 			// In case of subscribe error,
@@ -385,12 +385,12 @@ func (c *wsConn) Unsubscribe(sub *Subscription, direct bool, count int) {
 	c.removeCount(sub, direct, count)
 }
 
-func (c *wsConn) UnsubscribeById(resourceID string) bool {
+func (c *wsConn) UnsubscribeById(rid string) bool {
 	if c.disposing {
 		return false
 	}
 
-	sub, ok := c.subs[resourceID]
+	sub, ok := c.subs[rid]
 	if !ok || sub.direct == 0 {
 		return false
 	}
@@ -416,7 +416,7 @@ func (c *wsConn) unsubscribeAll(subs []*Subscription, direct bool, count int) {
 func (c *wsConn) addCount(s *Subscription, direct bool) error {
 	if direct {
 		if s.direct >= subscriptionCountLimit {
-			c.Logf("Subscription %s: Subscription limit exceeded (%d)", s.ResourceID(), s.direct)
+			c.Logf("Subscription %s: Subscription limit exceeded (%d)", s.RID(), s.direct)
 			return errSubscriptionLimitExceeded
 		}
 
@@ -443,7 +443,7 @@ func (c *wsConn) removeCount(s *Subscription, direct bool, count int) {
 
 	if s.direct+s.indirect == 0 {
 		s.Dispose()
-		delete(c.subs, s.ResourceID())
+		delete(c.subs, s.RID())
 	}
 }
 
@@ -529,6 +529,6 @@ func (c *wsConn) handleConnToken(payload []byte) {
 	c.setToken(te.Token)
 }
 
-func (c *wsConn) ExpandCID(resourceID string) string {
-	return strings.Replace(resourceID, cidPlaceholder, c.cid, -1)
+func (c *wsConn) ExpandCID(rid string) string {
+	return strings.Replace(rid, cidPlaceholder, c.cid, -1)
 }

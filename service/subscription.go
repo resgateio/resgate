@@ -17,8 +17,8 @@ type ConnSubscriber interface {
 	Logf(format string, v ...interface{})
 	CID() string
 	Token() json.RawMessage
-	Subscribe(resourceID string, direct bool) (*Subscription, error)
-	SubscribeAll(resourceIDs []string) ([]*Subscription, error)
+	Subscribe(rid string, direct bool) (*Subscription, error)
+	SubscribeAll(rids []string) ([]*Subscription, error)
 	Unsubscribe(sub *Subscription, direct bool, count int)
 	UnsubscribeAll(subs []*Subscription)
 	Access(sub *Subscription, callback func(*resourceCache.Access))
@@ -28,7 +28,7 @@ type ConnSubscriber interface {
 }
 
 type Subscription struct {
-	resourceID    string
+	rid           string
 	resourceName  string
 	resourceQuery string
 
@@ -70,11 +70,11 @@ var (
 )
 
 // NewSubscription creates a new Subscription
-func NewSubscription(c ConnSubscriber, resourceID string) *Subscription {
-	name, query := parseResourceID(c.ExpandCID(resourceID))
+func NewSubscription(c ConnSubscriber, rid string) *Subscription {
+	name, query := parseRID(c.ExpandCID(rid))
 
 	sub := &Subscription{
-		resourceID:      resourceID,
+		rid:             rid,
 		resourceName:    name,
 		resourceQuery:   query,
 		c:               c,
@@ -84,8 +84,8 @@ func NewSubscription(c ConnSubscriber, resourceID string) *Subscription {
 	return sub
 }
 
-func (s *Subscription) ResourceID() string {
-	return s.resourceID
+func (s *Subscription) RID() string {
+	return s.rid
 }
 
 func (s *Subscription) ResourceName() string {
@@ -126,7 +126,7 @@ func (s *Subscription) Loaded(resourceSub *resourceCache.ResourceSubscription, e
 			s.doneLoading()
 		default:
 			s.state = stateReady
-			s.c.Logf("Subscription %s: Unknown resource type", s.resourceID)
+			s.c.Logf("Subscription %s: Unknown resource type", s.rid)
 		}
 	}) {
 		if err == nil {
@@ -143,20 +143,20 @@ func (s *Subscription) IsCollection() bool {
 // It will lock the subscription and queue any events until ReleaseRPCResource is called.
 func (s *Subscription) GetRPCResource() *rpc.Resource {
 	if s.state == stateDisposed {
-		return &rpc.Resource{ResourceID: s.resourceID, Error: errDisposedSubscription}
+		return &rpc.Resource{RID: s.rid, Error: errDisposedSubscription}
 	}
 
 	if s.state == stateSent {
-		return &rpc.Resource{ResourceID: s.resourceID}
+		return &rpc.Resource{RID: s.rid}
 	}
 
 	if s.err != nil {
-		return &rpc.Resource{ResourceID: s.resourceID, Error: s.err}
+		return &rpc.Resource{RID: s.rid, Error: s.err}
 	}
 
 	resourceSub := s.resourceSub
 	if resourceSub == nil {
-		s.c.Logf("Subscription %s: About to crash. State: %d", s.resourceID, s.state)
+		s.c.Logf("Subscription %s: About to crash. State: %d", s.rid, s.state)
 	}
 	switch resourceSub.GetResourceType() {
 	case resourceCache.Collection:
@@ -164,10 +164,10 @@ func (s *Subscription) GetRPCResource() *rpc.Resource {
 		for i, sub := range s.subs {
 			arr[i] = sub.GetRPCResource()
 		}
-		return &rpc.Resource{ResourceID: s.resourceID, Data: arr}
+		return &rpc.Resource{RID: s.rid, Data: arr}
 
 	case resourceCache.Model:
-		resource := &rpc.Resource{ResourceID: s.resourceID, Data: resourceSub.GetModel()}
+		resource := &rpc.Resource{RID: s.rid, Data: resourceSub.GetModel()}
 		s.queueEvents()
 		resourceSub.Release()
 		return resource
@@ -181,16 +181,16 @@ func (s *Subscription) GetRPCResource() *rpc.Resource {
 // It will lock the subscription and queue any events until ReleaseRPCResource is called.
 func (s *Subscription) GetHTTPResource(apiPath string) *httpApi.Resource {
 	if s.state == stateDisposed {
-		return &httpApi.Resource{APIPath: apiPath, ResourceID: s.resourceID, Error: errDisposedSubscription}
+		return &httpApi.Resource{APIPath: apiPath, RID: s.rid, Error: errDisposedSubscription}
 	}
 
 	if s.err != nil {
-		return &httpApi.Resource{APIPath: apiPath, ResourceID: s.resourceID, Error: s.err}
+		return &httpApi.Resource{APIPath: apiPath, RID: s.rid, Error: s.err}
 	}
 
 	resourceSub := s.resourceSub
 	if resourceSub == nil {
-		s.c.Logf("Subscription %s: About to crash. State: %d", s.resourceID, s.state)
+		s.c.Logf("Subscription %s: About to crash. State: %d", s.rid, s.state)
 	}
 	switch resourceSub.GetResourceType() {
 	case resourceCache.Collection:
@@ -198,10 +198,10 @@ func (s *Subscription) GetHTTPResource(apiPath string) *httpApi.Resource {
 		for i, sub := range s.subs {
 			arr[i] = sub.GetHTTPResource(apiPath)
 		}
-		return &httpApi.Resource{APIPath: apiPath, ResourceID: s.resourceID, Data: arr}
+		return &httpApi.Resource{APIPath: apiPath, RID: s.rid, Data: arr}
 
 	case resourceCache.Model:
-		resource := &httpApi.Resource{APIPath: apiPath, ResourceID: s.resourceID, Data: resourceSub.GetModel()}
+		resource := &httpApi.Resource{APIPath: apiPath, RID: s.rid, Data: resourceSub.GetModel()}
 		s.queueEvents()
 		resourceSub.Release()
 		return resource
@@ -343,9 +343,9 @@ func (s *Subscription) processEvent(event *resourceCache.ResourceEvent) {
 			return
 		}
 
-		s.c.Send(rpc.NewEvent(s.resourceID, event.Event, event.Data))
+		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Data))
 	default:
-		s.c.Logf("Subscription %s: Unknown resource type: %d", s.resourceID, s.resourceSub.GetResourceType())
+		s.c.Logf("Subscription %s: Unknown resource type: %d", s.rid, s.resourceSub.GetResourceType())
 	}
 }
 
@@ -353,9 +353,9 @@ func (s *Subscription) processCollectionEvent(event *resourceCache.ResourceEvent
 	switch event.Event {
 	case "add":
 		idx := event.AddData.Idx
-		sub, err := s.c.Subscribe(event.AddData.ResourceID, false)
+		sub, err := s.c.Subscribe(event.AddData.RID, false)
 		if err != nil {
-			s.c.Logf("Subscription %s: Error subscribing to resource %s: %s", s.resourceID, event.AddData.ResourceID, err)
+			s.c.Logf("Subscription %s: Error subscribing to resource %s: %s", s.rid, event.AddData.RID, err)
 			return
 		}
 
@@ -379,7 +379,7 @@ func (s *Subscription) processCollectionEvent(event *resourceCache.ResourceEvent
 			}
 
 			r := sub.GetRPCResource()
-			s.c.Send(rpc.NewEvent(s.resourceID, event.Event, rpc.AddEventResource{Resource: r, Idx: idx}))
+			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEventResource{Resource: r, Idx: idx}))
 			sub.ReleaseRPCResource()
 
 			s.unqueueEvents()
@@ -390,14 +390,14 @@ func (s *Subscription) processCollectionEvent(event *resourceCache.ResourceEvent
 		idx := event.RemoveData.Idx
 		subs := s.subs
 		if idx < 0 || idx >= len(subs) {
-			s.c.Logf("Subscription %s: Remove event index out of range: %d", s.resourceID, idx)
+			s.c.Logf("Subscription %s: Remove event index out of range: %d", s.rid, idx)
 		}
 		sub := subs[idx]
 		s.subs = subs[:idx+copy(subs[idx:], subs[idx+1:])]
 
 		s.c.Unsubscribe(sub, false, 1)
 
-		s.c.Send(rpc.NewEvent(s.resourceID, event.Event, event.Data))
+		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Data))
 	}
 }
 
@@ -413,7 +413,7 @@ func (s *Subscription) handleReaccess() {
 		err := s.access.CanGet()
 		if err != nil {
 			s.c.Unsubscribe(s, true, s.direct)
-			s.c.Send(rpc.NewEvent(s.resourceID, "unsubscribe", rpc.UnsubscribeEvent{Reason: reserr.RESError(err)}))
+			s.c.Send(rpc.NewEvent(s.rid, "unsubscribe", rpc.UnsubscribeEvent{Reason: reserr.RESError(err)}))
 		}
 
 		s.unqueueEvents()
@@ -473,13 +473,13 @@ func (s *Subscription) Reaccess() {
 	return
 }
 
-func parseResourceID(resourceID string) (name string, query string) {
-	i := strings.IndexByte(resourceID, '?')
-	if i == -1 || i == len(resourceID)-1 {
-		return resourceID, ""
+func parseRID(rid string) (name string, query string) {
+	i := strings.IndexByte(rid, '?')
+	if i == -1 || i == len(rid)-1 {
+		return rid, ""
 	}
 
-	return resourceID[:i], resourceID[i+1:]
+	return rid[:i], rid[i+1:]
 }
 
 func (s *Subscription) loadAccess(cb func()) {

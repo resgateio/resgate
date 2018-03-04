@@ -26,7 +26,7 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 
-		resourceID, err := httpApi.PathToResourceID(path, r.URL.RawQuery, s.cfg.APIPath)
+		rid, err := httpApi.PathToRID(path, r.URL.RawQuery, s.cfg.APIPath)
 		if err != nil {
 			http.NotFound(w, r)
 			return
@@ -41,17 +41,17 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 		done := make(chan struct{})
 		c.Enqueue(func() {
 			if s.cfg.HeaderAuth != nil {
-				c.AuthResource(s.cfg.headerAuthResourceID, s.cfg.headerAuthAction, nil, func(result interface{}, err error) {
-					c.GetHTTPResource(resourceID, s.cfg.APIPath, responseSender(w, c, done))
+				c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(result interface{}, err error) {
+					c.GetHTTPResource(rid, s.cfg.APIPath, responseSender(w, c, done))
 				})
 			} else {
-				c.GetHTTPResource(resourceID, s.cfg.APIPath, responseSender(w, c, done))
+				c.GetHTTPResource(rid, s.cfg.APIPath, responseSender(w, c, done))
 			}
 		})
 		<-done
 
 	case "POST":
-		resourceID, action, err := httpApi.PathToResourceIDAction(path, r.URL.RawQuery, s.cfg.APIPath)
+		rid, action, err := httpApi.PathToRIDAction(path, r.URL.RawQuery, s.cfg.APIPath)
 		if err != nil {
 			http.NotFound(w, r)
 			return
@@ -83,7 +83,7 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 
 		done := make(chan struct{})
 		c.Enqueue(func() {
-			c.CallResource(resourceID, action, params, responseSender(w, c, done))
+			c.CallResource(rid, action, params, responseSender(w, c, done))
 		})
 		<-done
 

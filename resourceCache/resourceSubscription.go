@@ -151,7 +151,7 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 		return false
 	}
 
-	if params.ResourceID == "" {
+	if params.RID == "" {
 		rs.e.cache.Logf("Error processing event %s.%s: No resourceId", rs.e.ResourceName, r.Event)
 		return false
 	}
@@ -161,7 +161,7 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 	col := make([]string, l+1)
 	copy(col, old[0:idx])
 	copy(col[idx+1:], old[idx:])
-	col[idx] = params.ResourceID
+	col[idx] = params.RID
 
 	rs.collection = col
 	r.AddData = params
@@ -190,8 +190,8 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 		return false
 	}
 
-	if old[idx] != params.ResourceID {
-		rs.e.cache.Logf("Error processing event %s.%s: ResourceID mismatch. Got %s, expected %s ", rs.e.ResourceName, r.Event, params.ResourceID, old[idx])
+	if old[idx] != params.RID {
+		rs.e.cache.Logf("Error processing event %s.%s: RID mismatch. Got %s, expected %s ", rs.e.ResourceName, r.Event, params.RID, old[idx])
 		return false
 	}
 
@@ -454,8 +454,8 @@ Loop:
 			steps = append(steps, &ResourceEvent{
 				Event: "remove",
 				Data: codec.EncodeRemoveEventData(&codec.RemoveEventData{
-					ResourceID: aa[m],
-					Idx:        idx,
+					RID: aa[m],
+					Idx: idx,
 				}),
 			})
 			r++
@@ -472,8 +472,8 @@ Loop:
 		steps = append(steps, &ResourceEvent{
 			Event: "add",
 			Data: codec.EncodeRemoveEventData(&codec.RemoveEventData{
-				ResourceID: bb[add[0]],
-				Idx:        add[1] - r + add[2] + l - i,
+				RID: bb[add[0]],
+				Idx: add[1] - r + add[2] + l - i,
 			}),
 		})
 	}

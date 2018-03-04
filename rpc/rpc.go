@@ -11,11 +11,11 @@ import (
 // Requester has the methods required to perform a rpc request
 type Requester interface {
 	Send(data []byte)
-	GetResource(resourceID string, callback func(data interface{}, err error))
-	SubscribeResource(resourceID string, callback func(data interface{}, err error))
-	UnsubscribeResource(resourceID string, callback func(ok bool))
-	CallResource(resourceID, action string, params interface{}, callback func(result interface{}, err error))
-	AuthResource(resourceID, action string, params interface{}, callback func(result interface{}, err error))
+	GetResource(rid string, callback func(data interface{}, err error))
+	SubscribeResource(rid string, callback func(data interface{}, err error))
+	UnsubscribeResource(rid string, callback func(ok bool))
+	CallResource(rid, action string, params interface{}, callback func(result interface{}, err error))
+	AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error))
 }
 
 // Request represent a JSON-RPC request
@@ -45,9 +45,9 @@ type ErrorResponse struct {
 
 // Resource holds a resource information to be sent to the client
 type Resource struct {
-	ResourceID string      `json:"resourceId"`
-	Data       interface{} `json:"data,omitempty"`
-	Error      error       `json:"error,omitempty"`
+	RID   string      `json:"rid"`
+	Data  interface{} `json:"data,omitempty"`
+	Error error       `json:"error,omitempty"`
 }
 
 type AddEventResource struct {
@@ -84,21 +84,21 @@ func HandleRequest(data []byte, req Requester) error {
 
 	var method string
 	action := r.Method[:idx]
-	resourceID := r.Method[idx+1:]
+	rid := r.Method[idx+1:]
 
 	if action == "call" || action == "auth" {
-		idx = strings.LastIndexByte(resourceID, '.')
+		idx = strings.LastIndexByte(rid, '.')
 		if idx < 0 {
 			req.Send(r.ErrorResponse(reserr.ErrMethodNotFound))
 			return nil
 		}
-		method = resourceID[idx+1:]
-		resourceID = resourceID[:idx]
+		method = rid[idx+1:]
+		rid = rid[:idx]
 	}
 
 	switch action {
 	case "get":
-		req.GetResource(resourceID, func(data interface{}, err error) {
+		req.GetResource(rid, func(data interface{}, err error) {
 			if err != nil {
 				req.Send(r.ErrorResponse(err))
 			} else {
@@ -106,7 +106,7 @@ func HandleRequest(data []byte, req Requester) error {
 			}
 		})
 	case "subscribe":
-		req.SubscribeResource(resourceID, func(data interface{}, err error) {
+		req.SubscribeResource(rid, func(data interface{}, err error) {
 			if err != nil {
 				req.Send(r.ErrorResponse(err))
 			} else {
@@ -114,7 +114,7 @@ func HandleRequest(data []byte, req Requester) error {
 			}
 		})
 	case "unsubscribe":
-		req.UnsubscribeResource(resourceID, func(ok bool) {
+		req.UnsubscribeResource(rid, func(ok bool) {
 			if ok {
 				req.Send(r.SuccessResponse(nil))
 			} else {
@@ -124,7 +124,7 @@ func HandleRequest(data []byte, req Requester) error {
 	case "new":
 		req.Send(r.ErrorResponse(errNotImplemented))
 	case "call":
-		req.CallResource(resourceID, method, r.Params, func(result interface{}, err error) {
+		req.CallResource(rid, method, r.Params, func(result interface{}, err error) {
 			if err != nil {
 				req.Send(r.ErrorResponse(err))
 			} else {
@@ -133,7 +133,7 @@ func HandleRequest(data []byte, req Requester) error {
 		})
 
 	case "auth":
-		req.AuthResource(resourceID, method, r.Params, func(result interface{}, err error) {
+		req.AuthResource(rid, method, r.Params, func(result interface{}, err error) {
 			if err != nil {
 				req.Send(r.ErrorResponse(err))
 			} else {
@@ -154,8 +154,8 @@ func (r *Request) SuccessResponse(result interface{}) []byte {
 }
 
 // NewEvent creates an encoded event to be sent to the client
-func NewEvent(resourceID string, event string, data interface{}) []byte {
-	out, _ := json.Marshal(Event{Event: resourceID + "." + event, Data: data})
+func NewEvent(rid string, event string, data interface{}) []byte {
+	out, _ := json.Marshal(Event{Event: rid + "." + event, Data: data})
 	return out
 }
 

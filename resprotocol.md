@@ -92,7 +92,7 @@ The best place to start is to [install resgate](https://github.com/jirenius/resg
 RES protocol is built around a concept of resources: model resources and collection resources. A model is a single object that may have simple properties and methods. A collection is an ordered list of models.  
 
 ## Resource ID
-Each resource (model or collection) is identified by a unique *resource ID* string. A *resource ID* consist of a *resource name* and an optional *query*.  
+Each resource (model or collection) is identified by a unique *resource ID* string, also called *rid* for short. A *resource ID* consist of a *resource name* and an optional *query*.  
 MUST be a string.
 
 **resource name**  
@@ -118,7 +118,7 @@ A model is a resource represented by a single JSON object. Models contain key/va
 
 ## Collections
 
-A collection is an array of model resources. A collection must not contain other collection resources or primitives.
+A collection is an ordered list of model resources. A model may not appear more than once in a collection, and a collection must not contain other collection resources or primitives.
 
 
 # Request
@@ -227,7 +227,7 @@ Value may be a single asterisk character (`"*"`) if client is allowed to call an
 ### Error
 
 Any error response will be treated as if the client has no access to the resource.  
-A `system.notFound` error MAY be sent if the resourceID doesn't exist, or if the *query* parameter is provided for a non-query resource.
+A `system.notFound` error MAY be sent if the resource ID doesn't exist, or if the *query* parameter is provided for a non-query resource.
 
 ## Get request
 
@@ -389,7 +389,7 @@ Add events are sent when a model is added to a [collection](#collection).
 MUST NOT be sent on [models](#model).  
 The event payload has the following parameters:
 
-**resourceId**  
+**rid**  
 Resource ID of the model that is added.
 MUST be a model resource ID.
 
@@ -406,7 +406,7 @@ Remove events are sent when a model is removed from a [collection](#collection).
 MUST NOT be sent on [models](#model).  
 The event payload has the following parameters:
 
-**resourceId**  
+**rid**  
 Resource ID of the model that is removed.
 MUST be a resource ID.
 

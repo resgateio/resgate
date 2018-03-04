@@ -18,11 +18,11 @@ type Config struct {
 	APIPath    string  `json:"apiPath"`
 	HeaderAuth *string `json:"headerAuth"`
 
-	scheme               string
-	wsScheme             string
-	portString           string
-	headerAuthResourceID string
-	headerAuthAction     string
+	scheme           string
+	wsScheme         string
+	portString       string
+	headerAuthRID    string
+	headerAuthAction string
 }
 
 // SetDefault sets the default values
@@ -61,7 +61,7 @@ func (c *Config) prepare() {
 		s := *c.HeaderAuth
 		idx := strings.LastIndexByte(s, '.')
 		if idx >= 0 {
-			c.headerAuthResourceID = s[:idx]
+			c.headerAuthRID = s[:idx]
 			c.headerAuthAction = s[idx+1:]
 		} else {
 			c.HeaderAuth = nil

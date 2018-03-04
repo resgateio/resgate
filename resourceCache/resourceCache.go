@@ -114,9 +114,9 @@ func (c *Cache) Subscribe(sub Subscriber) {
 	eventSub.addSubscriber(sub)
 }
 
-func (c *Cache) Call(req codec.Requester, resourceID, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
+func (c *Cache) Call(req codec.Requester, rid, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
 	payload := codec.CreateRequest(params, req, "", token)
-	subj := "call." + resourceID + "." + action
+	subj := "call." + rid + "." + action
 	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
 		if err != nil {
 			callback(nil, err)
@@ -127,9 +127,9 @@ func (c *Cache) Call(req codec.Requester, resourceID, action string, token, para
 	})
 }
 
-func (c *Cache) Auth(req codec.AuthRequester, resourceID, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
+func (c *Cache) Auth(req codec.AuthRequester, rid, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
 	payload := codec.CreateAuthRequest(params, req, token)
-	subj := "auth." + resourceID + "." + action
+	subj := "auth." + rid + "." + action
 	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
 		if err != nil {
 			callback(nil, err)
