@@ -1,5 +1,6 @@
 # resgate - A RES gateway
-A [Go](http://golang.org) project implementing the RES protocol.
+A [Go](http://golang.org) project implementing the [RES protocol](https://github.com/jirenius/resgate/blob/master/resprotocol.md) with [NATS server]() as messaging system.  
+Used for building *scaleable*, *resilient*, *extensible*, and *secure* client API's based on *simple*, *stateless* micro-services serving *live* resources to web application.
 
 ## Quickstart
 
@@ -18,7 +19,8 @@ resgate
 ## Hello world example
 
 A simple example of a service exposing a single resource, `exampleService.myModel`, and client application that accesses the resource.  
-For more in depth information, see the [RES protocol documentation](https://github.com/jirenius/resgate/blob/master/resprotocol.md).
+For more in depth information on how to write services, see the [RES-Service protocol documentation](https://github.com/jirenius/resgate/blob/master/resprotocol.md).  
+For a more extensive example, see the [Resgate Test App](https://github.com/jirenius/resgate-test-app).
 
 ### Service (Node.js)
 
@@ -141,6 +143,9 @@ Configuration is a JSON encoded file. If no config file is found, a new file wil
 	// Path for accessing web resources
 	"apiPath": "/api/",
 	// Header authentication resource method for web resources.
+	// Prior to accessing the resource, this resource method will be
+	// called, allowing an auth service to set a token using
+	// information such as the request headers.
 	// Missing value or null will disable header authentication.
 	// Eg. "authService.headerLogin"
 	"headerAuth": null,
