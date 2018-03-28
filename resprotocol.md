@@ -184,6 +184,7 @@ Code                    | Message            | Meaning
 `system.internalError`  | Internal error     | Internal error
 `system.methodNotFound` | Method not found   | Resource method not found
 `system.accessDenied`   | Access denied      | Access to a resource or method is denied
+`system.timeout`        | Request timeout    | Request timed out
 
 ---
 

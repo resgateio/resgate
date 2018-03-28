@@ -1,6 +1,6 @@
 package mq
 
-import "errors"
+import "github.com/jirenius/resgate/reserr"
 
 type Response func(subj string, payload []byte, err error)
 
@@ -31,5 +31,5 @@ type Client interface {
 }
 
 var (
-	ErrRequestTimeout = errors.New("request timeout")
+	ErrRequestTimeout = reserr.ErrTimeout
 )

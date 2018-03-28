@@ -125,6 +125,8 @@ func httpError(w http.ResponseWriter, err error) {
 	var code int
 	switch rerr.Code {
 	case "system.notFound":
+		fallthrough
+	case "system.timeout":
 		code = 404
 	case "system.accessDenied":
 		code = 401

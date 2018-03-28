@@ -26,11 +26,12 @@ func InternalError(err error) *Error {
 }
 
 var (
-	ErrNoSubscription = &Error{Code: "system.noSubscription", Message: "No subscription"}
 	ErrAccessDenied   = &Error{Code: "system.accessDenied", Message: "Access denied"}
-	ErrNotFound       = &Error{Code: "system.notFound", Message: "Not found"}
-	ErrInvalidParams  = &Error{Code: "system.invalidParams", Message: "Invalid parameters"}
-	ErrInternalError  = &Error{Code: "system.internalError", Message: "Internal error"}
-	ErrMethodNotFound = &Error{Code: "system.methodNotFound", Message: "Method not found"}
 	ErrDisposing      = &Error{Code: "system.internalError", Message: "Internal error: disposing connection"}
+	ErrInternalError  = &Error{Code: "system.internalError", Message: "Internal error"}
+	ErrInvalidParams  = &Error{Code: "system.invalidParams", Message: "Invalid parameters"}
+	ErrMethodNotFound = &Error{Code: "system.methodNotFound", Message: "Method not found"}
+	ErrNoSubscription = &Error{Code: "system.noSubscription", Message: "No subscription"}
+	ErrNotFound       = &Error{Code: "system.notFound", Message: "Not found"}
+	ErrTimeout        = &Error{Code: "system.timeout", Message: "Request timeout"}
 )
