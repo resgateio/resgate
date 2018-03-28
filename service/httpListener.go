@@ -126,7 +126,7 @@ func httpError(w http.ResponseWriter, err error) {
 	switch rerr.Code {
 	case "system.notFound":
 		code = 404
-	case "system.unauthorized":
+	case "system.accessDenied":
 		code = 401
 	case "system.internalError":
 		fallthrough
