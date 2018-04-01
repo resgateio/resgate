@@ -1,6 +1,9 @@
 package service
 
-import "github.com/jirenius/resgate/resourceCache"
+import (
+	"errors"
+	"github.com/jirenius/resgate/resourceCache"
+)
 
 const mqWorkers = 10
 
@@ -40,5 +43,5 @@ func (s *Service) handleClosedMQ(err error) {
 	} else {
 		s.Log("Message queue connection closed")
 	}
-	s.Stop()
+	s.Stop(errors.New("lost connection to message queue"))
 }

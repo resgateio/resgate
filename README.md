@@ -2,6 +2,8 @@
 A [Go](http://golang.org) project implementing the [RES protocol](https://github.com/jirenius/resgate/blob/master/resprotocol.md) with [NATS server]() as messaging system.  
 Used for building *scaleable*, *resilient*, *extensible*, and *secure* client API's based on *simple*, *stateless* micro-services serving *live* resources to web application.
 
+Simple, stateless, and scalable like REST, but with push.
+
 ## Quickstart
 
 If you just want to start using resgate, and you have:
@@ -83,7 +85,7 @@ Try running it in two separate tabs!
 ```javascript
 let ResClient = require('resclient').default;
 
-const client = new ResClient('ws://localhost:8080/ws');
+const client = new ResClient('ws://localhost:8080');
 
 // Get the model from the service.
 client.getResource('exampleService.myModel').then(model => {
@@ -117,11 +119,23 @@ http://localhost:8080/api/exampleService/myModel
 ```
 resgate [options]
 ```
-#### Options
-- `-conf=<file path>` File path to configuration-file (default "config.json")
+| Option | Description |
+|---|---|
+| `-n, --nats <url>` | NATS Server URL |
+| `-p, --port <port>` | Use port for clients |
+| `-w, --wspath <path>` | Path to websocket |
+| `-a, --apipath <path>` | Path to webresources |
+| `-r, --reqtimeout <seconds>` | Timeout duration for NATS requests |
+| `-u, --headauth <method>` | Resource method for header authentication |
+| `    --tls` | Enable TLS |
+| `    --tlscert <file>` | Server certificate file |
+| `    --tlskey <file>` | Private key for server certificate |
+| `-c, --config <file>` | Configuration file |
+| `-h, --help` | Show usage message |
+
 
 ## Configuration
-Configuration is a JSON encoded file. If no config file is found, a new file will be created with default values as follows.
+Configuration is a JSON encoded file. If no config file is found at the given path, a new file will be created with default values as follows.
 
 ### Properties
 
@@ -129,19 +143,15 @@ Configuration is a JSON encoded file. If no config file is found, a new file wil
 {
 	// URL to the NATS server
 	"natsUrl": "nats://127.0.0.1:4222",
+	// Timeout in seconds for NATS requests
+	"requestTimeout": 5,
 	// Port for the http server to listen on.
 	// If the port value is missing or 0, standard http(s) port is used.
 	"port": 8080,
-	// Flag telling if tls encryption is used
-	"tls": false,
-	// Certificate file path for tls encryption
-	"certFile": "/etc/ssl/certs/ssl-cert-snakeoil.pem",
-	// Key file path for tls encryption
-	"keyFile": "/etc/ssl/private/ssl-cert-snakeoil.key",
 	// Path for accessing the RES API websocket
-	"wsPath": "/ws",
+	"wsPath": "/",
 	// Path for accessing web resources
-	"apiPath": "/api/",
+	"apiPath": "/api",
 	// Header authentication resource method for web resources.
 	// Prior to accessing the resource, this resource method will be
 	// called, allowing an auth service to set a token using
@@ -149,8 +159,12 @@ Configuration is a JSON encoded file. If no config file is found, a new file wil
 	// Missing value or null will disable header authentication.
 	// Eg. "authService.headerLogin"
 	"headerAuth": null,
-	// Timeout in seconds for NATS requests
-	"requestTimeout": 5
+	// Flag telling if tls encryption is enabled
+	"tls": false,
+	// Certificate file path for tls encryption
+	"tlsCert": "",
+	// Key file path for tls encryption
+	"tlsKey": ""
 }
 ```
 
@@ -162,9 +176,10 @@ This is to allow clients to try to reconnect to another resgate instance and res
 A simple bash script can keep it running:
 
 ```bash
-until resgate; do
+#!/bin/bash
+until ./resgate; do
     echo "resgate exited with code $?.  Restarting.." >&2
-    sleep 1
+    sleep 2
 done
 ```
 

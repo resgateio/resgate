@@ -25,14 +25,14 @@ func (s *Service) startHTTPServer() {
 
 		var err error
 		if s.cfg.TLS {
-			err = s.h.ListenAndServeTLS(s.cfg.CertFile, s.cfg.KeyFile)
+			err = s.h.ListenAndServeTLS(s.cfg.TLSCert, s.cfg.TLSKey)
 		} else {
 			err = s.h.ListenAndServe()
 		}
 
 		if err != nil {
 			s.Log(err)
-			s.Stop()
+			s.Stop(err)
 		}
 	}()
 }

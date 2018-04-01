@@ -17,7 +17,7 @@ type Service struct {
 	logger   *log.Logger
 	mu       sync.Mutex
 	stopping bool
-	stop     chan struct{}
+	stop     chan error
 	logFlags int
 
 	mq    mq.Client
@@ -75,7 +75,7 @@ func (s *Service) Logf(format string, v ...interface{}) {
 func (s *Service) Start() (err error) {
 	err = s.start()
 	if err != nil {
-		s.Stop()
+		s.Stop(err)
 	}
 	return
 }
@@ -93,7 +93,7 @@ func (s *Service) start() error {
 	}
 
 	s.Log("Starting service")
-	s.stop = make(chan struct{})
+	s.stop = make(chan error, 1)
 
 	if err := s.startMQClient(); err != nil {
 		s.Logf("Failed to connect to message queue: %s", err)
@@ -106,7 +106,7 @@ func (s *Service) start() error {
 }
 
 // Stop closes the connection to the nats server
-func (s *Service) Stop() {
+func (s *Service) Stop(err error) {
 	s.mu.Lock()
 	if s.stop == nil || s.stopping {
 		s.mu.Unlock()
@@ -122,6 +122,7 @@ func (s *Service) Stop() {
 	s.stopMQClient()
 
 	s.mu.Lock()
+	s.stop <- err
 	close(s.stop)
 	s.stop = nil
 	s.stopping = false
@@ -129,9 +130,9 @@ func (s *Service) Stop() {
 	s.mu.Unlock()
 }
 
-// StopChannel returns a channel that will be closed
+// StopChannel returns a channel that will pass a value
 // when the service has stopped.
-func (s *Service) StopChannel() <-chan struct{} {
+func (s *Service) StopChannel() <-chan error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.stop

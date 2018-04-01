@@ -7,16 +7,14 @@ import (
 
 // Config holds server configuration
 type Config struct {
-	Port           uint16 `json:"port"`
-	TLS            bool   `json:"tls"`
-	CertFile       string `json:"certFile"`
-	KeyFile        string `json:"keyFile"`
-	NatsURL        string `json:"natsUrl"`
-	RequestTimeout int    `json:"requestTimeout"`
-
+	Port       uint16  `json:"port"`
 	WSPath     string  `json:"wsPath"`
 	APIPath    string  `json:"apiPath"`
 	HeaderAuth *string `json:"headerAuth"`
+
+	TLS     bool   `json:"tls"`
+	TLSCert string `json:"certFile"`
+	TLSKey  string `json:"keyFile"`
 
 	scheme           string
 	wsScheme         string
@@ -27,15 +25,15 @@ type Config struct {
 
 // SetDefault sets the default values
 func (c *Config) SetDefault() {
-	c.Port = 8080
-	c.TLS = false
-	c.CertFile = "/etc/ssl/certs/ssl-cert-snakeoil.pem"
-	c.KeyFile = "/etc/ssl/private/ssl-cert-snakeoil.key"
-	c.WSPath = "/ws"
-	c.APIPath = "/api/"
-	c.HeaderAuth = nil
-
-	c.RequestTimeout = 5
+	if c.Port == 0 {
+		c.Port = 8080
+	}
+	if c.WSPath == "" {
+		c.WSPath = "/"
+	}
+	if c.APIPath == "" {
+		c.APIPath = "/api"
+	}
 }
 
 // prepare sets the unexported values
@@ -66,5 +64,8 @@ func (c *Config) prepare() {
 		} else {
 			c.HeaderAuth = nil
 		}
+	}
+	if c.APIPath[len(c.APIPath)-1] != '/' {
+		c.APIPath = c.APIPath + "/"
 	}
 }
