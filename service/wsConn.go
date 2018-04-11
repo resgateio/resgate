@@ -86,7 +86,9 @@ func (c *wsConn) HTTPRequest() *http.Request {
 }
 
 func (c *wsConn) listen() {
-	c.Log("Connected")
+	if debug {
+		c.Log("Connected")
+	}
 
 	var in []byte
 	var err error
@@ -107,7 +109,9 @@ func (c *wsConn) listen() {
 	}
 
 	c.Dispose()
-	c.Logf("Disconnected: %s", err)
+	if debug {
+		c.Logf("Disconnected: %s", err)
+	}
 }
 
 // dispose closes the wsConn worker and disposes all subscription.
@@ -164,7 +168,9 @@ func (c *wsConn) Logf(format string, v ...interface{}) {
 // Disconnect closes the websocket connection.
 func (c *wsConn) Disconnect(reason string) {
 	if c.ws != nil {
-		c.Logf("Disconnecting - %s", reason)
+		if debug {
+			c.Logf("Disconnecting - %s", reason)
+		}
 		c.ws.Close()
 	}
 }
@@ -362,7 +368,9 @@ func (c *wsConn) SubscribeAll(rids []string) ([]*Subscription, error) {
 		if err != nil {
 			// In case of subscribe error,
 			// we unsubscribe to all and exit with error
-			c.Logf("Failed to subscribe to %s. Aborting subscribeAll")
+			if debug {
+				c.Logf("Failed to subscribe to %s. Aborting subscribeAll")
+			}
 			for j := 0; j < i; j++ {
 				s := subs[j]
 				c.removeCount(s, false, 1)
@@ -416,7 +424,9 @@ func (c *wsConn) unsubscribeAll(subs []*Subscription, direct bool, count int) {
 func (c *wsConn) addCount(s *Subscription, direct bool) error {
 	if direct {
 		if s.direct >= subscriptionCountLimit {
-			c.Logf("Subscription %s: Subscription limit exceeded (%d)", s.RID(), s.direct)
+			if debug {
+				c.Logf("Subscription %s: Subscription limit exceeded (%d)", s.RID(), s.direct)
+			}
 			return errSubscriptionLimitExceeded
 		}
 
@@ -493,7 +503,9 @@ func (c *wsConn) subscribeConn() {
 		c.Enqueue(func() {
 			idx := len(c.cid) + 6 // Length of "conn." + "."
 			if idx >= len(subj) {
-				c.Logf("Error processing conn event %s: malformed event subject", subj)
+				if debug {
+					c.Logf("Error processing conn event %s: malformed event subject", subj)
+				}
 				return
 			}
 
@@ -522,7 +534,9 @@ func (c *wsConn) unsubscribeConn() {
 func (c *wsConn) handleConnToken(payload []byte) {
 	te, err := codec.DecodeConnTokenEvent(payload)
 	if err != nil {
-		c.Logf("Error processing conn event: malformed event payload: %s", err)
+		if debug {
+			c.Logf("Error processing conn event: malformed event payload: %s", err)
+		}
 		return
 	}
 
