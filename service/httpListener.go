@@ -21,8 +21,6 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
 	}
 
-	s.Logf(path)
-
 	switch r.Method {
 	case "GET":
 

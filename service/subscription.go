@@ -126,7 +126,9 @@ func (s *Subscription) Loaded(resourceSub *resourceCache.ResourceSubscription, e
 			s.doneLoading()
 		default:
 			s.state = stateReady
-			s.c.Logf("Subscription %s: Unknown resource type", s.rid)
+			if debug {
+				s.c.Logf("Subscription %s: Unknown resource type", s.rid)
+			}
 		}
 	}) {
 		if err == nil {
@@ -155,9 +157,7 @@ func (s *Subscription) GetRPCResource() *rpc.Resource {
 	}
 
 	resourceSub := s.resourceSub
-	if resourceSub == nil {
-		s.c.Logf("Subscription %s: About to crash. State: %d", s.rid, s.state)
-	}
+
 	switch resourceSub.GetResourceType() {
 	case resourceCache.Collection:
 		arr := make([]*rpc.Resource, len(s.subs))
@@ -189,9 +189,7 @@ func (s *Subscription) GetHTTPResource(apiPath string) *httpApi.Resource {
 	}
 
 	resourceSub := s.resourceSub
-	if resourceSub == nil {
-		s.c.Logf("Subscription %s: About to crash. State: %d", s.rid, s.state)
-	}
+
 	switch resourceSub.GetResourceType() {
 	case resourceCache.Collection:
 		arr := make([]*httpApi.Resource, len(s.subs))
@@ -345,7 +343,9 @@ func (s *Subscription) processEvent(event *resourceCache.ResourceEvent) {
 
 		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Data))
 	default:
-		s.c.Logf("Subscription %s: Unknown resource type: %d", s.rid, s.resourceSub.GetResourceType())
+		if debug {
+			s.c.Logf("Subscription %s: Unknown resource type: %d", s.rid, s.resourceSub.GetResourceType())
+		}
 	}
 }
 
@@ -355,7 +355,9 @@ func (s *Subscription) processCollectionEvent(event *resourceCache.ResourceEvent
 		idx := event.AddData.Idx
 		sub, err := s.c.Subscribe(event.AddData.RID, false)
 		if err != nil {
-			s.c.Logf("Subscription %s: Error subscribing to resource %s: %s", s.rid, event.AddData.RID, err)
+			if debug {
+				s.c.Logf("Subscription %s: Error subscribing to resource %s: %s", s.rid, event.AddData.RID, err)
+			}
 			return
 		}
 
@@ -390,7 +392,9 @@ func (s *Subscription) processCollectionEvent(event *resourceCache.ResourceEvent
 		idx := event.RemoveData.Idx
 		subs := s.subs
 		if idx < 0 || idx >= len(subs) {
-			s.c.Logf("Subscription %s: Remove event index out of range: %d", s.rid, idx)
+			if debug {
+				s.c.Logf("Subscription %s: Remove event index out of range: %d", s.rid, idx)
+			}
 		}
 		sub := subs[idx]
 		s.subs = subs[:idx+copy(subs[idx:], subs[idx+1:])]
