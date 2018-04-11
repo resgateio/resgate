@@ -40,6 +40,13 @@ type ResourceEvent struct {
 
 const unsubscribeDelay = time.Second * 5
 
+var debug = false
+
+// SetDebug enables debug logging
+func SetDebug(enabled bool) {
+	debug = enabled
+}
+
 func NewCache(mq mq.Client, workers int, logFlags int) *Cache {
 	c := &Cache{
 		mq:        mq,
@@ -198,7 +205,6 @@ func (c *Cache) mqUnsubscribe(v interface{}) {
 func (c *Cache) handleSystemReset(payload []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.Logf("System reset: %s", payload)
 
 	resources, err := codec.DecodeSystemReset(payload)
 	if err != nil {

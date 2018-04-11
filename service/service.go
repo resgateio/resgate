@@ -59,6 +59,7 @@ var debug = false
 // SetDebug enables debug logging
 func SetDebug(enabled bool) {
 	debug = enabled
+	resourceCache.SetDebug(enabled)
 }
 
 // Log writes a log message
