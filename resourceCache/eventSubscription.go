@@ -1,7 +1,6 @@
 package resourceCache
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/jirenius/resgate/mq"
@@ -53,10 +52,6 @@ type queueEvent struct {
 	subj    string
 	payload []byte
 }
-
-var (
-	errInvalidMQResponse = errors.New("Invalid message queue response")
-)
 
 func (e *EventSubscription) addSubscriber(sub Subscriber) {
 	e.Enqueue(func() {

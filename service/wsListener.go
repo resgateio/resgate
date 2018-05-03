@@ -24,10 +24,17 @@ func (s *Service) initWsListener() {
 }
 
 func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
+	// Only allow exact matching path
+	if r.URL.Path != s.cfg.WSPath {
+		http.NotFound(w, r)
+		return
+	}
 	// Upgrade to gorilla websocket
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		s.Logf("Failed to upgrade connection from %s: %s", r.RemoteAddr, err.Error())
+		if debug {
+			s.Logf("Failed to upgrade connection from %s: %s", r.RemoteAddr, err.Error())
+		}
 		return
 	}
 

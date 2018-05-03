@@ -21,7 +21,9 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
 	}
 
-	s.Logf(path)
+	if debug {
+		s.Logf("Request: %s", path)
+	}
 
 	switch r.Method {
 	case "GET":
