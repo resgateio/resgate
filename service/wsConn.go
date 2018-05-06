@@ -369,7 +369,7 @@ func (c *wsConn) SubscribeAll(rids []string) ([]*Subscription, error) {
 			// In case of subscribe error,
 			// we unsubscribe to all and exit with error
 			if debug {
-				c.Logf("Failed to subscribe to %s. Aborting subscribeAll")
+				c.Logf("Failed to subscribe to %s. Aborting subscribeAll", rid)
 			}
 			for j := 0; j < i; j++ {
 				s := subs[j]

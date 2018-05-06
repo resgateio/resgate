@@ -142,7 +142,7 @@ func (v *ModelValue) UnmarshalJSON(data []byte) error {
 	var c byte
 	i := 0
 	for {
-		c := v.RawMessage[i]
+		c = v.RawMessage[i]
 		if c != 0x20 && c != 0x09 && c != 0x0A && c != 0x0D {
 			break
 		}
