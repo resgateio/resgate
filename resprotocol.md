@@ -523,3 +523,4 @@ MUST be a string.
 **data**  
 Payload data as described in [resource events](#resource-events).  
 May be omitted if the event requires no payload.
+

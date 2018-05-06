@@ -1,7 +1,6 @@
 package resourceCache
 
 import (
-	"bytes"
 	"encoding/json"
 
 	"github.com/jirenius/resgate/mq/codec"
@@ -24,7 +23,7 @@ type ResourceSubscription struct {
 	subs      map[Subscriber]struct{}
 	resetting bool
 	// Three types of values stored
-	model      map[string]json.RawMessage
+	model      map[string]codec.ModelValue
 	collection []string
 	err        error
 	// Json encoded representation of the model
@@ -123,7 +122,11 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 
 	// Update cached model properties
 	for k, v := range props {
-		rs.model[k] = v
+		if v.Type == codec.ModelValueTypeDelete {
+			delete(rs.model, k)
+		} else {
+			rs.model[k] = v
+		}
 	}
 
 	rs.modelData = nil
@@ -239,12 +242,6 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (s
 	// or an error in the service's response
 	if err == nil {
 		result, err = codec.DecodeGetResponse(payload)
-		// Assert we got either a model or a collection
-		if err == nil && (result == nil ||
-			(result.Model == nil && result.Collection == nil) ||
-			(result.Model != nil && result.Collection != nil)) {
-			err = errInvalidMQResponse
-		}
 	}
 
 	// Get request failed
@@ -317,12 +314,6 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 	// or an error in the service's response
 	if err == nil {
 		result, err = codec.DecodeGetResponse(payload)
-		// Assert we got either a model or a collection
-		if err == nil && (result == nil ||
-			(result.Model == nil && rs.state == stateModel) ||
-			(result.Collection == nil && rs.state == stateCollection)) {
-			err = errInvalidMQResponse
-		}
 	}
 
 	// Get request failed
@@ -339,10 +330,10 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 	}
 }
 
-func (rs *ResourceSubscription) processResetModel(props map[string]json.RawMessage) {
+func (rs *ResourceSubscription) processResetModel(props map[string]codec.ModelValue) {
 	// Update cached model properties
 	for k, v := range props {
-		if bytes.Equal(rs.model[k], v) {
+		if v.Equal(rs.model[k]) {
 			delete(props, k)
 		}
 	}
