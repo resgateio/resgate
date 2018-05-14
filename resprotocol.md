@@ -8,6 +8,7 @@
   * [Resource ID](#resource-id)
   * [Models](#models)
   * [Collections](#collections)
+- [Values](#values)
 - [Request](#request)
   * [Request subject](#request-subject)
   * [Request payload](#request-payload)
@@ -118,7 +119,15 @@ A model is a resource represented by a single JSON object. Models contain key/va
 
 ## Collections
 
-A collection is an ordered list of model resources. A model may not appear more than once in a collection, and a collection must not contain other collection resources or primitives.
+A collection is an ordered list of [values](#values). A collection must not contain other collection resources or primitives.
+
+# Values
+
+A value is either a *resource reference* or a *primitive*. Primitives are either a `string`, `number`, `true`, `false`, or `null` JSON value. A resource reference is a JSON object with the following parameter:
+
+**rid**  
+Resource ID of the referenced resource.  
+MUST be a [resource ID](#resource-id).
 
 
 # Request
@@ -390,12 +399,12 @@ Add events are sent when a model is added to a [collection](#collection).
 MUST NOT be sent on [models](#model).  
 The event payload has the following parameters:
 
-**rid**  
-Resource ID of the model that is added.
-MUST be a model resource ID.
+**value**  
+[Value](#values) that is added.  
+MUST be a model resource referece.
 
 **idx**  
-Zero-based index number of where the model is inserted.  
+Zero-based index number of where the value is inserted.  
 MUST be a number that is zero or greater and less than the length of the collection.
 
 ## Collection remove event
@@ -403,17 +412,12 @@ MUST be a number that is zero or greater and less than the length of the collect
 **Subject**  
 `event.<resourceName>.remove`
 
-Remove events are sent when a model is removed from a [collection](#collection).  
+Remove events are sent when a value is removed from a [collection](#collection).  
 MUST NOT be sent on [models](#model).  
-The event payload has the following parameters:
-
-**rid**  
-Resource ID of the model that is removed.
-MUST be a resource ID.
+The event payload has the following parameter:
 
 **idx**  
-Zero-based index number of where the model was prior to removal.  
-The resource ID at the index MUST match the value of the *resoureceId* parameter.
+Zero-based index number of where the value was prior to removal.
 
 ## Reaccess event
 

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/jirenius/resgate/httpApi"
+	"github.com/jirenius/resgate/mq/codec"
 	"github.com/jirenius/resgate/reserr"
 	"github.com/jirenius/resgate/resourceCache"
 	"github.com/jirenius/resgate/rpc"
@@ -18,7 +19,6 @@ type ConnSubscriber interface {
 	CID() string
 	Token() json.RawMessage
 	Subscribe(rid string, direct bool) (*Subscription, error)
-	SubscribeAll(rids []string) ([]*Subscription, error)
 	Unsubscribe(sub *Subscription, direct bool, count int)
 	UnsubscribeAll(subs []*Subscription)
 	Access(sub *Subscription, callback func(*resourceCache.Access))
@@ -281,13 +281,35 @@ func (s *Subscription) setCollection() {
 		return
 	}
 
-	subs, err := s.c.SubscribeAll(col)
+	subs, err := s.subscribeAll(col)
 	if err != nil {
 		s.err = err
 		s.doneLoading()
 		return
 	}
 	s.subs = subs
+}
+
+func (s *Subscription) subscribeAll(collection []codec.Value) ([]*Subscription, error) {
+	subs := make([]*Subscription, len(collection))
+	for i, v := range collection {
+		rid := v.RID
+		sub, err := s.c.Subscribe(rid, false)
+
+		if err != nil {
+			// In case of subscribe error,
+			// we unsubscribe to all and exit with error
+			if debug {
+				s.c.Logf("Failed to subscribe to %s. Aborting subscribeAll", rid)
+			}
+			for j := 0; j < i; j++ {
+				s.c.Unsubscribe(subs[j], false, 1)
+			}
+			return nil, err
+		}
+		subs[i] = sub
+	}
+	return subs, nil
 }
 
 func (s *Subscription) collectionModelLoaded(sub *Subscription) {
@@ -353,10 +375,10 @@ func (s *Subscription) processCollectionEvent(event *resourceCache.ResourceEvent
 	switch event.Event {
 	case "add":
 		idx := event.AddData.Idx
-		sub, err := s.c.Subscribe(event.AddData.RID, false)
+		sub, err := s.c.Subscribe(event.AddData.Value.RID, false)
 		if err != nil {
 			if debug {
-				s.c.Logf("Subscription %s: Error subscribing to resource %s: %s", s.rid, event.AddData.RID, err)
+				s.c.Logf("Subscription %s: Error subscribing to resource %s: %s", s.rid, event.AddData.Value.RID, err)
 			}
 			return
 		}

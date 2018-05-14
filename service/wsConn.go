@@ -356,33 +356,6 @@ func (c *wsConn) Subscribe(rid string, direct bool) (*Subscription, error) {
 	return c.subscribe(rid, direct)
 }
 
-func (c *wsConn) SubscribeAll(rids []string) ([]*Subscription, error) {
-	if c.disposing {
-		return nil, reserr.ErrDisposing
-	}
-
-	subs := make([]*Subscription, len(rids))
-	for i, rid := range rids {
-		sub, err := c.subscribe(rid, false)
-
-		if err != nil {
-			// In case of subscribe error,
-			// we unsubscribe to all and exit with error
-			if debug {
-				c.Logf("Failed to subscribe to %s. Aborting subscribeAll", rid)
-			}
-			for j := 0; j < i; j++ {
-				s := subs[j]
-				c.removeCount(s, false, 1)
-			}
-			return nil, err
-		}
-		subs[i] = sub
-	}
-
-	return subs, nil
-}
-
 // unsubscribe counts down the subscription counter
 // and deletes the subscription if the count reached 0.
 func (c *wsConn) Unsubscribe(sub *Subscription, direct bool, count int) {
