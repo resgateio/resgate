@@ -10,10 +10,10 @@ import (
 )
 
 var (
-	noQueryGetRequest    = []byte(`{"query":null}`)
-	errMissingResult     = reserr.InternalError(errors.New("Response missing result"))
-	errInvalidResponse   = reserr.InternalError(errors.New("Invalid service response"))
-	errInvalidModelValue = reserr.InternalError(errors.New("Invalid model value"))
+	noQueryGetRequest  = []byte(`{"query":null}`)
+	errMissingResult   = reserr.InternalError(errors.New("Response missing result"))
+	errInvalidResponse = reserr.InternalError(errors.New("Invalid service response"))
+	errInvalidValue    = reserr.InternalError(errors.New("Invalid value"))
 )
 
 const (
@@ -58,8 +58,8 @@ type EventQueryEvent struct {
 }
 
 type GetResult struct {
-	Model      map[string]ModelValue `json:"model"`
-	Collection []string              `json:"collection"`
+	Model      map[string]Value `json:"model"`
+	Collection []Value          `json:"collection"`
 }
 
 type GetResponse struct {
@@ -91,13 +91,12 @@ type ConnTokenEvent struct {
 }
 
 type AddEventData struct {
-	RID string `json:"rid"`
-	Idx int    `json:"idx"`
+	Value Value `json:"value"`
+	Idx   int   `json:"idx"`
 }
 
 type RemoveEventData struct {
-	RID string `json:"rid"`
-	Idx int    `json:"idx"`
+	Idx int `json:"idx"`
 }
 
 type SystemReset struct {
@@ -113,26 +112,27 @@ type AuthRequester interface {
 	HTTPRequest() *http.Request
 }
 
-type ModelValueType byte
+type ValueType byte
 
 const (
-	ModelValueTypePrimitive ModelValueType = iota
-	ModelValueTypeResource
-	ModelValueTypeDelete
+	ValueTypeNone ValueType = iota
+	ValueTypePrimitive
+	ValueTypeResource
+	ValueTypeDelete
 )
 
-type ModelValue struct {
+type Value struct {
 	json.RawMessage
-	Type ModelValueType
+	Type ValueType
 	RID  string
 }
 
-type modelValueObject struct {
+type ValueObject struct {
 	RID    *string `json:"rid"`
 	Action *string `json:"action"`
 }
 
-func (v *ModelValue) UnmarshalJSON(data []byte) error {
+func (v *Value) UnmarshalJSON(data []byte) error {
 	err := v.RawMessage.UnmarshalJSON(data)
 	if err != nil {
 		return err
@@ -151,42 +151,42 @@ func (v *ModelValue) UnmarshalJSON(data []byte) error {
 
 	switch c {
 	case '{':
-		var mvo modelValueObject
+		var mvo ValueObject
 		err = json.Unmarshal(v.RawMessage, &mvo)
 		if err != nil {
 			return err
 		}
 
 		if mvo.RID != nil {
-			// Invalid to have both RID and Action set
-			if mvo.Action != nil {
-				return errInvalidModelValue
+			// Invalid to have both RID and Action set, or if RID is empty
+			if mvo.Action != nil || *mvo.RID == "" {
+				return errInvalidValue
 			}
-			v.Type = ModelValueTypeResource
+			v.Type = ValueTypeResource
 			v.RID = *mvo.RID
 		} else {
 			// Must be an action of type actionDelete
 			if mvo.Action == nil || *mvo.Action != actionDelete {
-				return errInvalidModelValue
+				return errInvalidValue
 			}
-			v.Type = ModelValueTypeDelete
+			v.Type = ValueTypeDelete
 		}
 	default:
-		v.Type = ModelValueTypePrimitive
+		v.Type = ValueTypePrimitive
 	}
 
 	return nil
 }
 
-func (v ModelValue) Equal(w ModelValue) bool {
+func (v Value) Equal(w Value) bool {
 	if v.Type != w.Type {
 		return false
 	}
 
 	switch v.Type {
-	case ModelValueTypePrimitive:
+	case ValueTypePrimitive:
 		return bytes.Equal(v.RawMessage, w.RawMessage)
-	case ModelValueTypeResource:
+	case ValueTypeResource:
 		return v.RID == w.RID
 	}
 
@@ -246,13 +246,19 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 		}
 		// Assert model only has primitive values (for now)
 		for _, v := range res.Model {
-			if v.Type != ModelValueTypePrimitive {
+			if v.Type != ValueTypePrimitive {
 				return nil, errInvalidResponse
 			}
 		}
 	} else {
 		if res.Collection == nil {
 			return nil, errInvalidResponse
+		}
+		// Assert collection only resource values (for now)
+		for _, v := range res.Collection {
+			if v.Type != ValueTypeResource {
+				return nil, errInvalidResponse
+			}
 		}
 	}
 
@@ -299,8 +305,8 @@ func DecodeEventQueryResponse(payload []byte) ([]*EventQueryEvent, error) {
 	return r.Result.Events, nil
 }
 
-func DecodeChangeEventData(data json.RawMessage) (map[string]ModelValue, error) {
-	var r map[string]ModelValue
+func DecodeChangeEventData(data json.RawMessage) (map[string]Value, error) {
+	var r map[string]Value
 	err := json.Unmarshal(data, &r)
 	if err != nil {
 		return nil, err
@@ -314,6 +320,11 @@ func DecodeAddEventData(data json.RawMessage) (*AddEventData, error) {
 	err := json.Unmarshal(data, &d)
 	if err != nil {
 		return nil, err
+	}
+
+	// Only allow Resources (for now)
+	if d.Value.Type != ValueTypeResource {
+		return nil, errInvalidValue
 	}
 
 	return &d, nil

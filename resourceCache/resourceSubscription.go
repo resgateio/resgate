@@ -23,8 +23,8 @@ type ResourceSubscription struct {
 	subs      map[Subscriber]struct{}
 	resetting bool
 	// Three types of values stored
-	model      map[string]codec.ModelValue
-	collection []string
+	model      map[string]codec.Value
+	collection []codec.Value
 	err        error
 	// Json encoded representation of the model
 	modelData json.RawMessage
@@ -53,7 +53,7 @@ func (rs *ResourceSubscription) GetError() error {
 // GetCollection will lock the EventSubscription for any changes
 // and return the collection string slice.
 // The lock must be released by calling Release
-func (rs *ResourceSubscription) GetCollection() []string {
+func (rs *ResourceSubscription) GetCollection() []codec.Value {
 	rs.e.mu.Lock()
 	return rs.collection
 }
@@ -122,7 +122,7 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 
 	// Update cached model properties
 	for k, v := range props {
-		if v.Type == codec.ModelValueTypeDelete {
+		if v.Type == codec.ValueTypeDelete {
 			delete(rs.model, k)
 		} else {
 			rs.model[k] = v
@@ -154,17 +154,12 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 		return false
 	}
 
-	if params.RID == "" {
-		rs.e.cache.Logf("Error processing event %s.%s: No resourceId", rs.e.ResourceName, r.Event)
-		return false
-	}
-
 	// Copy collection as the old slice might have been
 	// passed to a Subscriber and should be considered immutable
-	col := make([]string, l+1)
+	col := make([]codec.Value, l+1)
 	copy(col, old[0:idx])
 	copy(col[idx+1:], old[idx:])
-	col[idx] = params.RID
+	col[idx] = params.Value
 
 	rs.collection = col
 	r.AddData = params
@@ -193,14 +188,9 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 		return false
 	}
 
-	if old[idx] != params.RID {
-		rs.e.cache.Logf("Error processing event %s.%s: RID mismatch. Got %s, expected %s ", rs.e.ResourceName, r.Event, params.RID, old[idx])
-		return false
-	}
-
 	// Copy collection as the old slice might have been
 	// passed to a Subscriber and should be considered immutable
-	col := make([]string, l-1)
+	col := make([]codec.Value, l-1)
 	copy(col, old[0:idx])
 	copy(col[idx:], old[idx+1:])
 
@@ -330,7 +320,7 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 	}
 }
 
-func (rs *ResourceSubscription) processResetModel(props map[string]codec.ModelValue) {
+func (rs *ResourceSubscription) processResetModel(props map[string]codec.Value) {
 	// Update cached model properties
 	for k, v := range props {
 		if v.Equal(rs.model[k]) {
@@ -352,7 +342,7 @@ func (rs *ResourceSubscription) processResetModel(props map[string]codec.ModelVa
 	rs.handleEvent(r)
 }
 
-func (rs *ResourceSubscription) processResetCollection(collection []string) {
+func (rs *ResourceSubscription) processResetCollection(collection []codec.Value) {
 	events := lcs(rs.collection, collection)
 
 	for _, r := range events {
@@ -360,7 +350,7 @@ func (rs *ResourceSubscription) processResetCollection(collection []string) {
 	}
 }
 
-func lcs(a, b []string) []*ResourceEvent {
+func lcs(a, b []codec.Value) []*ResourceEvent {
 	var i, j int
 	// Do a LCS matric calculation
 	// https://en.wikipedia.org/wiki/Longest_common_subsequence_problem
@@ -369,7 +359,7 @@ func lcs(a, b []string) []*ResourceEvent {
 	n := len(b)
 
 	// Trim of matches at the start and end
-	for s < m && s < n && a[s] == b[s] {
+	for s < m && s < n && a[s].Equal(b[s]) {
 		s++
 	}
 
@@ -377,12 +367,12 @@ func lcs(a, b []string) []*ResourceEvent {
 		return nil
 	}
 
-	for s <= m && s <= n && a[m-1] == b[n-1] {
+	for s <= m && s <= n && a[m-1].Equal(b[n-1]) {
 		m--
 		n--
 	}
 
-	var aa, bb []string
+	var aa, bb []codec.Value
 	if s > 0 || m < len(a) {
 		aa = a[s:m]
 		m = m - s
@@ -402,7 +392,7 @@ func lcs(a, b []string) []*ResourceEvent {
 
 	for i = 0; i < m; i++ {
 		for j = 0; j < n; j++ {
-			if aa[i] == bb[j] {
+			if aa[i].Equal(bb[j]) {
 				c[(i+1)+w*(j+1)] = c[i+w*j] + 1
 			} else {
 				v1 := c[(i+1)+w*j]
@@ -433,7 +423,7 @@ Loop:
 		m = i - 1
 		n = j - 1
 		switch {
-		case i > 0 && j > 0 && aa[m] == bb[n]:
+		case i > 0 && j > 0 && aa[m].Equal(bb[n]):
 			idx--
 			i--
 			j--
@@ -445,7 +435,6 @@ Loop:
 			steps = append(steps, &ResourceEvent{
 				Event: "remove",
 				Data: codec.EncodeRemoveEventData(&codec.RemoveEventData{
-					RID: aa[m],
 					Idx: idx,
 				}),
 			})
@@ -462,9 +451,9 @@ Loop:
 		add := adds[i]
 		steps = append(steps, &ResourceEvent{
 			Event: "add",
-			Data: codec.EncodeRemoveEventData(&codec.RemoveEventData{
-				RID: bb[add[0]],
-				Idx: add[1] - r + add[2] + l - i,
+			Data: codec.EncodeAddEventData(&codec.AddEventData{
+				Value: bb[add[0]],
+				Idx:   add[1] - r + add[2] + l - i,
 			}),
 		})
 	}
