@@ -188,6 +188,8 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 		return false
 	}
 
+	params.Value = old[idx]
+
 	// Copy collection as the old slice might have been
 	// passed to a Subscriber and should be considered immutable
 	col := make([]codec.Value, l-1)

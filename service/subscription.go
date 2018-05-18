@@ -20,7 +20,6 @@ type ConnSubscriber interface {
 	Token() json.RawMessage
 	Subscribe(rid string, direct bool) (*Subscription, error)
 	Unsubscribe(sub *Subscription, direct bool, count int)
-	UnsubscribeAll(subs []*Subscription)
 	Access(sub *Subscription, callback func(*resourceCache.Access))
 	Send(data []byte)
 	Enqueue(f func()) bool
@@ -37,9 +36,10 @@ type Subscription struct {
 	state           subscriptionState
 	loadedCallbacks []func(*Subscription)
 	resourceSub     *resourceCache.ResourceSubscription
-	subs            []*Subscription
+	data            interface{}
+	refs            map[string]*reference
 	err             error
-	modelCount      int
+	resourceCount   int
 	isQueueing      bool
 	isCollection    bool
 	eventQueue      []*resourceCache.ResourceEvent
@@ -50,6 +50,11 @@ type Subscription struct {
 	// Protected by conn
 	direct   int
 	indirect int
+}
+
+type reference struct {
+	sub   *Subscription
+	count int
 }
 
 const (
@@ -119,9 +124,6 @@ func (s *Subscription) Loaded(resourceSub *resourceCache.ResourceSubscription, e
 			s.isCollection = true
 			s.state = stateCollecting
 			s.setCollection()
-			for _, sub := range s.subs {
-				sub.OnLoaded(s.collectionModelLoaded)
-			}
 		case resourceCache.Model:
 			s.doneLoading()
 		default:
@@ -141,44 +143,74 @@ func (s *Subscription) IsCollection() bool {
 	return s.isCollection
 }
 
-// GetRpcResource returns a rpc.Resource object.
-// It will lock the subscription and queue any events until ReleaseRPCResource is called.
-func (s *Subscription) GetRPCResource() *rpc.Resource {
+func (s *Subscription) IsSent() bool {
+	return s.state == stateSent
+}
+
+func (s *Subscription) Error() error {
 	if s.state == stateDisposed {
-		return &rpc.Resource{RID: s.rid, Error: errDisposedSubscription}
+		return errDisposedSubscription
 	}
 
+	return s.err
+}
+
+// GetRpcResource returns a rpc.Resources object.
+// It will lock the subscription and queue any events until ReleaseRPCResources is called.
+func (s *Subscription) GetRPCResources() *rpc.Resources {
+	r := &rpc.Resources{}
+	s.populateResources(r)
+	return r
+}
+
+// populateResources iterates recursively down the subscription tree
+// and populates the rpc.Resources object with all non-sent resources
+// referenced by the subscription, as well as the subscription's own data.
+func (s *Subscription) populateResources(r *rpc.Resources) {
+	// Quick exit if resource is already sent
 	if s.state == stateSent {
-		return &rpc.Resource{RID: s.rid}
+		return
 	}
 
-	if s.err != nil {
-		return &rpc.Resource{RID: s.rid, Error: s.err}
+	// Check for errors
+	err := s.Error()
+	if err != nil {
+		// Create Errors map if needed
+		if r.Errors == nil {
+			r.Errors = make(map[string]*reserr.Error)
+		}
+		r.Errors[s.rid] = reserr.RESError(err)
+		return
 	}
 
 	resourceSub := s.resourceSub
 
 	switch resourceSub.GetResourceType() {
 	case resourceCache.Collection:
-		arr := make([]*rpc.Resource, len(s.subs))
-		for i, sub := range s.subs {
-			arr[i] = sub.GetRPCResource()
+		// Create Collections map if needed
+		if r.Collections == nil {
+			r.Collections = make(map[string]interface{})
 		}
-		return &rpc.Resource{RID: s.rid, Data: arr}
+		r.Collections[s.rid] = s.data
+		s.data = nil
+
+		for _, sc := range s.refs {
+			sc.sub.populateResources(r)
+		}
 
 	case resourceCache.Model:
-		resource := &rpc.Resource{RID: s.rid, Data: resourceSub.GetModel()}
+		// Create Models map if needed
+		if r.Models == nil {
+			r.Models = make(map[string]interface{})
+		}
+		r.Models[s.rid] = resourceSub.GetModel()
 		s.queueEvents()
 		resourceSub.Release()
-		return resource
 	}
-
-	// Dummy
-	return nil
 }
 
-// GetHTTPResource returns a httpApi.Resource object.
-// It will lock the subscription and queue any events until ReleaseRPCResource is called.
+// GetHTTPResource returns an empty interface of either a httpApi.Model or a httpApi.Collection object.
+// It will lock the subscription and queue any events until ReleaseRPCResources is called.
 func (s *Subscription) GetHTTPResource(apiPath string) *httpApi.Resource {
 	if s.state == stateDisposed {
 		return &httpApi.Resource{APIPath: apiPath, RID: s.rid, Error: errDisposedSubscription}
@@ -189,29 +221,35 @@ func (s *Subscription) GetHTTPResource(apiPath string) *httpApi.Resource {
 	}
 
 	resourceSub := s.resourceSub
+	var resource *httpApi.Resource
 
 	switch resourceSub.GetResourceType() {
 	case resourceCache.Collection:
-		arr := make([]*httpApi.Resource, len(s.subs))
-		for i, sub := range s.subs {
-			arr[i] = sub.GetHTTPResource(apiPath)
+		col := s.data.([]codec.Value)
+		arr := make([]interface{}, len(col))
+		for i, v := range col {
+			if v.Type == codec.ValueTypeResource {
+				sc := s.refs[v.RID]
+				arr[i] = sc.sub.GetHTTPResource(apiPath)
+			} else {
+				arr[i] = v.RawMessage
+			}
 		}
-		return &httpApi.Resource{APIPath: apiPath, RID: s.rid, Data: arr}
+		resource = &httpApi.Resource{APIPath: apiPath, RID: s.rid, Collection: arr}
 
 	case resourceCache.Model:
-		resource := &httpApi.Resource{APIPath: apiPath, RID: s.rid, Data: resourceSub.GetModel()}
+		resource = &httpApi.Resource{APIPath: apiPath, RID: s.rid, Model: resourceSub.GetModel()}
 		s.queueEvents()
 		resourceSub.Release()
-		return resource
+
 	}
 
-	// Dummy
-	return nil
+	return resource
 }
 
-// ReleaseRPCResource will unlock all resources locked by GetRPCResource
+// ReleaseRPCResources will unlock all resources locked by GetRPCResource
 // and will mark the subscription as sent.
-func (s *Subscription) ReleaseRPCResource() {
+func (s *Subscription) ReleaseRPCResources() {
 	if s.state == stateDisposed ||
 		s.state == stateSent ||
 		s.err != nil {
@@ -223,8 +261,8 @@ func (s *Subscription) ReleaseRPCResource() {
 	resourceSub := s.resourceSub
 	switch resourceSub.GetResourceType() {
 	case resourceCache.Collection:
-		for _, sub := range s.subs {
-			sub.ReleaseRPCResource()
+		for _, sc := range s.refs {
+			sc.sub.ReleaseRPCResources()
 		}
 		s.unqueueEvents()
 
@@ -274,45 +312,92 @@ func (s *Subscription) setCollection() {
 	s.queueEvents()
 	s.resourceSub.Release()
 
-	s.modelCount = len(col)
-
-	if s.modelCount == 0 {
-		s.doneLoading()
-		return
-	}
-
-	subs, err := s.subscribeAll(col)
+	err := s.subscribeAllRef(col)
 	if err != nil {
 		s.err = err
 		s.doneLoading()
 		return
 	}
-	s.subs = subs
+
+	s.data = col
+	s.resourceCount = len(s.refs)
+
+	if s.resourceCount == 0 {
+		s.doneLoading()
+	} else {
+		for _, ref := range s.refs {
+			ref.sub.OnLoaded(s.subresourceLoaded)
+		}
+	}
 }
 
-func (s *Subscription) subscribeAll(collection []codec.Value) ([]*Subscription, error) {
-	subs := make([]*Subscription, len(collection))
-	for i, v := range collection {
-		rid := v.RID
-		sub, err := s.c.Subscribe(rid, false)
+func (s *Subscription) subscribeAllRef(collection []codec.Value) error {
+	for _, v := range collection {
+		if v.Type != codec.ValueTypeResource {
+			continue
+		}
 
-		if err != nil {
+		if _, err := s.addReference(v.RID); err != nil {
 			// In case of subscribe error,
 			// we unsubscribe to all and exit with error
 			if debug {
-				s.c.Logf("Failed to subscribe to %s. Aborting subscribeAll", rid)
+				s.c.Logf("Failed to subscribe to %s. Aborting subscribeAllRef", v.RID)
 			}
-			for j := 0; j < i; j++ {
-				s.c.Unsubscribe(subs[j], false, 1)
+			for _, ref := range s.refs {
+				s.c.Unsubscribe(ref.sub, false, 1)
 			}
-			return nil, err
+			s.refs = nil
+			return err
 		}
-		subs[i] = sub
 	}
-	return subs, nil
+
+	return nil
 }
 
-func (s *Subscription) collectionModelLoaded(sub *Subscription) {
+func (s *Subscription) unsubscribeAllRef() {
+	for _, ref := range s.refs {
+		s.c.Unsubscribe(ref.sub, false, 1)
+	}
+	s.refs = nil
+}
+
+func (s *Subscription) addReference(rid string) (*Subscription, error) {
+	refs := s.refs
+	var ref *reference
+
+	if refs == nil {
+		refs = make(map[string]*reference)
+		s.refs = refs
+	} else {
+		ref = refs[rid]
+	}
+
+	if ref == nil {
+		sub, err := s.c.Subscribe(rid, false)
+
+		if err != nil {
+			return nil, err
+		}
+
+		ref = &reference{sub: sub, count: 1}
+		refs[rid] = ref
+	} else {
+		ref.count++
+	}
+
+	return ref.sub, nil
+}
+
+func (s *Subscription) removeReference(rid string) {
+	ref := s.refs[rid]
+	ref.count--
+	if ref.count == 0 {
+		s.c.Unsubscribe(ref.sub, false, 1)
+		delete(s.refs, rid)
+	}
+}
+
+func (s *Subscription) subresourceLoaded(sub *Subscription) {
 	// Assert client is still subscribing
 	// If not we just unsubscribe
 	if s.state == stateDisposed {
@@ -324,13 +409,11 @@ func (s *Subscription) collectionModelLoaded(sub *Subscription) {
 		// TODO
 	}
 
-	s.modelCount--
+	s.resourceCount--
 
-	if s.modelCount > 0 {
-		return
+	if s.resourceCount == 0 {
+		s.doneLoading()
 	}
-
-	s.doneLoading()
 }
 
 func (s *Subscription) Event(event *resourceCache.ResourceEvent) {
@@ -375,53 +458,57 @@ func (s *Subscription) processCollectionEvent(event *resourceCache.ResourceEvent
 	switch event.Event {
 	case "add":
 		idx := event.AddData.Idx
-		sub, err := s.c.Subscribe(event.AddData.Value.RID, false)
-		if err != nil {
-			if debug {
-				s.c.Logf("Subscription %s: Error subscribing to resource %s: %s", s.rid, event.AddData.Value.RID, err)
-			}
-			return
-		}
 
-		// Start queueing again
-		s.queueEvents()
-
-		// Insert into subs slice
-		s.subs = append(s.subs, nil)
-		copy(s.subs[idx+1:], s.subs[idx:])
-		s.subs[idx] = sub
-
-		sub.OnLoaded(func(sub *Subscription) {
-			if sub.IsCollection() {
-				// TODO error handling
-			}
-
-			// Assert client is still subscribing
-			// If not we just unsubscribe
-			if s.state == stateDisposed {
+		switch event.AddData.Value.Type {
+		case codec.ValueTypeResource:
+			rid := event.AddData.Value.RID
+			sub, err := s.addReference(rid)
+			if err != nil {
+				if debug {
+					s.c.Logf("Subscription %s: Error subscribing to resource %s: %s", s.rid, event.AddData.Value.RID, err)
+				}
+				// TODO send error value
 				return
 			}
 
-			r := sub.GetRPCResource()
-			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEventResource{Resource: r, Idx: idx}))
-			sub.ReleaseRPCResource()
+			// Quick exit if added resource is already sent to client
+			if sub.IsSent() {
+				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEventResource{Idx: idx, Value: event.AddData.Value.RawMessage}))
+				return
+			}
 
-			s.unqueueEvents()
-		})
+			// Start queueing again
+			s.queueEvents()
+
+			sub.OnLoaded(func(sub *Subscription) {
+				if sub.IsCollection() {
+					// TODO error handling
+				}
+
+				// Assert client is still subscribing
+				// If not we just unsubscribe
+				if s.state == stateDisposed {
+					return
+				}
+
+				r := sub.GetRPCResources()
+
+				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEventResource{Idx: idx, Value: event.AddData.Value.RawMessage, Resources: r}))
+				sub.ReleaseRPCResources()
+
+				s.unqueueEvents()
+			})
+		case codec.ValueTypePrimitive:
+			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEventResource{Idx: idx, Value: event.AddData.Value.RawMessage}))
+		}
 
 	case "remove":
 		// Remove and unsubscribe to model
-		idx := event.RemoveData.Idx
-		subs := s.subs
-		if idx < 0 || idx >= len(subs) {
-			if debug {
-				s.c.Logf("Subscription %s: Remove event index out of range: %d", s.rid, idx)
-			}
-		}
-		sub := subs[idx]
-		s.subs = subs[:idx+copy(subs[idx:], subs[idx+1:])]
+		v := event.RemoveData.Value
 
-		s.c.Unsubscribe(sub, false, 1)
+		if v.Type == codec.ValueTypeResource {
+			s.removeReference(v.RID)
+		}
 
 		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Data))
 	}
@@ -457,9 +544,7 @@ func (s *Subscription) unsubscribe() {
 	s.eventQueue = nil
 
 	if s.resourceSub != nil {
-		if s.subs != nil {
-			s.c.UnsubscribeAll(s.subs)
-		}
+		s.unsubscribeAllRef()
 		s.resourceSub.Unsubscribe(s)
 		s.resourceSub = nil
 	}

@@ -91,12 +91,13 @@ type ConnTokenEvent struct {
 }
 
 type AddEventData struct {
-	Value Value `json:"value"`
 	Idx   int   `json:"idx"`
+	Value Value `json:"value"`
 }
 
 type RemoveEventData struct {
-	Idx int `json:"idx"`
+	Idx   int   `json:"idx"`
+	Value Value `json:"-"`
 }
 
 type SystemReset struct {
@@ -256,7 +257,7 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 		}
 		// Assert collection only resource values (for now)
 		for _, v := range res.Collection {
-			if v.Type != ValueTypeResource {
+			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
 				return nil, errInvalidResponse
 			}
 		}

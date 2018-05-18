@@ -209,7 +209,7 @@ func (c *wsConn) Send(data []byte) {
 	}
 }
 
-func (c *wsConn) GetResource(rid string, cb func(data interface{}, err error)) {
+func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)) {
 	sub, err := c.Subscribe(rid, true)
 	if err != nil {
 		cb(nil, err)
@@ -224,15 +224,14 @@ func (c *wsConn) GetResource(rid string, cb func(data interface{}, err error)) {
 		}
 
 		sub.OnLoaded(func(sub *Subscription) {
-			r := sub.GetRPCResource()
-
-			if r.Error != nil {
-				cb(nil, r.Error)
-			} else {
-				cb(r.Data, nil)
+			err := sub.Error()
+			if err != nil {
+				cb(nil, err)
+				return
 			}
 
-			sub.ReleaseRPCResource()
+			cb(sub.GetRPCResources(), nil)
+			sub.ReleaseRPCResources()
 			c.Unsubscribe(sub, true, 1)
 		})
 	})
@@ -253,21 +252,20 @@ func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interfa
 		}
 
 		sub.OnLoaded(func(sub *Subscription) {
-			r := sub.GetHTTPResource(prefix)
-
-			if r.Error != nil {
-				cb(nil, r.Error)
-			} else {
-				cb(r.Data, nil)
+			err := sub.Error()
+			if err != nil {
+				cb(nil, err)
+				return
 			}
 
-			sub.ReleaseRPCResource()
+			cb(sub.GetHTTPResource(prefix), nil)
+			sub.ReleaseRPCResources()
 			c.Unsubscribe(sub, true, 1)
 		})
 	})
 }
 
-func (c *wsConn) SubscribeResource(rid string, cb func(data interface{}, err error)) {
+func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err error)) {
 	sub, err := c.Subscribe(rid, true)
 	if err != nil {
 		cb(nil, err)
@@ -282,15 +280,15 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data interface{}, err err
 		}
 
 		sub.OnLoaded(func(sub *Subscription) {
-			r := sub.GetRPCResource()
-			defer sub.ReleaseRPCResource()
-
-			if r.Error != nil {
-				cb(nil, r.Error)
+			err := sub.Error()
+			if err != nil {
+				cb(nil, err)
 				c.Unsubscribe(sub, true, 1)
-			} else {
-				cb(r.Data, nil)
+				return
 			}
+
+			cb(sub.GetRPCResources(), nil)
+			sub.ReleaseRPCResources()
 		})
 	})
 }
@@ -378,20 +376,6 @@ func (c *wsConn) UnsubscribeById(rid string) bool {
 
 	c.removeCount(sub, true, 1)
 	return true
-}
-
-func (c *wsConn) UnsubscribeAll(subs []*Subscription) {
-	if c.disposing {
-		return
-	}
-
-	c.unsubscribeAll(subs, false, 1)
-}
-
-func (c *wsConn) unsubscribeAll(subs []*Subscription, direct bool, count int) {
-	for _, sub := range subs {
-		c.removeCount(sub, direct, count)
-	}
 }
 
 func (c *wsConn) addCount(s *Subscription, direct bool) error {
