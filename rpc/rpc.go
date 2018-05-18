@@ -11,8 +11,8 @@ import (
 // Requester has the methods required to perform a rpc request
 type Requester interface {
 	Send(data []byte)
-	GetResource(rid string, callback func(data interface{}, err error))
-	SubscribeResource(rid string, callback func(data interface{}, err error))
+	GetResource(rid string, callback func(data *Resources, err error))
+	SubscribeResource(rid string, callback func(data *Resources, err error))
 	UnsubscribeResource(rid string, callback func(ok bool))
 	CallResource(rid, action string, params interface{}, callback func(result interface{}, err error))
 	AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error))
@@ -44,15 +44,16 @@ type ErrorResponse struct {
 }
 
 // Resource holds a resource information to be sent to the client
-type Resource struct {
-	RID   string      `json:"rid"`
-	Data  interface{} `json:"data,omitempty"`
-	Error error       `json:"error,omitempty"`
+type Resources struct {
+	Models      map[string]interface{}   `json:"models,omitempty"`
+	Collections map[string]interface{}   `json:"collections,omitempty"`
+	Errors      map[string]*reserr.Error `json:"errors,omitempty"`
 }
 
 type AddEventResource struct {
-	*Resource
-	Idx int `json:"idx"`
+	Idx   int         `json:"idx"`
+	Value interface{} `json:"value"`
+	*Resources
 }
 
 type UnsubscribeEvent struct {
@@ -98,7 +99,7 @@ func HandleRequest(data []byte, req Requester) error {
 
 	switch action {
 	case "get":
-		req.GetResource(rid, func(data interface{}, err error) {
+		req.GetResource(rid, func(data *Resources, err error) {
 			if err != nil {
 				req.Send(r.ErrorResponse(err))
 			} else {
@@ -106,7 +107,7 @@ func HandleRequest(data []byte, req Requester) error {
 			}
 		})
 	case "subscribe":
-		req.SubscribeResource(rid, func(data interface{}, err error) {
+		req.SubscribeResource(rid, func(data *Resources, err error) {
 			if err != nil {
 				req.Send(r.ErrorResponse(err))
 			} else {
