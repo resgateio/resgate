@@ -119,7 +119,7 @@ A model is a resource represented by a single JSON object. Models contain key/va
 
 ## Collections
 
-A collection is an ordered list of [values](#values). A collection must not contain other collection resources or primitives.
+A collection is an ordered list of [values](#values). A collection must not contain other collection resources.
 
 # Values
 
@@ -395,13 +395,13 @@ MUST NOT be sent on [collections](#collection).
 **Subject**  
 `event.<resourceName>.add`
 
-Add events are sent when a model is added to a [collection](#collection).  
+Add events are sent when a value is added to a [collection](#collection).  
 MUST NOT be sent on [models](#model).  
 The event payload has the following parameters:
 
 **value**  
 [Value](#values) that is added.  
-MUST be a model resource referece.
+MUST NOT be a collection reference.
 
 **idx**  
 Zero-based index number of where the value is inserted.  
@@ -417,7 +417,8 @@ MUST NOT be sent on [models](#model).
 The event payload has the following parameter:
 
 **idx**  
-Zero-based index number of where the value was prior to removal.
+Zero-based index number of where the value was prior to removal.  
+MUST be a number that is zero or greater and less than the length of the collection prior to removal.
 
 ## Reaccess event
 
