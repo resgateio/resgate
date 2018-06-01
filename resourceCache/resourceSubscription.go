@@ -16,6 +16,38 @@ const (
 	stateModel
 )
 
+type Model struct {
+	Values map[string]codec.Value
+	data   []byte
+}
+
+func (m *Model) MarshalJSON() ([]byte, error) {
+	if m.data == nil {
+		data, err := json.Marshal(m.Values)
+		if err != nil {
+			return nil, err
+		}
+		m.data = data
+	}
+	return m.data, nil
+}
+
+type Collection struct {
+	Values []codec.Value
+	data   []byte
+}
+
+func (c *Collection) MarshalJSON() ([]byte, error) {
+	if c.data == nil {
+		data, err := json.Marshal(c.Values)
+		if err != nil {
+			return nil, err
+		}
+		c.data = data
+	}
+	return c.data, nil
+}
+
 type ResourceSubscription struct {
 	e         *EventSubscription
 	query     string
@@ -23,11 +55,9 @@ type ResourceSubscription struct {
 	subs      map[Subscriber]struct{}
 	resetting bool
 	// Three types of values stored
-	model      map[string]codec.Value
-	collection []codec.Value
+	model      *Model
+	collection *Collection
 	err        error
-	// Json encoded representation of the model
-	modelData json.RawMessage
 }
 
 func newResourceSubscription(e *EventSubscription, query string) *ResourceSubscription {
@@ -53,7 +83,7 @@ func (rs *ResourceSubscription) GetError() error {
 // GetCollection will lock the EventSubscription for any changes
 // and return the collection string slice.
 // The lock must be released by calling Release
-func (rs *ResourceSubscription) GetCollection() []codec.Value {
+func (rs *ResourceSubscription) GetCollection() *Collection {
 	rs.e.mu.Lock()
 	return rs.collection
 }
@@ -61,19 +91,9 @@ func (rs *ResourceSubscription) GetCollection() []codec.Value {
 // GetModel will lock the EventSubscription for any changes
 // and return the model map.
 // The lock must be released by calling Release
-func (rs *ResourceSubscription) GetModel() json.RawMessage {
+func (rs *ResourceSubscription) GetModel() *Model {
 	rs.e.mu.Lock()
-
-	if rs.modelData == nil {
-		data, err := json.Marshal(rs.model)
-		rs.modelData = json.RawMessage(data)
-
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	return rs.modelData
+	return rs.model
 }
 
 // Release releases the lock obtained by calling GetCollection or GetModel
@@ -120,16 +140,25 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 		rs.e.cache.Logf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
 	}
 
-	// Update cached model properties
+	// Clone old map using old map  size as capacity.
+	// It might not be exact, but often sufficient
+	m := make(map[string]codec.Value, len(rs.model.Values))
+	for k, v := range rs.model.Values {
+		m[k] = v
+	}
+
+	// Update model properties
 	for k, v := range props {
 		if v.Type == codec.ValueTypeDelete {
-			delete(rs.model, k)
+			delete(m, k)
 		} else {
-			rs.model[k] = v
+			m[k] = v
 		}
 	}
 
-	rs.modelData = nil
+	r.Changed = props
+	r.OldValues = rs.model.Values
+	rs.model = &Model{Values: m}
 	return true
 }
 
@@ -146,7 +175,7 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 	}
 
 	idx := params.Idx
-	old := rs.collection
+	old := rs.collection.Values
 	l := len(old)
 
 	if idx < 0 || idx > l {
@@ -161,8 +190,9 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 	copy(col[idx+1:], old[idx:])
 	col[idx] = params.Value
 
-	rs.collection = col
-	r.AddData = params
+	rs.collection = &Collection{Values: col}
+	r.Idx = params.Idx
+	r.Value = params.Value
 
 	return true
 }
@@ -180,7 +210,7 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 	}
 
 	idx := params.Idx
-	old := rs.collection
+	old := rs.collection.Values
 	l := len(old)
 
 	if idx < 0 || idx >= l {
@@ -188,16 +218,14 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 		return false
 	}
 
-	params.Value = old[idx]
-
+	r.Value = old[idx]
 	// Copy collection as the old slice might have been
 	// passed to a Subscriber and should be considered immutable
 	col := make([]codec.Value, l-1)
 	copy(col, old[0:idx])
 	copy(col[idx:], old[idx+1:])
-
-	rs.collection = col
-	r.RemoveData = params
+	rs.collection = &Collection{Values: col}
+	r.Idx = params.Idx
 
 	return true
 }
@@ -258,10 +286,10 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (s
 	}
 
 	if result.Model != nil {
-		rs.model = result.Model
+		rs.model = &Model{Values: result.Model}
 		rs.state = stateModel
 	} else {
-		rs.collection = result.Collection
+		rs.collection = &Collection{Values: result.Collection}
 		rs.state = stateCollection
 	}
 	return
@@ -324,8 +352,9 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 
 func (rs *ResourceSubscription) processResetModel(props map[string]codec.Value) {
 	// Update cached model properties
+	vals := rs.model.Values
 	for k, v := range props {
-		if v.Equal(rs.model[k]) {
+		if v.Equal(vals[k]) {
 			delete(props, k)
 		}
 	}
@@ -345,7 +374,7 @@ func (rs *ResourceSubscription) processResetModel(props map[string]codec.Value) 
 }
 
 func (rs *ResourceSubscription) processResetCollection(collection []codec.Value) {
-	events := lcs(rs.collection, collection)
+	events := lcs(rs.collection.Values, collection)
 
 	for _, r := range events {
 		rs.handleEvent(r)

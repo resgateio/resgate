@@ -50,9 +50,14 @@ type Resources struct {
 	Errors      map[string]*reserr.Error `json:"errors,omitempty"`
 }
 
-type AddEventResource struct {
+type AddEvent struct {
 	Idx   int         `json:"idx"`
 	Value interface{} `json:"value"`
+	*Resources
+}
+
+type ChangeEvent struct {
+	Values interface{} `json:"values"`
 	*Resources
 }
 

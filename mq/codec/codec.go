@@ -96,8 +96,7 @@ type AddEventData struct {
 }
 
 type RemoveEventData struct {
-	Idx   int   `json:"idx"`
-	Value Value `json:"-"`
+	Idx int `json:"idx"`
 }
 
 type SystemReset struct {
@@ -245,9 +244,9 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 		if res.Collection != nil {
 			return nil, errInvalidResponse
 		}
-		// Assert model only has primitive values (for now)
+		// Assert model only has proper values
 		for _, v := range res.Model {
-			if v.Type != ValueTypePrimitive {
+			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
 				return nil, errInvalidResponse
 			}
 		}
@@ -255,7 +254,7 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 		if res.Collection == nil {
 			return nil, errInvalidResponse
 		}
-		// Assert collection only resource values (for now)
+		// Assert collection only has proper values
 		for _, v := range res.Collection {
 			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
 				return nil, errInvalidResponse
@@ -323,8 +322,9 @@ func DecodeAddEventData(data json.RawMessage) (*AddEventData, error) {
 		return nil, err
 	}
 
-	// Only allow Resources (for now)
-	if d.Value.Type != ValueTypeResource {
+	// Assert it is a proper value
+	t := d.Value.Type
+	if t != ValueTypeResource && t != ValueTypePrimitive {
 		return nil, errInvalidValue
 	}
 

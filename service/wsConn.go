@@ -258,7 +258,20 @@ func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interfa
 				return
 			}
 
-			cb(sub.GetHTTPResource(prefix), nil)
+			r := sub.GetHTTPResource(prefix)
+
+			// Select which part of the httpApi.Resource
+			// that is to be sent in the response.
+			var data interface{}
+			switch {
+			case r.Model != nil:
+				data = r.Model
+			case r.Collection != nil:
+				data = r.Collection
+			default:
+				data = r
+			}
+			cb(data, nil)
 			sub.ReleaseRPCResources()
 			c.Unsubscribe(sub, true, 1)
 		})
