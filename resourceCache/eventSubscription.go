@@ -18,9 +18,9 @@ const (
 )
 
 const (
-	Collection ResourceType = ResourceType(stateCollection)
-	Model      ResourceType = ResourceType(stateModel)
-	Error      ResourceType = ResourceType(stateError)
+	TypeCollection ResourceType = ResourceType(stateCollection)
+	TypeModel      ResourceType = ResourceType(stateModel)
+	TypeError      ResourceType = ResourceType(stateError)
 )
 
 type EventSubscription struct {

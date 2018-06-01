@@ -32,10 +32,12 @@ type Subscriber interface {
 }
 
 type ResourceEvent struct {
-	Event      string
-	Data       json.RawMessage
-	AddData    *codec.AddEventData
-	RemoveData *codec.RemoveEventData
+	Event     string
+	Data      json.RawMessage
+	Idx       int
+	Value     codec.Value
+	Changed   map[string]codec.Value
+	OldValues map[string]codec.Value
 }
 
 const unsubscribeDelay = time.Second * 5
