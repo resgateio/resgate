@@ -19,7 +19,7 @@ type ConnSubscriber interface {
 	CID() string
 	Token() json.RawMessage
 	Subscribe(rid string, direct bool) (*Subscription, error)
-	Unsubscribe(sub *Subscription, direct bool, count int)
+	Unsubscribe(sub *Subscription, direct bool, count int, tryDelete bool)
 	Access(sub *Subscription, callback func(*resourceCache.Access))
 	Send(data []byte)
 	Enqueue(f func()) bool
@@ -342,7 +342,7 @@ func (s *Subscription) subscribeRef(v codec.Value) bool {
 			s.c.Logf("Failed to subscribe to %s. Aborting subscribeRef", v.RID)
 		}
 		for _, ref := range s.refs {
-			s.c.Unsubscribe(ref.sub, false, 1)
+			s.c.Unsubscribe(ref.sub, false, 1, true)
 		}
 		s.refs = nil
 		s.err = err
@@ -370,7 +370,7 @@ func (s *Subscription) collectRefs() {
 
 func (s *Subscription) unsubscribeRefs() {
 	for _, ref := range s.refs {
-		s.c.Unsubscribe(ref.sub, false, 1)
+		s.c.Unsubscribe(ref.sub, false, 1, false)
 	}
 	s.refs = nil
 }
@@ -402,11 +402,11 @@ func (s *Subscription) addReference(rid string) (*Subscription, error) {
 	return ref.sub, nil
 }
 
-func (s *Subscription) removeRef(rid string) {
+func (s *Subscription) removeReference(rid string) {
 	ref := s.refs[rid]
 	ref.count--
 	if ref.count == 0 {
-		s.c.Unsubscribe(ref.sub, false, 1)
+		s.c.Unsubscribe(ref.sub, false, 1, true)
 		delete(s.refs, rid)
 	}
 }
@@ -508,7 +508,7 @@ func (s *Subscription) processCollectionEvent(event *resourceCache.ResourceEvent
 		v := event.Value
 
 		if v.Type == codec.ValueTypeResource {
-			s.removeRef(v.RID)
+			s.removeReference(v.RID)
 		}
 		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Data))
 
@@ -543,13 +543,11 @@ func (s *Subscription) processModelEvent(event *resourceCache.ResourceEvent) {
 			}
 		}
 
-		// Check for deleted properties after checking changed properties to avoid unsubscribing to
+		// Check for removing changed references after adding references to avoid unsubscribing to
 		// a resource that is going to be subscribed again because it has moved between properties.
-		for k, v := range ch {
-			if v.Type == codec.ValueTypeDelete {
-				if ov, ok := old[k]; ok && ov.Type == codec.ValueTypeResource {
-					s.removeRef(ov.RID)
-				}
+		for k := range ch {
+			if ov, ok := old[k]; ok && ov.Type == codec.ValueTypeResource {
+				s.removeReference(ov.RID)
 			}
 		}
 
@@ -603,7 +601,7 @@ func (s *Subscription) handleReaccess() {
 	s.loadAccess(func() {
 		err := s.access.CanGet()
 		if err != nil {
-			s.c.Unsubscribe(s, true, s.direct)
+			s.c.Unsubscribe(s, true, s.direct, true)
 			s.c.Send(rpc.NewEvent(s.rid, "unsubscribe", rpc.UnsubscribeEvent{Reason: reserr.RESError(err)}))
 		}
 
