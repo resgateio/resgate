@@ -219,7 +219,7 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 	sub.CanGet(func(err error) {
 		if err != nil {
 			cb(nil, err)
-			c.Unsubscribe(sub, true, 1)
+			c.Unsubscribe(sub, true, 1, true)
 			return
 		}
 
@@ -232,7 +232,7 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 
 			cb(sub.GetRPCResources(), nil)
 			sub.ReleaseRPCResources()
-			c.Unsubscribe(sub, true, 1)
+			c.Unsubscribe(sub, true, 1, true)
 		})
 	})
 }
@@ -247,7 +247,7 @@ func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interfa
 	sub.CanGet(func(err error) {
 		if err != nil {
 			cb(nil, err)
-			c.Unsubscribe(sub, true, 1)
+			c.Unsubscribe(sub, true, 1, true)
 			return
 		}
 
@@ -273,7 +273,7 @@ func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interfa
 			}
 			cb(data, nil)
 			sub.ReleaseRPCResources()
-			c.Unsubscribe(sub, true, 1)
+			c.Unsubscribe(sub, true, 1, true)
 		})
 	})
 }
@@ -288,7 +288,7 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 	sub.CanGet(func(err error) {
 		if err != nil {
 			cb(nil, err)
-			c.Unsubscribe(sub, true, 1)
+			c.Unsubscribe(sub, true, 1, true)
 			return
 		}
 
@@ -296,7 +296,7 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 			err := sub.Error()
 			if err != nil {
 				cb(nil, err)
-				c.Unsubscribe(sub, true, 1)
+				c.Unsubscribe(sub, true, 1, true)
 				return
 			}
 
@@ -319,7 +319,7 @@ func (c *wsConn) AuthResource(rid, action string, params interface{}, callback f
 }
 
 func (c *wsConn) UnsubscribeResource(rid string, cb func(ok bool)) {
-	cb(c.UnsubscribeById(rid))
+	cb(c.UnsubscribeByRID(rid))
 }
 
 func (c *wsConn) call(rid, action string, params interface{}, cb func(result interface{}, err error)) {
@@ -369,15 +369,15 @@ func (c *wsConn) Subscribe(rid string, direct bool) (*Subscription, error) {
 
 // unsubscribe counts down the subscription counter
 // and deletes the subscription if the count reached 0.
-func (c *wsConn) Unsubscribe(sub *Subscription, direct bool, count int) {
+func (c *wsConn) Unsubscribe(sub *Subscription, direct bool, count int, tryDelete bool) {
 	if c.disposing {
 		return
 	}
 
-	c.removeCount(sub, direct, count)
+	c.removeCount(sub, direct, count, tryDelete)
 }
 
-func (c *wsConn) UnsubscribeById(rid string) bool {
+func (c *wsConn) UnsubscribeByRID(rid string) bool {
 	if c.disposing {
 		return false
 	}
@@ -387,7 +387,7 @@ func (c *wsConn) UnsubscribeById(rid string) bool {
 		return false
 	}
 
-	c.removeCount(sub, true, 1)
+	c.removeCount(sub, true, 1, true)
 	return true
 }
 
@@ -410,7 +410,7 @@ func (c *wsConn) addCount(s *Subscription, direct bool) error {
 
 // removeCount decreases the subscription count and disposes the subscription
 // if indirect and direct subscription count reaches 0
-func (c *wsConn) removeCount(s *Subscription, direct bool, count int) {
+func (c *wsConn) removeCount(s *Subscription, direct bool, count int, tryDelete bool) {
 	if s.direct+s.indirect == 0 {
 		return
 	}
@@ -421,9 +421,8 @@ func (c *wsConn) removeCount(s *Subscription, direct bool, count int) {
 		s.indirect -= count
 	}
 
-	if s.direct+s.indirect == 0 {
-		s.Dispose()
-		delete(c.subs, s.RID())
+	if tryDelete {
+		c.tryDelete(s)
 	}
 }
 
