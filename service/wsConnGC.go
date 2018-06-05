@@ -1,5 +1,7 @@
 package service
 
+import "fmt"
+
 type gcState byte
 
 const (
@@ -51,6 +53,9 @@ func (c *wsConn) tryDelete(s *Subscription) {
 
 	// Quick exit if root reference is not to be deleted
 	if rr.indirect > 0 {
+		if debug {
+			c.Logf("TryDelete %s - Not deleting where indirect = %d", s.RID(), rr.indirect)
+		}
 		return
 	}
 
@@ -79,6 +84,27 @@ func (c *wsConn) tryDelete(s *Subscription) {
 			ref.sub.Dispose()
 			delete(c.subs, rid)
 		}
+	}
+
+	if debug {
+		str := ""
+		hasDirect := false
+		for rid, sub := range c.subs {
+			if sub.direct > 0 {
+				hasDirect = true
+			}
+			str += fmt.Sprintf("\n    %6d %6d - %s", sub.direct, sub.indirect, rid)
+		}
+		if str == "" {
+			str = "\n    No Subscriptions"
+			hasDirect = true
+		}
+		c.Logf("After Unsubscribe: %s", str)
+
+		if !hasDirect {
+			panic("No direct subscriptions found!")
+		}
+
 	}
 }
 
