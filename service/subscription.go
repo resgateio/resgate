@@ -18,7 +18,7 @@ type ConnSubscriber interface {
 	Logf(format string, v ...interface{})
 	CID() string
 	Token() json.RawMessage
-	Subscribe(rid string, direct bool) (*Subscription, error)
+	Subscribe(rid string, direct bool, path []string) (*Subscription, error)
 	Unsubscribe(sub *Subscription, direct bool, count int, tryDelete bool)
 	Access(sub *Subscription, callback func(*resourceCache.Access))
 	Send(data []byte)
@@ -35,6 +35,7 @@ type Subscription struct {
 
 	state           subscriptionState
 	loadedCallbacks []func(*Subscription)
+	path            []string
 	resourceSub     *resourceCache.ResourceSubscription
 	typ             resourceCache.ResourceType
 	model           *resourceCache.Model
@@ -62,6 +63,7 @@ const (
 	stateCreated subscriptionState = iota
 	stateCollecting
 	stateReady
+	stateToSend
 	stateSent
 	stateDisposed
 )
@@ -76,8 +78,14 @@ var (
 )
 
 // NewSubscription creates a new Subscription
-func NewSubscription(c ConnSubscriber, rid string) *Subscription {
+func NewSubscription(c ConnSubscriber, rid string, path []string) *Subscription {
 	name, query := parseRID(c.ExpandCID(rid))
+
+	// Clone path and add RID
+	l := len(path)
+	p := make([]string, l+1)
+	copy(p[:l], path)
+	p[l] = rid
 
 	sub := &Subscription{
 		rid:             rid,
@@ -85,6 +93,7 @@ func NewSubscription(c ConnSubscriber, rid string) *Subscription {
 		resourceQuery:   query,
 		c:               c,
 		loadedCallbacks: make([]func(*Subscription), 0, 2),
+		path:            p,
 	}
 
 	return sub
@@ -259,7 +268,7 @@ func (s *Subscription) unqueueEvents() {
 // referenced by the subscription, as well as the subscription's own data.
 func (s *Subscription) populateResources(r *rpc.Resources) {
 	// Quick exit if resource is already sent
-	if s.state == stateSent {
+	if s.state == stateSent || s.state == stateToSend {
 		return
 	}
 
@@ -289,6 +298,8 @@ func (s *Subscription) populateResources(r *rpc.Resources) {
 		}
 		r.Models[s.rid] = s.model
 	}
+
+	s.state = stateToSend
 
 	for _, sc := range s.refs {
 		sc.sub.populateResources(r)
@@ -358,14 +369,29 @@ func (s *Subscription) subscribeRef(v codec.Value) bool {
 func (s *Subscription) collectRefs() {
 	s.resourceCount = len(s.refs)
 
-	if s.resourceCount == 0 {
-		s.doneLoading()
-	} else {
-		s.state = stateCollecting
-		for _, ref := range s.refs {
+	s.state = stateCollecting
+	for rid, ref := range s.refs {
+		// Do not wait for loading if the
+		// resource is part of a cyclic path
+		if s.pathContains(rid) {
+			s.resourceCount--
+		} else {
 			ref.sub.OnLoaded(s.refLoaded)
 		}
 	}
+
+	if s.resourceCount == 0 {
+		s.doneLoading()
+	}
+}
+
+func (s *Subscription) pathContains(rid string) bool {
+	for _, p := range s.path {
+		if p == rid {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Subscription) unsubscribeRefs() {
@@ -387,7 +413,7 @@ func (s *Subscription) addReference(rid string) (*Subscription, error) {
 	}
 
 	if ref == nil {
-		sub, err := s.c.Subscribe(rid, false)
+		sub, err := s.c.Subscribe(rid, false, s.path)
 
 		if err != nil {
 			return nil, err
@@ -637,6 +663,7 @@ func (s *Subscription) doneLoading() {
 	s.state = stateReady
 	cbs := s.loadedCallbacks
 	s.loadedCallbacks = nil
+	s.path = nil
 
 	for _, cb := range cbs {
 		cb(s)

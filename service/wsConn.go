@@ -210,7 +210,7 @@ func (c *wsConn) Send(data []byte) {
 }
 
 func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)) {
-	sub, err := c.Subscribe(rid, true)
+	sub, err := c.Subscribe(rid, true, nil)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -238,7 +238,7 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 }
 
 func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interface{}, err error)) {
-	sub, err := c.Subscribe(rid, true)
+	sub, err := c.Subscribe(rid, true, nil)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -279,7 +279,7 @@ func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interfa
 }
 
 func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err error)) {
-	sub, err := c.Subscribe(rid, true)
+	sub, err := c.Subscribe(rid, true, nil)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -325,7 +325,7 @@ func (c *wsConn) UnsubscribeResource(rid string, cb func(ok bool)) {
 func (c *wsConn) call(rid, action string, params interface{}, cb func(result interface{}, err error)) {
 	sub, ok := c.subs[rid]
 	if !ok {
-		sub = NewSubscription(c, rid)
+		sub = NewSubscription(c, rid, nil)
 	}
 
 	sub.CanCall(action, func(err error) {
@@ -341,7 +341,7 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result int
 	})
 }
 
-func (c *wsConn) subscribe(rid string, direct bool) (*Subscription, error) {
+func (c *wsConn) subscribe(rid string, direct bool, path []string) (*Subscription, error) {
 
 	sub, ok := c.subs[rid]
 	if ok {
@@ -349,7 +349,7 @@ func (c *wsConn) subscribe(rid string, direct bool) (*Subscription, error) {
 		return sub, err
 	}
 
-	sub = NewSubscription(c, rid)
+	sub = NewSubscription(c, rid, path)
 	_ = c.addCount(sub, direct)
 	c.serv.cache.Subscribe(sub)
 
@@ -359,12 +359,12 @@ func (c *wsConn) subscribe(rid string, direct bool) (*Subscription, error) {
 
 // subscribe gets existing subscription or creates a new one to cache
 // Will return error if number of allowed subscriptions for the resource is exceeded
-func (c *wsConn) Subscribe(rid string, direct bool) (*Subscription, error) {
+func (c *wsConn) Subscribe(rid string, direct bool, path []string) (*Subscription, error) {
 	if c.disposing {
 		return nil, reserr.ErrDisposing
 	}
 
-	return c.subscribe(rid, direct)
+	return c.subscribe(rid, direct, path)
 }
 
 // unsubscribe counts down the subscription counter
