@@ -187,10 +187,16 @@ func (s *Subscription) GetRPCResources() *rpc.Resources {
 
 // GetHTTPResource returns an empty interface of either a httpApi.Model or a httpApi.Collection object.
 // It will lock the subscription and queue any events until ReleaseRPCResources is called.
-func (s *Subscription) GetHTTPResource(apiPath string) *httpApi.Resource {
+func (s *Subscription) GetHTTPResource(apiPath string, path []string) *httpApi.Resource {
 	if s.state == stateDisposed {
 		return &httpApi.Resource{APIPath: apiPath, RID: s.rid, Error: errDisposedSubscription}
 	}
+
+	// Check for cyclic reference
+	if pathContains(path, s.rid) {
+		return &httpApi.Resource{APIPath: apiPath, RID: s.rid}
+	}
+	path = append(path, s.rid)
 
 	if s.err != nil {
 		return &httpApi.Resource{APIPath: apiPath, RID: s.rid, Error: s.err}
@@ -205,7 +211,7 @@ func (s *Subscription) GetHTTPResource(apiPath string) *httpApi.Resource {
 		for i, v := range vals {
 			if v.Type == codec.ValueTypeResource {
 				sc := s.refs[v.RID]
-				c[i] = sc.sub.GetHTTPResource(apiPath)
+				c[i] = sc.sub.GetHTTPResource(apiPath, path)
 			} else {
 				c[i] = v.RawMessage
 			}
@@ -218,7 +224,7 @@ func (s *Subscription) GetHTTPResource(apiPath string) *httpApi.Resource {
 		for k, v := range vals {
 			if v.Type == codec.ValueTypeResource {
 				sc := s.refs[v.RID]
-				m[k] = sc.sub.GetHTTPResource(apiPath)
+				m[k] = sc.sub.GetHTTPResource(apiPath, path)
 			} else {
 				m[k] = v.RawMessage
 			}
@@ -373,7 +379,7 @@ func (s *Subscription) collectRefs() {
 	for rid, ref := range s.refs {
 		// Do not wait for loading if the
 		// resource is part of a cyclic path
-		if s.pathContains(rid) {
+		if pathContains(s.path, rid) {
 			s.resourceCount--
 		} else {
 			ref.sub.OnLoaded(s.refLoaded)
@@ -385,8 +391,8 @@ func (s *Subscription) collectRefs() {
 	}
 }
 
-func (s *Subscription) pathContains(rid string) bool {
-	for _, p := range s.path {
+func pathContains(path []string, rid string) bool {
+	for _, p := range path {
 		if p == rid {
 			return true
 		}

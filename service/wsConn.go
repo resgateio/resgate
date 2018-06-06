@@ -258,7 +258,7 @@ func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interfa
 				return
 			}
 
-			r := sub.GetHTTPResource(prefix)
+			r := sub.GetHTTPResource(prefix, make([]string, 0, 32))
 
 			// Select which part of the httpApi.Resource
 			// that is to be sent in the response.
