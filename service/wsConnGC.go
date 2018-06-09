@@ -1,6 +1,10 @@
 package service
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
 
 type gcState byte
 
@@ -87,19 +91,21 @@ func (c *wsConn) tryDelete(s *Subscription) {
 	}
 
 	if debug {
-		str := ""
+		var str []string
 		hasDirect := false
 		for rid, sub := range c.subs {
 			if sub.direct > 0 {
 				hasDirect = true
 			}
-			str += fmt.Sprintf("\n    %6d %6d - %s", sub.direct, sub.indirect, rid)
+			str = append(str, fmt.Sprintf("    %2d %2d - %s", sub.direct, sub.indirect, rid))
 		}
-		if str == "" {
-			str = "\n    No Subscriptions"
+		if len(str) == 0 {
+			str = append(str, "\n    No Subscriptions")
 			hasDirect = true
+		} else {
+			sort.Slice(str, func(i, j int) bool { return str[i][12:] < str[j][12:] })
 		}
-		c.Logf("After Unsubscribe: %s", str)
+		c.Logf("After Unsubscribe: %s", strings.Join(str, "\n"))
 
 		if !hasDirect {
 			panic("No direct subscriptions found!")
