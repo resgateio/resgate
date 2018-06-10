@@ -72,6 +72,7 @@ func (c *wsConn) tryDelete(s *Subscription) {
 		}
 
 		if r.indirect > 0 || state == gcStateKeep {
+			r.state = gcStateKeep
 			return gcStateKeep
 		}
 
