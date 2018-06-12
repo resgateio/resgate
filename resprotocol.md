@@ -15,6 +15,7 @@
   * [Response](#response)
   * [Error object](#error-object)
   * [Pre-defined errors](#pre-defined-errors)
+  * [Pre-response](#pre-response)
 - [Request types](#request-types)
   * [Access request](#access-request)
   * [Get request](#get-request)
@@ -151,6 +152,7 @@ If no parameters are provided, the payload may be empty (0 bytes).
 
 The content of the payload depends on the subject type.
 
+
 ## Response
 When a request is received by a service, it should send a response as a JSON object with following members:
 
@@ -194,6 +196,17 @@ Code                    | Message            | Meaning
 `system.methodNotFound` | Method not found   | Resource method not found
 `system.accessDenied`   | Access denied      | Access to a resource or method is denied
 `system.timeout`        | Request timeout    | Request timed out
+
+## Pre-response
+
+When a service recieves a request, and before a response is sent, the service may send a pre-response. A service should only send a pre-response when the time it takes to handle the request might exceed the default timeout limit of the requester.  
+The pre-response is a UTF-8 encoded key:"value" string without any leading white space.  
+It may only contain the following key:
+
+**timeout**  
+Sets the request timeout. The value is the new timeout in milliseconds calculated from when the requester receives the pre-response. The requester should honor this timeout.  
+Example payload (20 second timeout):  
+`timeout:"15000"`
 
 ---
 
