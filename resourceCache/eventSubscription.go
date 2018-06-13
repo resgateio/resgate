@@ -32,6 +32,7 @@ type EventSubscription struct {
 	mqSub   mq.Unsubscriber
 	base    *ResourceSubscription
 	queries map[string]*ResourceSubscription
+	links   map[string]*ResourceSubscription
 
 	// Mutex protected
 	mu    sync.Mutex
@@ -53,39 +54,44 @@ type queueEvent struct {
 	payload []byte
 }
 
+func (e *EventSubscription) getResourceSubscription(q string) (rs *ResourceSubscription) {
+	if q == "" {
+		rs = e.base
+		if rs == nil {
+			rs = newResourceSubscription(e, "")
+			e.base = rs
+		}
+	} else {
+		if e.queries == nil {
+			e.queries = make(map[string]*ResourceSubscription)
+			rs = newResourceSubscription(e, q)
+			e.queries[q] = rs
+		} else {
+			rs = e.queries[q]
+			if rs == nil && e.links != nil {
+				rs = e.links[q]
+			}
+
+			if rs == nil {
+				rs = newResourceSubscription(e, q)
+				e.queries[q] = rs
+			}
+		}
+	}
+	return
+}
+
 func (e *EventSubscription) addSubscriber(sub Subscriber) {
 	e.Enqueue(func() {
 		var rs *ResourceSubscription
 		q := sub.ResourceQuery()
-		if q == "" {
-			rs = e.base
-			if rs == nil {
-				rs = newResourceSubscription(e, "")
-				e.base = rs
-			}
-		} else {
-			if e.queries == nil {
-				e.queries = make(map[string]*ResourceSubscription)
-				rs = newResourceSubscription(e, q)
-				e.queries[q] = rs
-			} else {
-				rs = e.queries[q]
-				if rs == nil {
-					rs = newResourceSubscription(e, q)
-					e.queries[q] = rs
-				}
-			}
-		}
+		rs = e.getResourceSubscription(q)
 
 		if rs.state != stateError {
 			rs.subs[sub] = struct{}{}
 		}
 
 		switch rs.state {
-		// If a request has already been sent
-		// In that case the subscriber will be handled
-		// on the response for that request
-		case stateRequested:
 		// A subscription is made, but no request for the data.
 		// A request is made and state progressed
 		case stateSubscribed:
@@ -97,6 +103,11 @@ func (e *EventSubscription) addSubscriber(sub Subscriber) {
 			e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
 				rs.enqueueGetResponse(data, err)
 			})
+
+		// If a request has already been sent
+		// In that case the subscriber will be handled
+		// on the response for that request
+		case stateRequested:
 
 		// An error occured during request
 		case stateError:

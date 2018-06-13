@@ -60,6 +60,7 @@ type EventQueryEvent struct {
 type GetResult struct {
 	Model      map[string]Value `json:"model"`
 	Collection []Value          `json:"collection"`
+	Query      string           `json:"query"`
 }
 
 type GetResponse struct {
