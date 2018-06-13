@@ -54,6 +54,7 @@ type ResourceSubscription struct {
 	state     subscriptionState
 	subs      map[Subscriber]struct{}
 	resetting bool
+	links     []string
 	// Three types of values stored
 	model      *Model
 	collection *Collection
@@ -66,6 +67,10 @@ func newResourceSubscription(e *EventSubscription, query string) *ResourceSubscr
 		query: query,
 		subs:  make(map[Subscriber]struct{}),
 	}
+}
+
+func (rs *ResourceSubscription) GetResourceSubscription() *ResourceSubscription {
+	return rs
 }
 
 func (rs *ResourceSubscription) GetResourceType() ResourceType {
@@ -232,7 +237,7 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 
 func (rs *ResourceSubscription) enqueueGetResponse(data []byte, err error) {
 	rs.e.Enqueue(func() {
-		sublist := rs.processGetResponse(data, err)
+		rs, sublist := rs.processGetResponse(data, err)
 
 		rs.e.mu.Unlock()
 		defer rs.e.mu.Lock()
@@ -248,15 +253,24 @@ func (rs *ResourceSubscription) enqueueGetResponse(data []byte, err error) {
 	})
 }
 
-func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (sublist []Subscriber) {
-	// Clone subscribers to slice
-	sublist = make([]Subscriber, len(rs.subs))
-	i := 0
-	for sub := range rs.subs {
-		sublist[i] = sub
-		i++
+// unregister deletes itself and all its links from
+// the EventSubscription
+func (rs *ResourceSubscription) unregister() {
+	if rs.query == "" {
+		rs.e.base = nil
+	} else {
+		if rs.e.base == rs {
+			rs.e.base = nil
+		}
+		delete(rs.e.queries, rs.query)
 	}
+	for _, q := range rs.links {
+		delete(rs.e.links, q)
+	}
+	rs.links = nil
+}
 
+func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (nrs *ResourceSubscription, sublist []Subscriber) {
 	var result *codec.GetResult
 	// Either we have an error making the request
 	// or an error in the service's response
@@ -271,26 +285,74 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (s
 		rs.state = stateError
 		rs.err = err
 
-		c := int64(len(rs.subs))
-		rs.subs = nil
-
-		rs.e.cache.Logf("Subscription %s: Get error - %s", rs.e.ResourceName, err)
-		if rs.query == "" {
-			rs.e.base = nil
-		} else {
-			delete(rs.e.queries, rs.query)
+		// Clone subscribers to slice
+		sublist = make([]Subscriber, len(rs.subs))
+		i := 0
+		for sub := range rs.subs {
+			sublist[i] = sub
+			i++
 		}
 
+		c := int64(len(sublist))
+		rs.subs = nil
+		rs.unregister()
+
+		rs.e.cache.Logf("Subscription %s: Get error - %s", rs.e.ResourceName, err)
+
 		rs.e.removeCount(c)
+		nrs = rs
+		return
+	}
+
+	// Is the normalized query in the response different from the
+	// one requested by the Subscriber?
+	// Then we should create a link to the normalized query
+	if result.Query != rs.query {
+		nrs = rs.e.getResourceSubscription(result.Query)
+		// Replace resource subscription with the normalized version
+		if rs.query == "" {
+			rs.e.base = nrs
+		} else {
+			if rs.e.links == nil {
+				rs.e.links = make(map[string]*ResourceSubscription)
+			}
+			rs.e.links[rs.query] = nrs
+			delete(rs.e.queries, rs.query)
+			nrs.links = append(nrs.links, rs.query)
+		}
+
+		// Copy over all subscribers
+		for sub := range rs.subs {
+			nrs.subs[sub] = struct{}{}
+		}
+
+	} else {
+		nrs = rs
+	}
+
+	// Clone subscribers to slice
+	sublist = make([]Subscriber, len(nrs.subs))
+	i := 0
+	for sub := range nrs.subs {
+		sublist[i] = sub
+		i++
+	}
+
+	// Exit if another request has already progressed the state.
+	// Might happen when making a query subscription, directly followed by
+	// another subscription using the normalized query of the previous.
+	// When the second request returns, its resourceSubscription
+	// will already be updated by the response from the first request.
+	if nrs.state > stateRequested {
 		return
 	}
 
 	if result.Model != nil {
-		rs.model = &Model{Values: result.Model}
-		rs.state = stateModel
+		nrs.model = &Model{Values: result.Model}
+		nrs.state = stateModel
 	} else {
-		rs.collection = &Collection{Values: result.Collection}
-		rs.state = stateCollection
+		nrs.collection = &Collection{Values: result.Collection}
+		nrs.state = stateCollection
 	}
 	return
 }
@@ -302,7 +364,7 @@ func (rs *ResourceSubscription) Unsubscribe(sub Subscriber) {
 		}
 
 		if rs.query != "" && len(rs.subs) == 0 {
-			delete(rs.e.queries, rs.query)
+			rs.unregister()
 		}
 
 		rs.e.removeCount(1)
