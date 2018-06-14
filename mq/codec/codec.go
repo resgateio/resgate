@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	noQueryGetRequest  = []byte(`{"query":null}`)
+	noQueryGetRequest  = []byte(`{}`)
 	errMissingResult   = reserr.InternalError(errors.New("Response missing result"))
 	errInvalidResponse = reserr.InternalError(errors.New("Invalid service response"))
 	errInvalidValue    = reserr.InternalError(errors.New("Invalid value"))
