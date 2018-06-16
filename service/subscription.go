@@ -676,8 +676,15 @@ func (s *Subscription) doneLoading() {
 	}
 }
 
+// Reaccess adds a reaccess event to the eventQueue,
+// triggering a new access request to be sent to the service.
 func (s *Subscription) Reaccess() {
-	// Discard any event prior to resourceSubscription being loaded or disposed
+	s.c.Enqueue(s.reaccess)
+}
+
+func (s *Subscription) reaccess() {
+	// Queue reaccess request if request is received prior to resourceSubscription
+	// being loaded or if it the subscription is disposed
 	if s.resourceSub == nil {
 		s.queueEvents()
 	}
@@ -690,7 +697,6 @@ func (s *Subscription) Reaccess() {
 	}
 
 	s.processEvent(event)
-	return
 }
 
 func parseRID(rid string) (name string, query string) {
