@@ -29,6 +29,7 @@ type Subscriber interface {
 	Event(event *ResourceEvent)
 	ResourceName() string
 	ResourceQuery() string
+	Reaccess()
 }
 
 type ResourceEvent struct {
@@ -208,19 +209,29 @@ func (c *Cache) handleSystemReset(payload []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	resources, err := codec.DecodeSystemReset(payload)
+	r, err := codec.DecodeSystemReset(payload)
 	if err != nil {
 		c.Logf("Error decoding system reset: %s", err)
 		return
 	}
 
-	if resources == nil {
-		c.Logf("System reset: no resources provided")
+	c.forEachMatch(r.Resources, func(e *EventSubscription) {
+		e.handleResetResource()
+	})
+
+	c.forEachMatch(r.Access, func(e *EventSubscription) {
+		e.handleResetAccess()
+	})
+}
+
+func (c *Cache) forEachMatch(p []string, cb func(e *EventSubscription)) {
+	if len(p) == 0 {
 		return
 	}
 
-	patterns := make([]ResourcePattern, 0, len(resources))
-	for _, r := range resources {
+	patterns := make([]ResourcePattern, 0, len(p))
+
+	for _, r := range p {
 		pattern := ParseResourcePattern(r)
 		if pattern.IsValid() {
 			patterns = append(patterns, pattern)
@@ -230,7 +241,7 @@ func (c *Cache) handleSystemReset(payload []byte) {
 	for resourceName, eventSub := range c.eventSubs {
 		for _, p := range patterns {
 			if p.Match(resourceName) {
-				eventSub.handleReset()
+				cb(eventSub)
 			}
 		}
 	}

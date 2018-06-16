@@ -102,6 +102,7 @@ type RemoveEventData struct {
 
 type SystemReset struct {
 	Resources []string `json:"resources"`
+	Access    []string `json:"access"`
 }
 
 type Requester interface {
@@ -393,16 +394,16 @@ func DecodeConnTokenEvent(payload []byte) (*ConnTokenEvent, error) {
 	return &e, nil
 }
 
-func DecodeSystemReset(data json.RawMessage) ([]string, error) {
+func DecodeSystemReset(data json.RawMessage) (SystemReset, error) {
 	var r SystemReset
 	if len(data) == 0 {
-		return nil, nil
+		return r, nil
 	}
 
 	err := json.Unmarshal(data, &r)
 	if err != nil {
-		return nil, err
+		return r, err
 	}
 
-	return r.Resources, nil
+	return r, nil
 }

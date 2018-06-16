@@ -320,14 +320,26 @@ func (e *EventSubscription) mqUnsubscribe() bool {
 	return true
 }
 
-func (e *EventSubscription) handleReset() {
+func (e *EventSubscription) handleResetResource() {
 	e.Enqueue(func() {
 		if e.base != nil {
-			e.base.handleReset()
+			e.base.handleResetResource()
 		}
 
 		for _, rs := range e.queries {
-			rs.handleReset()
+			rs.handleResetResource()
+		}
+	})
+}
+
+func (e *EventSubscription) handleResetAccess() {
+	e.Enqueue(func() {
+		if e.base != nil {
+			e.base.handleResetAccess()
+		}
+
+		for _, rs := range e.queries {
+			rs.handleResetAccess()
 		}
 	})
 }

@@ -2,6 +2,7 @@ package resourceCache
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/jirenius/resgate/mq/codec"
 )
@@ -15,6 +16,8 @@ const (
 	stateCollection
 	stateModel
 )
+
+var errQueryResourceOnNonQueryRequest = errors.New("Query resource on non-query request")
 
 type Model struct {
 	Values map[string]codec.Value
@@ -259,9 +262,6 @@ func (rs *ResourceSubscription) unregister() {
 	if rs.query == "" {
 		rs.e.base = nil
 	} else {
-		if rs.e.base == rs {
-			rs.e.base = nil
-		}
 		delete(rs.e.queries, rs.query)
 	}
 	for _, q := range rs.links {
@@ -276,6 +276,11 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (n
 	// or an error in the service's response
 	if err == nil {
 		result, err = codec.DecodeGetResponse(payload)
+	}
+
+	// Assert a non-query request did not result in a query resource
+	if err == nil && rs.query == "" && result.Query != "" {
+		err = errQueryResourceOnNonQueryRequest
 	}
 
 	// Get request failed
@@ -310,16 +315,12 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (n
 	if result.Query != rs.query {
 		nrs = rs.e.getResourceSubscription(result.Query)
 		// Replace resource subscription with the normalized version
-		if rs.query == "" {
-			rs.e.base = nrs
-		} else {
-			if rs.e.links == nil {
-				rs.e.links = make(map[string]*ResourceSubscription)
-			}
-			rs.e.links[rs.query] = nrs
-			delete(rs.e.queries, rs.query)
-			nrs.links = append(nrs.links, rs.query)
+		if rs.e.links == nil {
+			rs.e.links = make(map[string]*ResourceSubscription)
 		}
+		rs.e.links[rs.query] = nrs
+		delete(rs.e.queries, rs.query)
+		nrs.links = append(nrs.links, rs.query)
 
 		// Copy over all subscribers
 		for sub := range rs.subs {
@@ -371,7 +372,7 @@ func (rs *ResourceSubscription) Unsubscribe(sub Subscriber) {
 	})
 }
 
-func (rs *ResourceSubscription) handleReset() {
+func (rs *ResourceSubscription) handleResetResource() {
 	// Are we already resetting. Then quick exit
 	if rs.resetting {
 		return
@@ -388,6 +389,12 @@ func (rs *ResourceSubscription) handleReset() {
 			rs.processResetGetResponse(data, err)
 		})
 	})
+}
+
+func (rs *ResourceSubscription) handleResetAccess() {
+	for sub := range rs.subs {
+		sub.Reaccess()
+	}
 }
 
 func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err error) {
