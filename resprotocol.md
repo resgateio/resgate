@@ -512,18 +512,29 @@ System events are used to send information having a system wide effect.
 **Subject**  
 `system.reset`
 
-Signals that some resources are no longer to be considered up to date. Any service or gateway subscribing to such a resource should send a new [get request](#get-request) to get an up-to-date version.  
-A service MUST send a system reset event if it no longer can guarantee that it has sent the defined [resource events](#resource-events) that describe the changes made to its resources. This may be due to a service crashing between persisting a change and sending the event describing the change, or by restarting a service that only persisted its resource state in memory.  
-The event payload has the following parameter:
+Signals that some resources are no longer to be considered up to date, or that previous access requests may no longer be valid.  
+A service MUST send a system reset event if it no longer can guarantee that it has sent the defined [resource events](#resource-events) that describe the changes made to its resources, or if access to the resources might have changed without the service having sent the appropriate [reaccess events](#reaccess-event). This may be due to a service crashing between persisting a change and sending the event describing the change, or by restarting a service that only persisted its resource or access state in memory.  
+The event payload has the following parameters:
 
 **resources**  
-Array of resource name patterns. The patterns may use the following wild cards:
-* The asterisk (`*`) matches any part at any level of the resource name.  
-Eg. `userService.user.*.roles` - Pattern that matches all user's roles collections.
-* The greater than symbol (`>`) matches one or more parts at the end of a resource name, and must be the last part.  
-Eg. `messageService.>` - Patterm that matches all resources owned by *messageService*.
+JSON array of [resource name patterns](#resource-name-pattern).  
+Any service or gateway subscribing to a matching resource should send a new [get request](#get-request) to get an up-to-date version.  
+May be omitted.
 
-MUST be an array of strings.
+**access**  
+JSON array of [resource name patterns](#resource-name-pattern).  
+Any gateway with clients subscribing to a matching resource should send new [access requests](#access-request) for each client subscription.  
+May be omitted.
+
+### Resource name pattern
+A resource name pattern is a string used for matching resource names.  
+The pattern may use the following wild cards:  
+* The asterisk (`*`) matches any part at any level of the resource name.  
+Eg. `userService.user.*.roles` - Pattern that matches the roles collection of all users.
+* The greater than symbol (`>`) matches one or more parts at the end of a resource name, and must be the last part.  
+Eg. `messageService.>` - Pattern that matches all resources owned by *messageService*.  
+
+
 
 
 # Query resources
