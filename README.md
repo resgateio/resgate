@@ -88,7 +88,7 @@ let ResClient = require('resclient').default;
 const client = new ResClient('ws://localhost:8080');
 
 // Get the model from the service.
-client.getResource('exampleService.myModel').then(model => {
+client.get('exampleService.myModel').then(model => {
 	// Create an input element
 	let input = document.createElement('input');
 	input.value = model.message;
