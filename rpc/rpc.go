@@ -16,6 +16,7 @@ type Requester interface {
 	UnsubscribeResource(rid string, callback func(ok bool))
 	CallResource(rid, action string, params interface{}, callback func(result interface{}, err error))
 	AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error))
+	NewResource(rid string, params interface{}, callback func(data *NewResult, err error))
 }
 
 // Request represent a JSON-RPC request
@@ -63,6 +64,11 @@ type ChangeEvent struct {
 
 type UnsubscribeEvent struct {
 	Reason *reserr.Error `json:"reason"`
+}
+
+type NewResult struct {
+	RID string `json:"rid"`
+	*Resources
 }
 
 var (
@@ -127,8 +133,6 @@ func HandleRequest(data []byte, req Requester) error {
 				req.Send(r.ErrorResponse(reserr.ErrNoSubscription))
 			}
 		})
-	case "new":
-		req.Send(r.ErrorResponse(errNotImplemented))
 	case "call":
 		req.CallResource(rid, method, r.Params, func(result interface{}, err error) {
 			if err != nil {
@@ -146,6 +150,16 @@ func HandleRequest(data []byte, req Requester) error {
 				req.Send(r.SuccessResponse(result))
 			}
 		})
+
+	case "new":
+		req.NewResource(rid, r.Params, func(data *NewResult, err error) {
+			if err != nil {
+				req.Send(r.ErrorResponse(err))
+			} else {
+				req.Send(r.SuccessResponse(data))
+			}
+		})
+
 	default:
 		req.Send(r.ErrorResponse(reserr.ErrMethodNotFound))
 	}

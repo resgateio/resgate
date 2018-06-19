@@ -310,6 +310,10 @@ func (c *wsConn) CallResource(rid, action string, params interface{}, callback f
 	c.call(rid, action, params, callback)
 }
 
+func (c *wsConn) NewResource(rid string, params interface{}, callback func(result *rpc.NewResult, err error)) {
+	c.callNew(rid, params, callback)
+}
+
 func (c *wsConn) AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error)) {
 	c.serv.cache.Auth(c, c.ExpandCID(rid), action, c.token, params, func(result json.RawMessage, err error) {
 		c.Enqueue(func() {
@@ -338,6 +342,45 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result int
 				})
 			})
 		}
+	})
+}
+
+func (c *wsConn) callNew(rid string, params interface{}, cb func(result *rpc.NewResult, err error)) {
+	sub, ok := c.subs[rid]
+	if !ok {
+		sub = NewSubscription(c, rid, nil)
+	}
+
+	sub.CanCall("new", func(err error) {
+		if err != nil {
+			cb(nil, err)
+			return
+		}
+
+		c.serv.cache.CallNew(c, sub.RID(), c.token, params, func(newRID string, err error) {
+			c.Enqueue(func() {
+				if err != nil {
+					cb(nil, err)
+					return
+				}
+
+				sub, err := c.Subscribe(rid, true, nil)
+				if err != nil {
+					cb(nil, err)
+					return
+				}
+
+				sub.OnLoaded(func(sub *Subscription) {
+					// Respond even if subscription contains errors,
+					// as the call to 'new' atleast succeeded.
+					cb(&rpc.NewResult{
+						RID:       newRID,
+						Resources: sub.GetRPCResources(),
+					}, nil)
+					sub.ReleaseRPCResources()
+				})
+			})
+		})
 	})
 }
 

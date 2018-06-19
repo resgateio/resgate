@@ -83,6 +83,15 @@ type Response struct {
 	Error  *reserr.Error   `json:"error"`
 }
 
+type NewResponse struct {
+	Result *NewResult    `json:"result"`
+	Error  *reserr.Error `json:"error"`
+}
+
+type NewResult struct {
+	RID string `json:"rid"`
+}
+
 type QueryEvent struct {
 	Subject string `json:"subject"`
 }
@@ -383,6 +392,28 @@ func DecodeCallResponse(payload []byte) (json.RawMessage, error) {
 	}
 
 	return nil, r.Error
+}
+
+func DecodeNewResponse(payload []byte) (string, error) {
+	var r NewResponse
+	err := json.Unmarshal(payload, &r)
+	if err != nil {
+		return "", reserr.InternalError(err)
+	}
+
+	if r.Error != nil {
+		return "", err
+	}
+
+	if r.Result == nil {
+		return "", errMissingResult
+	}
+
+	if r.Result.RID == "" {
+		return "", errInvalidResponse
+	}
+
+	return r.Result.RID, nil
 }
 
 func DecodeConnTokenEvent(payload []byte) (*ConnTokenEvent, error) {
