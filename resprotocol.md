@@ -21,6 +21,9 @@
   * [Get request](#get-request)
   * [Call request](#call-request)
   * [Auth request](#auth-request)
+- [Pre-defined call methods](#pre-defined-call-methods)
+  * [Set call request](#set-call-request)
+  * [New call request](#new-call-request)
 - [Events](#events)
 - [Resource events](#resource-events)
   * [Model change event](#model-change-event)
@@ -221,8 +224,6 @@ Sets the request timeout. The value is the new timeout in milliseconds calculate
 Example payload (15 second timeout):  
 `timeout:"15000"`
 
----
-
 
 # Request types
 
@@ -281,8 +282,7 @@ MUST be a string.
 ### Result
 
 **model**  
-Object containing the models data.  
-The object properties is defined by the service.  
+An object containing the named properties and [values](#values) of the model.  
 MUST be omitted if *collection* is provided.
 
 **collection**  
@@ -325,9 +325,13 @@ Query part of the [resource ID](#resource-ids) without the question mark separat
 MUST be omitted if the resource ID has no query.  
 MUST be a string.
 
+**params**  
+Method parameters as defined by the service or by the appropriate [pre-defined call method](#pre-defined-call-methods).  
+MAY be omitted.
+
 ### Result
 
-The result is defined by the service, and may be null.
+The result is defined by the service, or by the appropriate [pre-defined call method](#pre-defined-call-methods). The result may be null.
 
 ### Error
 
@@ -358,6 +362,10 @@ The value is defined by the service issuing the token.
 Query part of the [resource ID](#resource-ids) without the question mark separator.  
 MUST be omitted if the resource ID has no query.  
 MUST be a string.
+
+**params**  
+Method parameters as defined by the service.  
+MAY be omitted.
 
 **header**  
 HTTP headers used on client connection. May be omitted.  
@@ -391,7 +399,38 @@ A `system.notFound` error SHOULD be sent if the resource ID does not exist.
 A `system.methodNotFound` error SHOULD be sent if the method does not exist.  
 A `system.invalidParams` error SHOULD be sent if any required parameter is missing, or any parameter is invalid.
 
----
+
+# Pre-defined call methods
+
+There are a set of [call request](#call-request) methods are predefined. A service may implement any of these methods as long as it conforms to this specification.  
+The parameters described for each call method refers to the `params` parameter of the call request.
+
+## Set call request
+
+**Subject**  
+`call.<resourceName>.set`
+
+A set request is used to update or delete a model's properties.
+
+**Parameters**  
+The parameters SHOULD be a key/value object describing the properties to be changed. Each property should have a new [value](#values) or a [delete action](#delete-action). Unchanged properties SHOULD NOT be included.  
+If any of the model properties are changed, a [model change event](#model-change-event) MUST be sent prior to sending the response.  
+MUST NOT be sent on [collections](#collection).
+
+## New call request
+
+**Subject**  
+`call.<resourceName>.new`
+
+A new request is used to create new resources.
+
+**Params**  
+
+For new models, the parameters SHOULD be an object containing the named properties and [values](#values) of the model.  
+For new collections, the parameters SHOULD be an ordered array containing the [values](#values) of the collection.
+
+**Result**  
+MUST be a [resource reference](#values) to the new resource.
 
 
 # Events
