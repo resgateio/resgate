@@ -29,24 +29,10 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		c := s.newWSConn(nil, r)
-		if c == nil {
-			// [TODO] Send a more proper response
-			http.NotFound(w, r)
-			return
-		}
 
-		done := make(chan struct{})
-		c.Enqueue(func() {
-			if s.cfg.HeaderAuth != nil {
-				c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(result interface{}, err error) {
-					c.GetHTTPResource(rid, s.cfg.APIPath, responseSender(w, c, done))
-				})
-			} else {
-				c.GetHTTPResource(rid, s.cfg.APIPath, responseSender(w, c, done))
-			}
+		s.temporaryConn(w, r, func(c *wsConn, cb func(interface{}, error)) {
+			c.GetHTTPResource(rid, s.cfg.APIPath, cb)
 		})
-		<-done
 
 	case "POST":
 		rid, action, err := httpApi.PathToRIDAction(path, r.URL.RawQuery, s.cfg.APIPath)
@@ -63,13 +49,6 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		c := s.newWSConn(nil, r)
-		if c == nil {
-			// [TODO] Send a more proper response
-			http.NotFound(w, r)
-			return
-		}
-
 		var params json.RawMessage
 		if strings.TrimSpace(string(b)) != "" {
 			err = json.Unmarshal(b, &params)
@@ -79,19 +58,36 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		done := make(chan struct{})
-		c.Enqueue(func() {
-			c.CallResource(rid, action, params, responseSender(w, c, done))
+		s.temporaryConn(w, r, func(c *wsConn, cb func(interface{}, error)) {
+			switch action {
+			case "new":
+				c.NewHTTPResource(rid, s.cfg.APIPath, params, func(href string, err error) {
+					if err == nil {
+						w.Header().Set("Location", href)
+						w.WriteHeader(http.StatusCreated)
+					}
+					cb(nil, err)
+				})
+			default:
+				c.CallResource(rid, action, params, cb)
+			}
 		})
-		<-done
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func responseSender(w http.ResponseWriter, c *wsConn, done chan struct{}) func(interface{}, error) {
-	return func(data interface{}, err error) {
+func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func(interface{}, error))) {
+	c := s.newWSConn(nil, r)
+	if c == nil {
+		// [TODO] Send a more proper response
+		http.NotFound(w, r)
+		return
+	}
+
+	done := make(chan struct{})
+	rs := func(data interface{}, err error) {
 		defer c.dispose()
 		defer close(done)
 
@@ -101,15 +97,27 @@ func responseSender(w http.ResponseWriter, c *wsConn, done chan struct{}) func(i
 			return
 		}
 
-		out, err = json.Marshal(data)
-		if err != nil {
-			httpError(w, err)
-			return
-		}
+		if data != nil {
+			out, err = json.Marshal(data)
+			if err != nil {
+				httpError(w, err)
+				return
+			}
 
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Write(out)
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.Write(out)
+		}
 	}
+	c.Enqueue(func() {
+		if s.cfg.HeaderAuth != nil {
+			c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(result interface{}, err error) {
+				cb(c, rs)
+			})
+		} else {
+			cb(c, rs)
+		}
+	})
+	<-done
 }
 
 func httpError(w http.ResponseWriter, err error) {
@@ -125,13 +133,13 @@ func httpError(w http.ResponseWriter, err error) {
 	case "system.notFound":
 		fallthrough
 	case "system.timeout":
-		code = 404
+		code = http.StatusNotFound
 	case "system.accessDenied":
-		code = 401
+		code = http.StatusUnauthorized
 	case "system.internalError":
 		fallthrough
 	default:
-		code = 500
+		code = http.StatusInternalServerError
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
