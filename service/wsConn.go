@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
+	"github.com/jirenius/resgate/httpApi"
 	"github.com/jirenius/resgate/mq"
 	"github.com/jirenius/resgate/mq/codec"
 	"github.com/jirenius/resgate/reserr"
@@ -252,30 +253,34 @@ func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interfa
 		}
 
 		sub.OnLoaded(func(sub *Subscription) {
-			err := sub.Error()
-			if err != nil {
-				cb(nil, err)
-				return
-			}
-
-			r := sub.GetHTTPResource(prefix, make([]string, 0, 32))
-
-			// Select which part of the httpApi.Resource
-			// that is to be sent in the response.
-			var data interface{}
-			switch {
-			case r.Model != nil:
-				data = r.Model
-			case r.Collection != nil:
-				data = r.Collection
-			default:
-				data = r
-			}
-			cb(data, nil)
-			sub.ReleaseRPCResources()
+			c.outputHTTPResource(prefix, sub, cb)
 			c.Unsubscribe(sub, true, 1, true)
 		})
 	})
+}
+
+func (c *wsConn) outputHTTPResource(prefix string, sub *Subscription, cb func(data interface{}, err error)) {
+	err := sub.Error()
+	if err != nil {
+		cb(nil, err)
+		return
+	}
+
+	r := sub.GetHTTPResource(prefix, make([]string, 0, 32))
+
+	// Select which part of the httpApi.Resource
+	// that is to be sent in the response.
+	var data interface{}
+	switch {
+	case r.Model != nil:
+		data = r.Model
+	case r.Collection != nil:
+		data = r.Collection
+	default:
+		data = r
+	}
+	cb(data, nil)
+	sub.ReleaseRPCResources()
 }
 
 func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err error)) {
@@ -310,8 +315,43 @@ func (c *wsConn) CallResource(rid, action string, params interface{}, callback f
 	c.call(rid, action, params, callback)
 }
 
-func (c *wsConn) NewResource(rid string, params interface{}, callback func(result *rpc.NewResult, err error)) {
-	c.callNew(rid, params, callback)
+func (c *wsConn) NewResource(rid string, params interface{}, cb func(result *rpc.NewResult, err error)) {
+	c.callNew(rid, params, func(newRID string, err error) {
+		c.Enqueue(func() {
+			if err != nil {
+				cb(nil, err)
+				return
+			}
+
+			sub, err := c.Subscribe(newRID, true, nil)
+			if err != nil {
+				cb(nil, err)
+				return
+			}
+
+			sub.OnLoaded(func(sub *Subscription) {
+				// Respond even if subscription contains errors,
+				// as the call to 'new' atleast succeeded.
+				cb(&rpc.NewResult{
+					RID:       sub.RID(),
+					Resources: sub.GetRPCResources(),
+				}, nil)
+				sub.ReleaseRPCResources()
+			})
+		})
+	})
+}
+
+func (c *wsConn) NewHTTPResource(rid, prefix string, params interface{}, cb func(href string, err error)) {
+	c.callNew(rid, params, func(newRID string, err error) {
+		c.Enqueue(func() {
+			if err != nil {
+				cb("", err)
+			} else {
+				cb(httpApi.RIDToPath(newRID, prefix), nil)
+			}
+		})
+	})
 }
 
 func (c *wsConn) AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error)) {
@@ -345,7 +385,7 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result int
 	})
 }
 
-func (c *wsConn) callNew(rid string, params interface{}, cb func(result *rpc.NewResult, err error)) {
+func (c *wsConn) callNew(rid string, params interface{}, cb func(newRID string, err error)) {
 	sub, ok := c.subs[rid]
 	if !ok {
 		sub = NewSubscription(c, rid, nil)
@@ -353,34 +393,11 @@ func (c *wsConn) callNew(rid string, params interface{}, cb func(result *rpc.New
 
 	sub.CanCall("new", func(err error) {
 		if err != nil {
-			cb(nil, err)
+			cb("", err)
 			return
 		}
 
-		c.serv.cache.CallNew(c, sub.RID(), c.token, params, func(newRID string, err error) {
-			c.Enqueue(func() {
-				if err != nil {
-					cb(nil, err)
-					return
-				}
-
-				sub, err := c.Subscribe(rid, true, nil)
-				if err != nil {
-					cb(nil, err)
-					return
-				}
-
-				sub.OnLoaded(func(sub *Subscription) {
-					// Respond even if subscription contains errors,
-					// as the call to 'new' atleast succeeded.
-					cb(&rpc.NewResult{
-						RID:       newRID,
-						Resources: sub.GetRPCResources(),
-					}, nil)
-					sub.ReleaseRPCResources()
-				})
-			})
-		})
+		c.serv.cache.CallNew(c, sub.RID(), c.token, params, cb)
 	})
 }
 
