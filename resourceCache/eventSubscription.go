@@ -216,7 +216,6 @@ func (e *EventSubscription) addCount() {
 
 func (e *EventSubscription) removeCount(n int64) {
 	e.count -= n
-
 	if e.count == 0 {
 		e.cache.unsubQueue.Add(e)
 	}
@@ -312,10 +311,12 @@ func (e *EventSubscription) mqUnsubscribe() bool {
 	e.queue = nil
 
 	// Unsubscribe from message queue
-	err := e.mqSub.Unsubscribe()
-	if err != nil {
-		e.cache.Logf("Error unsubscribing to %s: %s", e.ResourceName, err)
-		return false
+	if e.mqSub != nil {
+		err := e.mqSub.Unsubscribe()
+		if err != nil {
+			e.cache.Logf("Error unsubscribing to %s: %s", e.ResourceName, err)
+			return false
+		}
 	}
 	return true
 }
