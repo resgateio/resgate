@@ -96,26 +96,10 @@ func (c *Cache) Logf(format string, v ...interface{}) {
 	c.logger.Printf(format, v...)
 }
 
-// Access sends an access request
-func (c *Cache) Access(sub Subscriber, token interface{}, callback func(access *Access)) {
-	payload := codec.CreateRequest(nil, sub, sub.ResourceQuery(), token)
-	subj := "access." + sub.ResourceName()
-	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
-		if err != nil {
-			callback(&Access{Error: err})
-			return
-		}
-
-		access, err := codec.DecodeAccessResponse(data)
-
-		callback(&Access{AccessResult: access, Error: err})
-	})
-}
-
 // Subscribe fetches a resource from the cache, and if it is
 // not cached, starts subscribing to the resource and sends a get request
 func (c *Cache) Subscribe(sub Subscriber) {
-	eventSub, err := c.subscribe(sub.ResourceName())
+	eventSub, err := c.getSubscription(sub.ResourceName(), true)
 	if err != nil {
 		sub.Loaded(nil, err)
 		return
@@ -124,10 +108,27 @@ func (c *Cache) Subscribe(sub Subscriber) {
 	eventSub.addSubscriber(sub)
 }
 
-func (c *Cache) Call(req codec.Requester, rid, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
-	payload := codec.CreateRequest(params, req, "", token)
-	subj := "call." + rid + "." + action
-	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+// Access sends an access request
+func (c *Cache) Access(sub Subscriber, token interface{}, callback func(access *Access)) {
+	rname := sub.ResourceName()
+	payload := codec.CreateRequest(nil, sub, sub.ResourceQuery(), token)
+	subj := "access." + rname
+	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
+		if err != nil {
+			callback(&Access{Error: err})
+			return
+		}
+
+		access, err := codec.DecodeAccessResponse(data)
+		callback(&Access{AccessResult: access, Error: err})
+	})
+}
+
+// Call sends a method call request
+func (c *Cache) Call(req codec.Requester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
+	payload := codec.CreateRequest(params, req, query, token)
+	subj := "call." + rname + "." + action
+	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
 			callback(nil, err)
 			return
@@ -137,10 +138,11 @@ func (c *Cache) Call(req codec.Requester, rid, action string, token, params inte
 	})
 }
 
-func (c *Cache) CallNew(req codec.Requester, rid string, token, params interface{}, callback func(newRID string, err error)) {
-	payload := codec.CreateRequest(params, req, "", token)
-	subj := "call." + rid + ".new"
-	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+// CallNew sends a call request with the new method, expecting a response with an RID
+func (c *Cache) CallNew(req codec.Requester, rname, query string, token, params interface{}, callback func(newRID string, err error)) {
+	payload := codec.CreateRequest(params, req, query, token)
+	subj := "call." + rname + ".new"
+	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
 			callback("", err)
 			return
@@ -150,10 +152,11 @@ func (c *Cache) CallNew(req codec.Requester, rid string, token, params interface
 	})
 }
 
-func (c *Cache) Auth(req codec.AuthRequester, rid, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
-	payload := codec.CreateAuthRequest(params, req, token)
-	subj := "auth." + rid + "." + action
-	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+// Auth sends an auth method call
+func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
+	payload := codec.CreateAuthRequest(params, req, query, token)
+	subj := "auth." + rname + "." + action
+	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
 			callback(nil, err)
 			return
@@ -163,10 +166,19 @@ func (c *Cache) Auth(req codec.AuthRequester, rid, action string, token, params 
 	})
 }
 
-// getSubscription subscribes to events for a specific resource and increases the
-// subscription counter for the resource.
-func (c *Cache) subscribe(name string) (*EventSubscription, error) {
+func (c *Cache) sendRequest(rname, subj string, payload []byte, cb func(data []byte, err error)) {
+	eventSub, _ := c.getSubscription(rname, false)
+	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+		eventSub.Enqueue(func() {
+			cb(data, err)
+			eventSub.removeCount(1)
+		})
+	})
+}
 
+// getSubscription returns the existing eventSubscription after adding its count, or creates a new
+// subscription with count of 1. If the subscribe flag is true, a mq subscription is also made.
+func (c *Cache) getSubscription(name string, subscribe bool) (*EventSubscription, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -178,6 +190,12 @@ func (c *Cache) subscribe(name string) (*EventSubscription, error) {
 			count:        1,
 		}
 
+		c.eventSubs[name] = eventSub
+	} else {
+		eventSub.addCount()
+	}
+
+	if subscribe && eventSub.mqSub == nil {
 		mqSub, err := c.mq.Subscribe("event."+name, func(subj string, payload []byte, _ error) {
 			eventSub.enqueueEvent(subj, payload)
 		})
@@ -186,10 +204,6 @@ func (c *Cache) subscribe(name string) (*EventSubscription, error) {
 		}
 
 		eventSub.mqSub = mqSub
-
-		c.eventSubs[name] = eventSub
-	} else {
-		eventSub.addCount()
 	}
 
 	return eventSub, nil
@@ -215,6 +229,9 @@ func (c *Cache) mqUnsubscribe(v interface{}) {
 		return
 	}
 
+	if debug {
+		c.Logf("Deleted subscription: %s", eventSub.ResourceName)
+	}
 	delete(c.eventSubs, eventSub.ResourceName)
 }
 

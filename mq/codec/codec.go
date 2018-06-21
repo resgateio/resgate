@@ -222,10 +222,10 @@ func CreateGetRequest(query string) []byte {
 	return out
 }
 
-func CreateAuthRequest(params interface{}, r AuthRequester, token interface{}) []byte {
+func CreateAuthRequest(params interface{}, r AuthRequester, query string, token interface{}) []byte {
 	hr := r.HTTPRequest()
 	out, _ := json.Marshal(AuthRequest{
-		Request:    Request{Params: params, Token: token, CID: r.CID()},
+		Request:    Request{Params: params, Token: token, Query: query, CID: r.CID()},
 		Header:     hr.Header,
 		Host:       hr.Host,
 		RemoteAddr: hr.RemoteAddr,

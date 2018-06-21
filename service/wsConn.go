@@ -193,7 +193,6 @@ func (c *wsConn) Enqueue(f func()) bool {
 func (c *wsConn) enqueue(f func()) {
 	count := len(c.queue)
 	c.queue = append(c.queue, f)
-
 	// If the queue was empty, the worker is idling
 	// Let's wake it up.
 	if count == 0 {
@@ -355,7 +354,8 @@ func (c *wsConn) NewHTTPResource(rid, prefix string, params interface{}, cb func
 }
 
 func (c *wsConn) AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error)) {
-	c.serv.cache.Auth(c, c.ExpandCID(rid), action, c.token, params, func(result json.RawMessage, err error) {
+	rname, query := parseRID(c.ExpandCID(rid))
+	c.serv.cache.Auth(c, rname, query, action, c.token, params, func(result json.RawMessage, err error) {
 		c.Enqueue(func() {
 			callback(result, err)
 		})
@@ -376,7 +376,7 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result int
 		if err != nil {
 			cb(nil, err)
 		} else {
-			c.serv.cache.Call(c, sub.RID(), action, c.token, params, func(result json.RawMessage, err error) {
+			c.serv.cache.Call(c, sub.ResourceName(), sub.ResourceQuery(), action, c.token, params, func(result json.RawMessage, err error) {
 				c.Enqueue(func() {
 					cb(result, err)
 				})
@@ -397,7 +397,7 @@ func (c *wsConn) callNew(rid string, params interface{}, cb func(newRID string, 
 			return
 		}
 
-		c.serv.cache.CallNew(c, sub.RID(), c.token, params, cb)
+		c.serv.cache.CallNew(c, sub.ResourceName(), sub.ResourceQuery(), c.token, params, cb)
 	})
 }
 
