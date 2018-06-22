@@ -22,16 +22,31 @@ func RESError(err error) *Error {
 
 // InternalError converts an error to an *Error with the code system.internalError.
 func InternalError(err error) *Error {
-	return &Error{Code: "system.internalError", Message: "Internal error: " + err.Error()}
+	return &Error{Code: CodeInternalError, Message: "Internal error: " + err.Error()}
 }
 
+const (
+	CodeAccessDenied     = "system.accessDenied"
+	CodeInternalError    = "system.internalError"
+	CodeInvalidParams    = "system.invalidParams"
+	CodeMethodNotFound   = "system.methodNotFound"
+	CodeNoSubscription   = "system.noSubscription"
+	CodeNotFound         = "system.notFound"
+	CodeTimeout          = "system.timeout"
+	CodeBadRequest       = "system.badRequest"
+	CodeMethodNotAllowed = "system.methodNotAllowed"
+)
+
 var (
-	ErrAccessDenied   = &Error{Code: "system.accessDenied", Message: "Access denied"}
-	ErrDisposing      = &Error{Code: "system.internalError", Message: "Internal error: disposing connection"}
-	ErrInternalError  = &Error{Code: "system.internalError", Message: "Internal error"}
-	ErrInvalidParams  = &Error{Code: "system.invalidParams", Message: "Invalid parameters"}
-	ErrMethodNotFound = &Error{Code: "system.methodNotFound", Message: "Method not found"}
-	ErrNoSubscription = &Error{Code: "system.noSubscription", Message: "No subscription"}
-	ErrNotFound       = &Error{Code: "system.notFound", Message: "Not found"}
-	ErrTimeout        = &Error{Code: "system.timeout", Message: "Request timeout"}
+	ErrAccessDenied   = &Error{Code: CodeAccessDenied, Message: "Access denied"}
+	ErrDisposing      = &Error{Code: CodeInternalError, Message: "Internal error: disposing connection"}
+	ErrInternalError  = &Error{Code: CodeInternalError, Message: "Internal error"}
+	ErrInvalidParams  = &Error{Code: CodeInvalidParams, Message: "Invalid parameters"}
+	ErrMethodNotFound = &Error{Code: CodeMethodNotFound, Message: "Method not found"}
+	ErrNoSubscription = &Error{Code: CodeNoSubscription, Message: "No subscription"}
+	ErrNotFound       = &Error{Code: CodeNotFound, Message: "Not found"}
+	ErrTimeout        = &Error{Code: CodeTimeout, Message: "Request timeout"}
+	// HTTP only errors
+	ErrBadRequest       = &Error{Code: CodeBadRequest, Message: "Bad request"}
+	ErrMethodNotAllowed = &Error{Code: CodeMethodNotAllowed, Message: "Method not allowed"}
 )
