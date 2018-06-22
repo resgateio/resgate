@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -9,6 +10,8 @@ import (
 	"github.com/jirenius/resgate/httpApi"
 	"github.com/jirenius/resgate/reserr"
 )
+
+var nullBytes = []byte("null")
 
 func (s *Service) initHTTPListener() {
 	s.conns = make(map[string]*wsConn)
@@ -26,7 +29,7 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 
 		rid, err := httpApi.PathToRID(path, r.URL.RawQuery, s.cfg.APIPath)
 		if err != nil {
-			http.NotFound(w, r)
+			httpError(w, reserr.ErrNotFound)
 			return
 		}
 
@@ -37,15 +40,14 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		rid, action, err := httpApi.PathToRIDAction(path, r.URL.RawQuery, s.cfg.APIPath)
 		if err != nil {
-			http.NotFound(w, r)
+			httpError(w, reserr.ErrNotFound)
 			return
 		}
 
 		// Try to parse the body
 		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			// [TODO] Send a more proper response
-			http.Error(w, err.Error(), 500)
+			httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error reading request body: " + err.Error()})
 			return
 		}
 
@@ -53,7 +55,7 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 		if strings.TrimSpace(string(b)) != "" {
 			err = json.Unmarshal(b, &params)
 			if err != nil {
-				http.Error(w, err.Error(), 500)
+				httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error decoding request body: " + err.Error()})
 				return
 			}
 		}
@@ -74,7 +76,7 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 		})
 
 	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		httpError(w, reserr.ErrMethodNotAllowed)
 	}
 }
 
@@ -104,9 +106,14 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			w.Write(out)
+			if !bytes.Equal(out, nullBytes) {
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.Write(out)
+				return
+			}
 		}
+
+		w.WriteHeader(http.StatusNoContent)
 	}
 	c.Enqueue(func() {
 		if s.cfg.HeaderAuth != nil {
@@ -130,16 +137,18 @@ func httpError(w http.ResponseWriter, err error) {
 
 	var code int
 	switch rerr.Code {
-	case "system.notFound":
+	case reserr.CodeNotFound:
 		fallthrough
-	case "system.timeout":
+	case reserr.CodeTimeout:
 		code = http.StatusNotFound
-	case "system.accessDenied":
+	case reserr.CodeAccessDenied:
 		code = http.StatusUnauthorized
-	case "system.internalError":
-		fallthrough
-	default:
+	case reserr.CodeMethodNotAllowed:
+		code = http.StatusMethodNotAllowed
+	case reserr.CodeInternalError:
 		code = http.StatusInternalServerError
+	default:
+		code = http.StatusBadRequest
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

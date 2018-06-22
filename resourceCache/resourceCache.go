@@ -229,9 +229,6 @@ func (c *Cache) mqUnsubscribe(v interface{}) {
 		return
 	}
 
-	if debug {
-		c.Logf("Deleted subscription: %s", eventSub.ResourceName)
-	}
 	delete(c.eventSubs, eventSub.ResourceName)
 }
 
