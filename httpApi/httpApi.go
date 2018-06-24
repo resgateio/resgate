@@ -13,22 +13,25 @@ var (
 
 // Resource holds a resource information to be sent to the client
 type Resource struct {
-	APIPath string
-	RID     string
-	Data    interface{}
-	Error   error
+	APIPath    string
+	RID        string
+	Model      interface{}
+	Collection []interface{}
+	Error      error
 }
 
 // MarshalJSON implements the json.Marshaler interface
 func (r *Resource) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
-		HREF  string      `json:"href"`
-		Data  interface{} `json:"data,omitempty"`
-		Error error       `json:"error,omitempty"`
+		HREF       string        `json:"href"`
+		Model      interface{}   `json:"model,omitempty"`
+		Collection []interface{} `json:"collection,omitempty"`
+		Error      error         `json:"error,omitempty"`
 	}{
-		HREF:  RIDToPath(r.RID, r.APIPath),
-		Data:  r.Data,
-		Error: r.Error,
+		HREF:       RIDToPath(r.RID, r.APIPath),
+		Model:      r.Model,
+		Collection: r.Collection,
+		Error:      r.Error,
 	})
 }
 

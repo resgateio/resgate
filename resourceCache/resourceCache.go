@@ -29,16 +29,26 @@ type Subscriber interface {
 	Event(event *ResourceEvent)
 	ResourceName() string
 	ResourceQuery() string
+	Reaccess()
 }
 
 type ResourceEvent struct {
-	Event      string
-	Data       json.RawMessage
-	AddData    *codec.AddEventData
-	RemoveData *codec.RemoveEventData
+	Event     string
+	Data      json.RawMessage
+	Idx       int
+	Value     codec.Value
+	Changed   map[string]codec.Value
+	OldValues map[string]codec.Value
 }
 
 const unsubscribeDelay = time.Second * 5
+
+var debug = false
+
+// SetDebug enables debug logging
+func SetDebug(enabled bool) {
+	debug = enabled
+}
 
 func NewCache(mq mq.Client, workers int, logFlags int) *Cache {
 	c := &Cache{
@@ -86,26 +96,10 @@ func (c *Cache) Logf(format string, v ...interface{}) {
 	c.logger.Printf(format, v...)
 }
 
-// Access sends an access request
-func (c *Cache) Access(sub Subscriber, token interface{}, callback func(access *Access)) {
-	payload := codec.CreateRequest(nil, sub, sub.ResourceQuery(), token)
-	subj := "access." + sub.ResourceName()
-	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
-		if err != nil {
-			callback(&Access{Error: err})
-			return
-		}
-
-		access, err := codec.DecodeAccessResponse(data)
-
-		callback(&Access{AccessResult: access, Error: err})
-	})
-}
-
 // Subscribe fetches a resource from the cache, and if it is
 // not cached, starts subscribing to the resource and sends a get request
 func (c *Cache) Subscribe(sub Subscriber) {
-	eventSub, err := c.subscribe(sub.ResourceName())
+	eventSub, err := c.getSubscription(sub.ResourceName(), true)
 	if err != nil {
 		sub.Loaded(nil, err)
 		return
@@ -114,10 +108,27 @@ func (c *Cache) Subscribe(sub Subscriber) {
 	eventSub.addSubscriber(sub)
 }
 
-func (c *Cache) Call(req codec.Requester, rid, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
-	payload := codec.CreateRequest(params, req, "", token)
-	subj := "call." + rid + "." + action
-	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+// Access sends an access request
+func (c *Cache) Access(sub Subscriber, token interface{}, callback func(access *Access)) {
+	rname := sub.ResourceName()
+	payload := codec.CreateRequest(nil, sub, sub.ResourceQuery(), token)
+	subj := "access." + rname
+	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
+		if err != nil {
+			callback(&Access{Error: err})
+			return
+		}
+
+		access, err := codec.DecodeAccessResponse(data)
+		callback(&Access{AccessResult: access, Error: err})
+	})
+}
+
+// Call sends a method call request
+func (c *Cache) Call(req codec.Requester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
+	payload := codec.CreateRequest(params, req, query, token)
+	subj := "call." + rname + "." + action
+	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
 			callback(nil, err)
 			return
@@ -127,10 +138,25 @@ func (c *Cache) Call(req codec.Requester, rid, action string, token, params inte
 	})
 }
 
-func (c *Cache) Auth(req codec.AuthRequester, rid, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
-	payload := codec.CreateAuthRequest(params, req, token)
-	subj := "auth." + rid + "." + action
-	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+// CallNew sends a call request with the new method, expecting a response with an RID
+func (c *Cache) CallNew(req codec.Requester, rname, query string, token, params interface{}, callback func(newRID string, err error)) {
+	payload := codec.CreateRequest(params, req, query, token)
+	subj := "call." + rname + ".new"
+	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
+		if err != nil {
+			callback("", err)
+			return
+		}
+
+		callback(codec.DecodeNewResponse(data))
+	})
+}
+
+// Auth sends an auth method call
+func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
+	payload := codec.CreateAuthRequest(params, req, query, token)
+	subj := "auth." + rname + "." + action
+	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
 			callback(nil, err)
 			return
@@ -140,10 +166,19 @@ func (c *Cache) Auth(req codec.AuthRequester, rid, action string, token, params 
 	})
 }
 
-// getSubscription subscribes to events for a specific resource and increases the
-// subscription counter for the resource.
-func (c *Cache) subscribe(name string) (*EventSubscription, error) {
+func (c *Cache) sendRequest(rname, subj string, payload []byte, cb func(data []byte, err error)) {
+	eventSub, _ := c.getSubscription(rname, false)
+	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+		eventSub.Enqueue(func() {
+			cb(data, err)
+			eventSub.removeCount(1)
+		})
+	})
+}
 
+// getSubscription returns the existing eventSubscription after adding its count, or creates a new
+// subscription with count of 1. If the subscribe flag is true, a mq subscription is also made.
+func (c *Cache) getSubscription(name string, subscribe bool) (*EventSubscription, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -155,6 +190,12 @@ func (c *Cache) subscribe(name string) (*EventSubscription, error) {
 			count:        1,
 		}
 
+		c.eventSubs[name] = eventSub
+	} else {
+		eventSub.addCount()
+	}
+
+	if subscribe && eventSub.mqSub == nil {
 		mqSub, err := c.mq.Subscribe("event."+name, func(subj string, payload []byte, _ error) {
 			eventSub.enqueueEvent(subj, payload)
 		})
@@ -163,10 +204,6 @@ func (c *Cache) subscribe(name string) (*EventSubscription, error) {
 		}
 
 		eventSub.mqSub = mqSub
-
-		c.eventSubs[name] = eventSub
-	} else {
-		eventSub.addCount()
 	}
 
 	return eventSub, nil
@@ -198,21 +235,30 @@ func (c *Cache) mqUnsubscribe(v interface{}) {
 func (c *Cache) handleSystemReset(payload []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.Logf("System reset: %s", payload)
 
-	resources, err := codec.DecodeSystemReset(payload)
+	r, err := codec.DecodeSystemReset(payload)
 	if err != nil {
 		c.Logf("Error decoding system reset: %s", err)
 		return
 	}
 
-	if resources == nil {
-		c.Logf("System reset: no resources provided")
+	c.forEachMatch(r.Resources, func(e *EventSubscription) {
+		e.handleResetResource()
+	})
+
+	c.forEachMatch(r.Access, func(e *EventSubscription) {
+		e.handleResetAccess()
+	})
+}
+
+func (c *Cache) forEachMatch(p []string, cb func(e *EventSubscription)) {
+	if len(p) == 0 {
 		return
 	}
 
-	patterns := make([]ResourcePattern, 0, len(resources))
-	for _, r := range resources {
+	patterns := make([]ResourcePattern, 0, len(p))
+
+	for _, r := range p {
 		pattern := ParseResourcePattern(r)
 		if pattern.IsValid() {
 			patterns = append(patterns, pattern)
@@ -222,7 +268,7 @@ func (c *Cache) handleSystemReset(payload []byte) {
 	for resourceName, eventSub := range c.eventSubs {
 		for _, p := range patterns {
 			if p.Match(resourceName) {
-				eventSub.handleReset()
+				cb(eventSub)
 			}
 		}
 	}

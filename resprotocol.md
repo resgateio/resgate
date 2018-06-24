@@ -5,20 +5,25 @@
   * [Features](#features)
 - [Getting started](#getting-started)
 - [Resources](#resources)
-  * [Resource ID](#resource-id)
+  * [Resource IDs](#resource-ids)
   * [Models](#models)
   * [Collections](#collections)
-- [Request](#request)
+- [Values](#values)
+- [Requests](#requests)
   * [Request subject](#request-subject)
   * [Request payload](#request-payload)
   * [Response](#response)
   * [Error object](#error-object)
   * [Pre-defined errors](#pre-defined-errors)
+  * [Pre-response](#pre-response)
 - [Request types](#request-types)
   * [Access request](#access-request)
   * [Get request](#get-request)
   * [Call request](#call-request)
   * [Auth request](#auth-request)
+- [Pre-defined call methods](#pre-defined-call-methods)
+  * [Set call request](#set-call-request)
+  * [New call request](#new-call-request)
 - [Events](#events)
 - [Resource events](#resource-events)
   * [Model change event](#model-change-event)
@@ -43,40 +48,40 @@ It is designed for creating modular cloud based applications where new services 
 
 The protocol consists of two subprotocols:
 
-* RES-Client - the protocol used by the client
+* RES-Client - the protocol used by the clients
 * RES-Service - the protocol used by the services
 
 ## Features
 
 **Stateless**  
-No client context is held by the services between requests. Each request contains all the information necessary to service the request. Session state is instead held by the client and the gateways.
+No client context is held by the services between requests. Each request contains all the information necessary to service the request. Session state is instead held by the client and the gateway.
 
 **Live data**  
-All resources subscribed by the clients are live. The gateways will keep state on what resources are currently being used by any of its connected clients, making sure their data are kept updated.
+All resources subscribed by the clients are live. The gateways will keep state on what resources are currently being used by any of its connected clients, making sure their data is updated.
 
 **Scalable**  
-Multiple gateways may be used to handle massive amounts of clients.
+Multiple gateways may be connecteded to the same messaging system to handle large amounts of clients. Multiple clusters of messaging systems, gateways, and services, may be used for further scaling.
 
 **Resilient**  
-In case of a lost connection or a gateway failure, the client can reconnect to any other gateway to update its stale data and resume operations.
+In case of a lost connection or a gateway failure, the client can reconnect to any other gateway to resynchronize its stale data and resume operations. In case of a service failure, the gateways can resynchronize its data once the service is available again.
 
 **Secure**  
-The client uses WebSockets as transport layer, allowing for TLS/SSL encryption. The protocol does not define the authentication methods used, but authentication tokens are stored on the gateways and not in the client.
+The client uses WebSockets as transport layer, allowing for TLS/SSL encryption. Any access token issued by a service is stored on the gateway and not in the client.
 
 **Access control**  
-Tokens may at any time be revoked or replaces. If a token is revoked/replaced, all subscriptions will be paused for reauthorization with the new token, and resources which no longer are authorized will be unsubscribed directly.
+Access tokens may at any time be revoked or replaces. If a token is revoked/replaced, all subscriptions will be paused for reauthorization with the new token, and resources which no longer are authorized will be unsubscribed without delay.
 
-**Hot-swapping**  
+**Hot-adding**  
 Services can be added or removed to the API without any disruption or any configuration changes. Simply just connect/disconnect the service to the messaging system.
 
 **Caching**  
 All resources are cachable by the gateways, taking load off the services.
 
 **Resource queries**  
-The protocol supports resource queries where partial or filtered resources are requested, such as for searches, filters, or pagination. Live updates are also available for query resources.
+The protocol supports resource queries where partial or filtered resources are requested, such as for searches, filters, or pagination. Just like any other resource, query resources are also live.
 
 **Web resources**  
-All resources may be accessed using ordinary web (http) requests. The same goes for all resource method calls.
+All resources may be accessed using ordinary web (http) requests, in a RESTful manner. The same goes for all resource method calls.
 
 **Simple**  
 The protocol is made to be simple. Simple to create services. Simple to access resources from the clients.
@@ -89,9 +94,9 @@ The best place to start is to [install resgate](https://github.com/jirenius/resg
 
 # Resources
 
-RES protocol is built around a concept of resources: model resources and collection resources. A model is a single object that may have simple properties and methods. A collection is an ordered list of models.  
+RES protocol is built around a concept of resources: *model* resources and *collection* resources. A model is a single object with properties and values. A collection is an ordered list of values.  
 
-## Resource ID
+## Resource IDs
 Each resource (model or collection) is identified by a unique *resource ID* string, also called *rid* for short. A *resource ID* consist of a *resource name* and an optional *query*.  
 MUST be a string.
 
@@ -101,8 +106,7 @@ The first part SHOULD be the name of the service owning the resource. The follow
 
 **query**  
 The query is separated from the resource name by a question mark (`?`). The format of the query is not enforced, but it is recommended to use URI queries in case the resources are to be accessed through web requests.  
-May be omitted, and the question mark separator MUST then also be omitted.  
-If it exists, the resource is considered a [query resource](#query-resource).
+May be omitted. If omitted, then the question mark separator MUST also be omitted.
 
 **Examples**
 
@@ -114,14 +118,36 @@ If it exists, the resource is considered a [query resource](#query-resource).
 
 ## Models
 
-A model is a resource represented by a single JSON object. Models contain key/value pairs where the value may be anything except an object or array. For nested objects or arrays, a model may hold the resource ID's to other resources, but must not hold the actual resources.
+A model is an unordered set of named properties and [values](#values) represented by a JSON object.
+
+**Example**
+```
+{
+    "id": 42,
+    "name": "Jane Doe",
+    "roles": { rid: "userService.user.42.roles" }
+}
+```
 
 ## Collections
 
-A collection is an ordered list of model resources. A model may not appear more than once in a collection, and a collection must not contain other collection resources or primitives.
+A collection is an ordered list of [values](#values) represented by a JSON array.
+
+**Example**
+```
+[ "admin", "tester", "developer" ]
+```
+
+# Values
+
+A value is either a *primitive* or a *resource reference*. Primitives are either a JSON `string`, `number`, `true`, `false`, or `null` value. A resource reference is a JSON object with the following parameter:
+
+**rid**  
+Resource ID of the referenced resource.  
+MUST be a [resource ID](#resource-ids).
 
 
-# Request
+# Requests
 Services listens to requests published by the gateways on on behalf of the clients. A request consists of a [subject](#request-subject) (also called *topic*) and a [payload](#request-payload).
 
 ## Request subject
@@ -132,7 +158,7 @@ It has the following structure:
 `<type>.<resourceName>.<method>`
 
 * type - the request type. May be either `access`, `get`, `call`, or `auth`.
-* resourceName - the resource name of the [resource ID](#resource-id).
+* resourceName - the resource name of the [resource ID](#resource-ids).
 * method - the request method. Only used for `call` or `auth` type requests.
 
 ## Request payload
@@ -141,6 +167,7 @@ The payload is a JSON object containing the request parameters.
 If no parameters are provided, the payload may be empty (0 bytes).
 
 The content of the payload depends on the subject type.
+
 
 ## Response
 When a request is received by a service, it should send a response as a JSON object with following members:
@@ -152,7 +179,7 @@ The value is determined by the request subject.
 
 **error**  
 Is REQUIRED on error.  
-MUST NOT exist on success.  
+MUST be omitted on success.  
 The value MUST be an error object as defined in the [Error object](#error-object) section.  
 
 ## Error object
@@ -186,7 +213,16 @@ Code                    | Message            | Meaning
 `system.accessDenied`   | Access denied      | Access to a resource or method is denied
 `system.timeout`        | Request timeout    | Request timed out
 
----
+## Pre-response
+
+When a service recieves a request, and before a response is sent, the service may send a pre-response. A service should only send a pre-response when the time it takes to handle the request might exceed the default timeout limit of the requester.  
+The pre-response is a UTF-8 encoded key:"value" string without any leading white space.  
+It should contain the following key:
+
+**timeout**  
+Sets the request timeout. The value is the new timeout in milliseconds calculated from when the requester receives the pre-response. The requester should honor this timeout.  
+Example payload (15 second timeout):  
+`timeout:"15000"`
 
 
 # Request types
@@ -205,12 +241,12 @@ The value is generated by the gateway for every new connection.
 MUST be a string.
 
 **token**  
-Authorization token that MAY be omitted if the connection has no token.  
+Access token that MAY be omitted if the connection has no token.  
 The value is defined by the service issuing the token.
 
 **query**  
-Query parameters without the question mark separator.  
-MUST be omitted if the resource has no query.  
+Query part of the [resource ID](#resource-ids) without the question mark separator.  
+MUST be omitted if the resource ID has no query.  
 MUST be a string.
 
 ### Result
@@ -228,7 +264,7 @@ Value may be a single asterisk character (`"*"`) if client is allowed to call an
 ### Error
 
 Any error response will be treated as if the client has no access to the resource.  
-A `system.notFound` error MAY be sent if the resource ID doesn't exist, or if the *query* parameter is provided for a non-query resource.
+A `system.notFound` error MAY be sent if the resource ID doesn't exist.
 
 ## Get request
 
@@ -236,29 +272,36 @@ A `system.notFound` error MAY be sent if the resource ID doesn't exist, or if th
 `get.<resourceName>`
 
 Get requests are sent to get the JSON representation of a resource.  
-The request payload has the following parameter:
+The request payload may have the following parameter:
 
 **query**  
-Query parameters without the question mark separator.  
-MUST be omitted if the resource has no query.  
+Query part of the [resource ID](#resource-ids) without the question mark separator.  
+MUST be omitted if the resource ID has no query.  
 MUST be a string.
 
 ### Result
 
 **model**  
-Object containing the models data.  
-The object properties is defined by the service.  
-MUST NOT exist if *collection* is provided.
+An object containing the named properties and [values](#values) of the model.  
+MUST be omitted if *collection* is provided.
 
 **collection**  
-An ordered array containing the resource IDs of the collection model.  
-MUST NOT exist if *model* is provided.  
+An ordered array containing the [values](#values) of the collection.  
+MUST be omitted if *model* is provided.  
 MUST be an array of strings.
+
+**query**  
+Normalized query without the question mark separator.  
+Different queries (eg. `a=1&b=2` and `b=2&a=1`) that results in the same [query resource](#query-resources) should have the same normalized query (eg. `a=1&b=2`). The normalized query will be used by the gateway in [query requests](#query-request), and in get requests triggered by a [system reset event](#system-reset-event).  
+MUST be omitted if the request had no *query* parameter.  
+MUST be omitted if the resource is not a [query resource](#query-resources).  
+MUST NOT be omitted if the resource is a [query resource](#query-resources).  
+MUST be a string.
 
 ### Error
 
 Any error response will be treated as if the resource is currently unavailable.  
-A `system.notFound` error SHOULD be sent if the resource ID doesn't exist, or if the *query* parameter is provided for a non-query resource.
+A `system.notFound` error SHOULD be sent if the resource ID doesn't exist.
 
 ## Call request
 
@@ -274,22 +317,26 @@ The value is generated by the gateway for every new connection.
 MUST be a string.
 
 **token**  
-Authorization token that MAY be omitted if the connection has no token.  
+Access token that MAY be omitted if the connection has no token.  
 The value is defined by the service issuing the token.
 
 **query**  
-Query parameters without the question mark separator.  
-MUST be omitted if the resource has no query.  
+Query part of the [resource ID](#resource-ids) without the question mark separator.  
+MUST be omitted if the resource ID has no query.  
 MUST be a string.
+
+**params**  
+Method parameters as defined by the service or by the appropriate [pre-defined call method](#pre-defined-call-methods).  
+MAY be omitted.
 
 ### Result
 
-The result is defined by the service, and may be null.
+The result is defined by the service, or by the appropriate [pre-defined call method](#pre-defined-call-methods). The result may be null.
 
 ### Error
 
 Any error response indicates that the method call failed and had no effect.  
-A `system.notFound` error SHOULD be sent if the resource ID does not exist, or if the *query* parameter is provided for a non-query resource.  
+A `system.notFound` error SHOULD be sent if the resource ID does not exist.  
 A `system.methodNotFound` error SHOULD be sent if the method does not exist.  
 A `system.invalidParams` error SHOULD be sent if any required parameter is missing, or any parameter is invalid.
 
@@ -308,13 +355,17 @@ The value is generated by the gateway for every new connection.
 MUST be a string.
 
 **token**  
-Authorization token that MAY be omitted if the connection has no token.  
+Access token that MAY be omitted if the connection has no token.  
 The value is defined by the service issuing the token.
 
 **query**  
-Query parameters without the question mark separator.  
-MUST be omitted if the resource has no query.  
+Query part of the [resource ID](#resource-ids) without the question mark separator.  
+MUST be omitted if the resource ID has no query.  
 MUST be a string.
+
+**params**  
+Method parameters as defined by the service.  
+MAY be omitted.
 
 **header**  
 HTTP headers used on client connection. May be omitted.  
@@ -344,16 +395,47 @@ A successful request MAY trigger a [connection token event](#connection-token-ev
 
 Any error response indicates that the authentication failed and had no effect. A failed authentication SHOULD NOT trigger a [connection token event](#connection-token-event).  
 
-A `system.notFound` error SHOULD be sent if the resource ID does not exist, or if the *query* parameter is provided for a non-query resource.  
+A `system.notFound` error SHOULD be sent if the resource ID does not exist.  
 A `system.methodNotFound` error SHOULD be sent if the method does not exist.  
 A `system.invalidParams` error SHOULD be sent if any required parameter is missing, or any parameter is invalid.
 
----
+
+# Pre-defined call methods
+
+There are a set of [call request](#call-request) methods are predefined. A service may implement any of these methods as long as it conforms to this specification.  
+The parameters described for each call method refers to the `params` parameter of the call request.
+
+## Set call request
+
+**Subject**  
+`call.<resourceName>.set`
+
+A set request is used to update or delete a model's properties.
+
+**Parameters**  
+The parameters SHOULD be a key/value object describing the properties to be changed. Each property should have a new [value](#values) or a [delete action](#delete-action). Unchanged properties SHOULD NOT be included.  
+If any of the model properties are changed, a [model change event](#model-change-event) MUST be sent prior to sending the response.  
+MUST NOT be sent on [collections](#collection).
+
+## New call request
+
+**Subject**  
+`call.<resourceName>.new`
+
+A new request is used to create new resources.
+
+**Params**  
+
+For new models, the parameters SHOULD be an object containing the named properties and [values](#values) of the model.  
+For new collections, the parameters SHOULD be an ordered array containing the [values](#values) of the collection.
+
+**Result**  
+MUST be a [resource reference](#values) to the new resource.
 
 
 # Events
 
-Services may send events to the messaging system that may be listen to by any gateway or service. Events are not persisted in the system, and any event that was not subscribed to when it was sent will not be retrievable. There are three types of events:
+Services may send events to the messaging system that may be received by any gateway or service. Events are not persisted in the system, and any event that was not subscribed to when it was sent will not be retrievable. There are three types of events:
 
 * resource events - affects a single resource
 * connection events - affects a client connection
@@ -365,9 +447,9 @@ Services may send events to the messaging system that may be listen to by any ga
 **Subject**
 `event.<resourceName>.<eventName>`
 
-Resource events are sent for a given resource, and MUST be sent by the same service that handles the resource's requests. This is to ensure all responses and events for a resource are sent in chronological order.
+Resource events are sent for a given resource, and MUST be sent by the same service that handles the resource's [get](#get-request) and [call](#call-request) requests. This is to ensure all responses and events for a resource are sent in chronological order.
 
-Events and responses from two different resources may be sent in non-chronological order, even if the resources are handled by the same service, or if a resource is a model of another collection resource.
+Events and responses from different resources may be sent in non-chronological order in respect to one another, even if the resources are handled by the same service, or if the resources has references to each other.
 
 When a resource is modified, the service MUST send the defined events that describe the changes made. If a service fails to do so, maybe due to a program crash or a service loading stale data on restart, it MUST send a [System reset event](#system-reset-event) for the affected resources.
 
@@ -377,25 +459,38 @@ When a resource is modified, the service MUST send the defined events that descr
 `event.<resourceName>.change`
 
 Change events are sent when a [model](#model)'s properties has been changed.  
-The event payload is a key/value object describing the property that was change, and the new value.  
+The event payload is a key/value object describing the properties that was change. Each property should have a new [value](#values) or a [delete action](#delete-action).  
 Unchanged properties SHOULD NOT be included.  
 MUST NOT be sent on [collections](#collection).
+
+**Example payload**
+```
+  {
+    "myProperty": "New value",
+    "unusedProperty": { "action": "delete" }
+  }
+```
+
+### Delete action
+A delete action is a JSON object used when a property has been deleted from a model. It has the following signature:  
+```
+{ "action": "delete" }
+```
 
 ## Collection add event
 
 **Subject**  
 `event.<resourceName>.add`
 
-Add events are sent when a model is added to a [collection](#collection).  
+Add events are sent when a value is added to a [collection](#collection).  
 MUST NOT be sent on [models](#model).  
 The event payload has the following parameters:
 
-**rid**  
-Resource ID of the model that is added.
-MUST be a model resource ID.
+**value**  
+[Value](#values) that is added.
 
 **idx**  
-Zero-based index number of where the model is inserted.  
+Zero-based index number of where the value is inserted.  
 MUST be a number that is zero or greater and less than the length of the collection.
 
 ## Collection remove event
@@ -403,17 +498,13 @@ MUST be a number that is zero or greater and less than the length of the collect
 **Subject**  
 `event.<resourceName>.remove`
 
-Remove events are sent when a model is removed from a [collection](#collection).  
+Remove events are sent when a value is removed from a [collection](#collection).  
 MUST NOT be sent on [models](#model).  
-The event payload has the following parameters:
-
-**rid**  
-Resource ID of the model that is removed.
-MUST be a resource ID.
+The event payload has the following parameter:
 
 **idx**  
-Zero-based index number of where the model was prior to removal.  
-The resource ID at the index MUST match the value of the *resoureceId* parameter.
+Zero-based index number of where the value was prior to removal.  
+MUST be a number that is zero or greater and less than the length of the collection prior to removal.
 
 ## Reaccess event
 
@@ -442,12 +533,12 @@ Connection events are sent for specific connection ID's (cid), and are listened 
 **Subject**  
 `conn.<cid>.token`
 
-Sets the connection's authorization token, discarding any previously set token.  
+Sets the connection's access token, discarding any previously set token.  
 A change of token will invalidate any previous access response recieved using the old token.  
 The event payload has the following parameter:
 
 **token**  
-Authorization token.
+Access token.
 A `null` token clears any previously set token.
 
 
@@ -460,23 +551,34 @@ System events are used to send information having a system wide effect.
 **Subject**  
 `system.reset`
 
-Signals that some resources are no longer to be considered up to date. Any service or gateway subscribing to such a resource should send a new [get request](#get-request) to get an up-to-date version.  
-A service MUST send a system reset event if it no longer can guarantee that it has sent the defined [resource events](#resource-events) that describe the changes made to its resources. This may be due to a service crashing between persisting a change and sending the event describing the change, or by restarting a service that only persisted its resource state in memory.  
-The event payload has the following parameter:
+Signals that some resources are no longer to be considered up to date, or that previous access requests may no longer be valid.  
+A service MUST send a system reset event if it no longer can guarantee that it has sent the defined [resource events](#resource-events) that describe the changes made to its resources, or if access to the resources might have changed without the service having sent the appropriate [reaccess events](#reaccess-event). This may be due to a service crashing between persisting a change and sending the event describing the change, or by restarting a service that only persisted its resource or access state in memory.  
+The event payload has the following parameters:
 
 **resources**  
-Array of resource name patterns. The patterns may use the following wild cards:
-* The asterisk (`*`) matches any part at any level of the resource name.  
-Eg. `userService.user.*.roles` - Pattern that matches all user's roles collections.
-* The greater than symbol (`>`) matches one or more parts at the end of a resource name, and must be the last part.  
-Eg. `messageService.>` - Patterm that matches all resources owned by *messageService*.
+JSON array of [resource name patterns](#resource-name-pattern).  
+Any service or gateway subscribing to a matching resource should send a new [get request](#get-request) to get an up-to-date version.  
+May be omitted.
 
-MUST be an array of strings.
+**access**  
+JSON array of [resource name patterns](#resource-name-pattern).  
+Any gateway with clients subscribing to a matching resource should send new [access requests](#access-request) for each client subscription.  
+May be omitted.
+
+### Resource name pattern
+A resource name pattern is a string used for matching resource names.  
+The pattern may use the following wild cards:  
+* The asterisk (`*`) matches any part at any level of the resource name.  
+Eg. `userService.user.*.roles` - Pattern that matches the roles collection of all users.
+* The greater than symbol (`>`) matches one or more parts at the end of a resource name, and must be the last part.  
+Eg. `messageService.>` - Pattern that matches all resources owned by *messageService*.  
+
+
 
 
 # Query resources
 
-A query resource is a resource where its model properties or collection models may vary based on the query. It is used to request partial or filtered resources, such as for searches, filters, or pagination.
+A query resource is a resource where its model properties or collection values may vary based on the query. It is used to request partial or filtered resources, such as for searches, sorting, or pagination.
 
 ## Query event
 
@@ -502,7 +604,7 @@ Query requests are sent in response to a [query event](#query-event). The servic
 The request payload has the following parameters:
 
 **query**  
-Query parameters without the question mark separator.  
+Normalized query recieved in the response to the get request for the query resource.  
 MUST be a string.
 
 ### Result
@@ -523,3 +625,4 @@ MUST be a string.
 **data**  
 Payload data as described in [resource events](#resource-events).  
 May be omitted if the event requires no payload.
+

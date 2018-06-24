@@ -1,8 +1,8 @@
 package resourceCache
 
 import (
-	"bytes"
 	"encoding/json"
+	"errors"
 
 	"github.com/jirenius/resgate/mq/codec"
 )
@@ -17,18 +17,51 @@ const (
 	stateModel
 )
 
+var errQueryResourceOnNonQueryRequest = errors.New("Query resource on non-query request")
+
+type Model struct {
+	Values map[string]codec.Value
+	data   []byte
+}
+
+func (m *Model) MarshalJSON() ([]byte, error) {
+	if m.data == nil {
+		data, err := json.Marshal(m.Values)
+		if err != nil {
+			return nil, err
+		}
+		m.data = data
+	}
+	return m.data, nil
+}
+
+type Collection struct {
+	Values []codec.Value
+	data   []byte
+}
+
+func (c *Collection) MarshalJSON() ([]byte, error) {
+	if c.data == nil {
+		data, err := json.Marshal(c.Values)
+		if err != nil {
+			return nil, err
+		}
+		c.data = data
+	}
+	return c.data, nil
+}
+
 type ResourceSubscription struct {
 	e         *EventSubscription
 	query     string
 	state     subscriptionState
 	subs      map[Subscriber]struct{}
 	resetting bool
+	links     []string
 	// Three types of values stored
-	model      map[string]json.RawMessage
-	collection []string
+	model      *Model
+	collection *Collection
 	err        error
-	// Json encoded representation of the model
-	modelData json.RawMessage
 }
 
 func newResourceSubscription(e *EventSubscription, query string) *ResourceSubscription {
@@ -37,6 +70,10 @@ func newResourceSubscription(e *EventSubscription, query string) *ResourceSubscr
 		query: query,
 		subs:  make(map[Subscriber]struct{}),
 	}
+}
+
+func (rs *ResourceSubscription) GetResourceSubscription() *ResourceSubscription {
+	return rs
 }
 
 func (rs *ResourceSubscription) GetResourceType() ResourceType {
@@ -54,7 +91,7 @@ func (rs *ResourceSubscription) GetError() error {
 // GetCollection will lock the EventSubscription for any changes
 // and return the collection string slice.
 // The lock must be released by calling Release
-func (rs *ResourceSubscription) GetCollection() []string {
+func (rs *ResourceSubscription) GetCollection() *Collection {
 	rs.e.mu.Lock()
 	return rs.collection
 }
@@ -62,19 +99,9 @@ func (rs *ResourceSubscription) GetCollection() []string {
 // GetModel will lock the EventSubscription for any changes
 // and return the model map.
 // The lock must be released by calling Release
-func (rs *ResourceSubscription) GetModel() json.RawMessage {
+func (rs *ResourceSubscription) GetModel() *Model {
 	rs.e.mu.Lock()
-
-	if rs.modelData == nil {
-		data, err := json.Marshal(rs.model)
-		rs.modelData = json.RawMessage(data)
-
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	return rs.modelData
+	return rs.model
 }
 
 // Release releases the lock obtained by calling GetCollection or GetModel
@@ -121,12 +148,25 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 		rs.e.cache.Logf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
 	}
 
-	// Update cached model properties
-	for k, v := range props {
-		rs.model[k] = v
+	// Clone old map using old map  size as capacity.
+	// It might not be exact, but often sufficient
+	m := make(map[string]codec.Value, len(rs.model.Values))
+	for k, v := range rs.model.Values {
+		m[k] = v
 	}
 
-	rs.modelData = nil
+	// Update model properties
+	for k, v := range props {
+		if v.Type == codec.ValueTypeDelete {
+			delete(m, k)
+		} else {
+			m[k] = v
+		}
+	}
+
+	r.Changed = props
+	r.OldValues = rs.model.Values
+	rs.model = &Model{Values: m}
 	return true
 }
 
@@ -143,7 +183,7 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 	}
 
 	idx := params.Idx
-	old := rs.collection
+	old := rs.collection.Values
 	l := len(old)
 
 	if idx < 0 || idx > l {
@@ -151,20 +191,16 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 		return false
 	}
 
-	if params.RID == "" {
-		rs.e.cache.Logf("Error processing event %s.%s: No resourceId", rs.e.ResourceName, r.Event)
-		return false
-	}
-
 	// Copy collection as the old slice might have been
 	// passed to a Subscriber and should be considered immutable
-	col := make([]string, l+1)
+	col := make([]codec.Value, l+1)
 	copy(col, old[0:idx])
 	copy(col[idx+1:], old[idx:])
-	col[idx] = params.RID
+	col[idx] = params.Value
 
-	rs.collection = col
-	r.AddData = params
+	rs.collection = &Collection{Values: col}
+	r.Idx = params.Idx
+	r.Value = params.Value
 
 	return true
 }
@@ -182,7 +218,7 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 	}
 
 	idx := params.Idx
-	old := rs.collection
+	old := rs.collection.Values
 	l := len(old)
 
 	if idx < 0 || idx >= l {
@@ -190,26 +226,21 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 		return false
 	}
 
-	if old[idx] != params.RID {
-		rs.e.cache.Logf("Error processing event %s.%s: RID mismatch. Got %s, expected %s ", rs.e.ResourceName, r.Event, params.RID, old[idx])
-		return false
-	}
-
+	r.Value = old[idx]
 	// Copy collection as the old slice might have been
 	// passed to a Subscriber and should be considered immutable
-	col := make([]string, l-1)
+	col := make([]codec.Value, l-1)
 	copy(col, old[0:idx])
 	copy(col[idx:], old[idx+1:])
-
-	rs.collection = col
-	r.RemoveData = params
+	rs.collection = &Collection{Values: col}
+	r.Idx = params.Idx
 
 	return true
 }
 
 func (rs *ResourceSubscription) enqueueGetResponse(data []byte, err error) {
 	rs.e.Enqueue(func() {
-		sublist := rs.processGetResponse(data, err)
+		rs, sublist := rs.processGetResponse(data, err)
 
 		rs.e.mu.Unlock()
 		defer rs.e.mu.Lock()
@@ -225,26 +256,31 @@ func (rs *ResourceSubscription) enqueueGetResponse(data []byte, err error) {
 	})
 }
 
-func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (sublist []Subscriber) {
-	// Clone subscribers to slice
-	sublist = make([]Subscriber, len(rs.subs))
-	i := 0
-	for sub := range rs.subs {
-		sublist[i] = sub
-		i++
+// unregister deletes itself and all its links from
+// the EventSubscription
+func (rs *ResourceSubscription) unregister() {
+	if rs.query == "" {
+		rs.e.base = nil
+	} else {
+		delete(rs.e.queries, rs.query)
 	}
+	for _, q := range rs.links {
+		delete(rs.e.links, q)
+	}
+	rs.links = nil
+}
 
+func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (nrs *ResourceSubscription, sublist []Subscriber) {
 	var result *codec.GetResult
 	// Either we have an error making the request
 	// or an error in the service's response
 	if err == nil {
 		result, err = codec.DecodeGetResponse(payload)
-		// Assert we got either a model or a collection
-		if err == nil && (result == nil ||
-			(result.Model == nil && result.Collection == nil) ||
-			(result.Model != nil && result.Collection != nil)) {
-			err = errInvalidMQResponse
-		}
+	}
+
+	// Assert a non-query request did not result in a query resource
+	if err == nil && rs.query == "" && result.Query != "" {
+		err = errQueryResourceOnNonQueryRequest
 	}
 
 	// Get request failed
@@ -254,26 +290,70 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (s
 		rs.state = stateError
 		rs.err = err
 
-		c := int64(len(rs.subs))
-		rs.subs = nil
-
-		rs.e.cache.Logf("Subscription %s: Get error - %s", rs.e.ResourceName, err)
-		if rs.query == "" {
-			rs.e.base = nil
-		} else {
-			delete(rs.e.queries, rs.query)
+		// Clone subscribers to slice
+		sublist = make([]Subscriber, len(rs.subs))
+		i := 0
+		for sub := range rs.subs {
+			sublist[i] = sub
+			i++
 		}
 
+		c := int64(len(sublist))
+		rs.subs = nil
+		rs.unregister()
+
+		rs.e.cache.Logf("Subscription %s: Get error - %s", rs.e.ResourceName, err)
+
 		rs.e.removeCount(c)
+		nrs = rs
+		return
+	}
+
+	// Is the normalized query in the response different from the
+	// one requested by the Subscriber?
+	// Then we should create a link to the normalized query
+	if result.Query != rs.query {
+		nrs = rs.e.getResourceSubscription(result.Query)
+		// Replace resource subscription with the normalized version
+		if rs.e.links == nil {
+			rs.e.links = make(map[string]*ResourceSubscription)
+		}
+		rs.e.links[rs.query] = nrs
+		delete(rs.e.queries, rs.query)
+		nrs.links = append(nrs.links, rs.query)
+
+		// Copy over all subscribers
+		for sub := range rs.subs {
+			nrs.subs[sub] = struct{}{}
+		}
+
+	} else {
+		nrs = rs
+	}
+
+	// Clone subscribers to slice
+	sublist = make([]Subscriber, len(nrs.subs))
+	i := 0
+	for sub := range nrs.subs {
+		sublist[i] = sub
+		i++
+	}
+
+	// Exit if another request has already progressed the state.
+	// Might happen when making a query subscription, directly followed by
+	// another subscription using the normalized query of the previous.
+	// When the second request returns, its resourceSubscription
+	// will already be updated by the response from the first request.
+	if nrs.state > stateRequested {
 		return
 	}
 
 	if result.Model != nil {
-		rs.model = result.Model
-		rs.state = stateModel
+		nrs.model = &Model{Values: result.Model}
+		nrs.state = stateModel
 	} else {
-		rs.collection = result.Collection
-		rs.state = stateCollection
+		nrs.collection = &Collection{Values: result.Collection}
+		nrs.state = stateCollection
 	}
 	return
 }
@@ -285,14 +365,14 @@ func (rs *ResourceSubscription) Unsubscribe(sub Subscriber) {
 		}
 
 		if rs.query != "" && len(rs.subs) == 0 {
-			delete(rs.e.queries, rs.query)
+			rs.unregister()
 		}
 
 		rs.e.removeCount(1)
 	})
 }
 
-func (rs *ResourceSubscription) handleReset() {
+func (rs *ResourceSubscription) handleResetResource() {
 	// Are we already resetting. Then quick exit
 	if rs.resetting {
 		return
@@ -311,18 +391,18 @@ func (rs *ResourceSubscription) handleReset() {
 	})
 }
 
+func (rs *ResourceSubscription) handleResetAccess() {
+	for sub := range rs.subs {
+		sub.Reaccess()
+	}
+}
+
 func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err error) {
 	var result *codec.GetResult
 	// Either we have an error making the request
 	// or an error in the service's response
 	if err == nil {
 		result, err = codec.DecodeGetResponse(payload)
-		// Assert we got either a model or a collection
-		if err == nil && (result == nil ||
-			(result.Model == nil && rs.state == stateModel) ||
-			(result.Collection == nil && rs.state == stateCollection)) {
-			err = errInvalidMQResponse
-		}
 	}
 
 	// Get request failed
@@ -339,10 +419,11 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 	}
 }
 
-func (rs *ResourceSubscription) processResetModel(props map[string]json.RawMessage) {
+func (rs *ResourceSubscription) processResetModel(props map[string]codec.Value) {
 	// Update cached model properties
+	vals := rs.model.Values
 	for k, v := range props {
-		if bytes.Equal(rs.model[k], v) {
+		if v.Equal(vals[k]) {
 			delete(props, k)
 		}
 	}
@@ -361,15 +442,15 @@ func (rs *ResourceSubscription) processResetModel(props map[string]json.RawMessa
 	rs.handleEvent(r)
 }
 
-func (rs *ResourceSubscription) processResetCollection(collection []string) {
-	events := lcs(rs.collection, collection)
+func (rs *ResourceSubscription) processResetCollection(collection []codec.Value) {
+	events := lcs(rs.collection.Values, collection)
 
 	for _, r := range events {
 		rs.handleEvent(r)
 	}
 }
 
-func lcs(a, b []string) []*ResourceEvent {
+func lcs(a, b []codec.Value) []*ResourceEvent {
 	var i, j int
 	// Do a LCS matric calculation
 	// https://en.wikipedia.org/wiki/Longest_common_subsequence_problem
@@ -378,7 +459,7 @@ func lcs(a, b []string) []*ResourceEvent {
 	n := len(b)
 
 	// Trim of matches at the start and end
-	for s < m && s < n && a[s] == b[s] {
+	for s < m && s < n && a[s].Equal(b[s]) {
 		s++
 	}
 
@@ -386,12 +467,12 @@ func lcs(a, b []string) []*ResourceEvent {
 		return nil
 	}
 
-	for s <= m && s <= n && a[m-1] == b[n-1] {
+	for s <= m && s <= n && a[m-1].Equal(b[n-1]) {
 		m--
 		n--
 	}
 
-	var aa, bb []string
+	var aa, bb []codec.Value
 	if s > 0 || m < len(a) {
 		aa = a[s:m]
 		m = m - s
@@ -411,7 +492,7 @@ func lcs(a, b []string) []*ResourceEvent {
 
 	for i = 0; i < m; i++ {
 		for j = 0; j < n; j++ {
-			if aa[i] == bb[j] {
+			if aa[i].Equal(bb[j]) {
 				c[(i+1)+w*(j+1)] = c[i+w*j] + 1
 			} else {
 				v1 := c[(i+1)+w*j]
@@ -442,7 +523,7 @@ Loop:
 		m = i - 1
 		n = j - 1
 		switch {
-		case i > 0 && j > 0 && aa[m] == bb[n]:
+		case i > 0 && j > 0 && aa[m].Equal(bb[n]):
 			idx--
 			i--
 			j--
@@ -454,7 +535,6 @@ Loop:
 			steps = append(steps, &ResourceEvent{
 				Event: "remove",
 				Data: codec.EncodeRemoveEventData(&codec.RemoveEventData{
-					RID: aa[m],
 					Idx: idx,
 				}),
 			})
@@ -471,9 +551,9 @@ Loop:
 		add := adds[i]
 		steps = append(steps, &ResourceEvent{
 			Event: "add",
-			Data: codec.EncodeRemoveEventData(&codec.RemoveEventData{
-				RID: bb[add[0]],
-				Idx: add[1] - r + add[2] + l - i,
+			Data: codec.EncodeAddEventData(&codec.AddEventData{
+				Value: bb[add[0]],
+				Idx:   add[1] - r + add[2] + l - i,
 			}),
 		})
 	}

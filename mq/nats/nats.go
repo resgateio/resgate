@@ -3,6 +3,8 @@ package nats
 import (
 	"log"
 	"os"
+	"reflect"
+	"strconv"
 	"sync"
 	"time"
 
@@ -45,6 +47,7 @@ type Subscription struct {
 type responseCont struct {
 	isReq bool
 	f     mq.Response
+	t     *time.Timer
 }
 
 // Connect creates a connection to the nats server.
@@ -130,11 +133,11 @@ func (c *Client) SendRequest(subj string, payload []byte, cb mq.Response) {
 		cb("", nil, err)
 		return
 	}
-	sub.AutoUnsubscribe(1)
 
 	if debug {
 		logger.Printf("<== %s: %s", subj, payload)
 	}
+
 	err = c.mq.PublishRequest(subj, inbox, payload)
 	if err != nil {
 		sub.Unsubscribe()
@@ -177,8 +180,23 @@ func (c *Client) listener(ch chan *nats.Msg, stopped chan struct{}) {
 		c.mu.Lock()
 		rc, ok := c.mqReqs[msg.Sub]
 		if ok && rc.isReq {
+			// Is the first character a-z or A-Z?
+			// Then it is a meta response
+			if len(msg.Data) > 0 && (msg.Data[0]|32)-'a' < 26 {
+				c.parseMeta(msg, rc)
+				c.mu.Unlock()
+				if debug {
+					logger.Printf("==> %s: %s", msg.Subject, msg.Data)
+				}
+				continue
+			}
+
 			delete(c.mqReqs, msg.Sub)
 			c.tq.Remove(msg.Sub)
+			if rc.t != nil {
+				rc.t.Stop()
+			}
+			msg.Sub.Unsubscribe()
 		}
 		c.mu.Unlock()
 
@@ -193,6 +211,26 @@ func (c *Client) listener(ch chan *nats.Msg, stopped chan struct{}) {
 	close(stopped)
 }
 
+func (c *Client) parseMeta(msg *nats.Msg, rc responseCont) {
+	tag := reflect.StructTag(msg.Data)
+
+	// timeout tag
+	if v, ok := tag.Lookup("timeout"); ok {
+		timeout, err := strconv.Atoi(v)
+		if err == nil {
+			if rc.t == nil {
+				c.tq.Remove(msg.Sub)
+			} else {
+				rc.t.Stop()
+			}
+			rc.t = time.AfterFunc(time.Duration(timeout)*time.Millisecond, func() {
+				c.onTimeout(msg.Sub)
+			})
+			c.mqReqs[msg.Sub] = rc
+		}
+	}
+}
+
 func (c *Client) onTimeout(v interface{}) {
 	sub := v.(*nats.Subscription)
 
@@ -205,6 +243,9 @@ func (c *Client) onTimeout(v interface{}) {
 		return
 	}
 
+	if rc.t != nil {
+		rc.t.Stop()
+	}
 	sub.Unsubscribe()
 
 	if debug {

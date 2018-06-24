@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -9,6 +10,8 @@ import (
 	"github.com/jirenius/resgate/httpApi"
 	"github.com/jirenius/resgate/reserr"
 )
+
+var nullBytes = []byte("null")
 
 func (s *Service) initHTTPListener() {
 	s.conns = make(map[string]*wsConn)
@@ -21,54 +24,30 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
 	}
 
-	s.Logf(path)
-
 	switch r.Method {
 	case "GET":
 
 		rid, err := httpApi.PathToRID(path, r.URL.RawQuery, s.cfg.APIPath)
 		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		c := s.newWSConn(nil, r)
-		if c == nil {
-			// [TODO] Send a more proper response
-			http.NotFound(w, r)
+			httpError(w, reserr.ErrNotFound)
 			return
 		}
 
-		done := make(chan struct{})
-		c.Enqueue(func() {
-			if s.cfg.HeaderAuth != nil {
-				c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(result interface{}, err error) {
-					c.GetHTTPResource(rid, s.cfg.APIPath, responseSender(w, c, done))
-				})
-			} else {
-				c.GetHTTPResource(rid, s.cfg.APIPath, responseSender(w, c, done))
-			}
+		s.temporaryConn(w, r, func(c *wsConn, cb func(interface{}, error)) {
+			c.GetHTTPResource(rid, s.cfg.APIPath, cb)
 		})
-		<-done
 
 	case "POST":
 		rid, action, err := httpApi.PathToRIDAction(path, r.URL.RawQuery, s.cfg.APIPath)
 		if err != nil {
-			http.NotFound(w, r)
+			httpError(w, reserr.ErrNotFound)
 			return
 		}
 
 		// Try to parse the body
 		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			// [TODO] Send a more proper response
-			http.Error(w, err.Error(), 500)
-			return
-		}
-
-		c := s.newWSConn(nil, r)
-		if c == nil {
-			// [TODO] Send a more proper response
-			http.NotFound(w, r)
+			httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error reading request body: " + err.Error()})
 			return
 		}
 
@@ -76,24 +55,41 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 		if strings.TrimSpace(string(b)) != "" {
 			err = json.Unmarshal(b, &params)
 			if err != nil {
-				http.Error(w, err.Error(), 500)
+				httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error decoding request body: " + err.Error()})
 				return
 			}
 		}
 
-		done := make(chan struct{})
-		c.Enqueue(func() {
-			c.CallResource(rid, action, params, responseSender(w, c, done))
+		s.temporaryConn(w, r, func(c *wsConn, cb func(interface{}, error)) {
+			switch action {
+			case "new":
+				c.NewHTTPResource(rid, s.cfg.APIPath, params, func(href string, err error) {
+					if err == nil {
+						w.Header().Set("Location", href)
+						w.WriteHeader(http.StatusCreated)
+					}
+					cb(nil, err)
+				})
+			default:
+				c.CallResource(rid, action, params, cb)
+			}
 		})
-		<-done
 
 	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		httpError(w, reserr.ErrMethodNotAllowed)
 	}
 }
 
-func responseSender(w http.ResponseWriter, c *wsConn, done chan struct{}) func(interface{}, error) {
-	return func(data interface{}, err error) {
+func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func(interface{}, error))) {
+	c := s.newWSConn(nil, r)
+	if c == nil {
+		// [TODO] Send a more proper response
+		http.NotFound(w, r)
+		return
+	}
+
+	done := make(chan struct{})
+	rs := func(data interface{}, err error) {
 		defer c.dispose()
 		defer close(done)
 
@@ -103,15 +99,32 @@ func responseSender(w http.ResponseWriter, c *wsConn, done chan struct{}) func(i
 			return
 		}
 
-		out, err = json.Marshal(data)
-		if err != nil {
-			httpError(w, err)
-			return
+		if data != nil {
+			out, err = json.Marshal(data)
+			if err != nil {
+				httpError(w, err)
+				return
+			}
+
+			if !bytes.Equal(out, nullBytes) {
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.Write(out)
+				return
+			}
 		}
 
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Write(out)
+		w.WriteHeader(http.StatusNoContent)
 	}
+	c.Enqueue(func() {
+		if s.cfg.HeaderAuth != nil {
+			c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(result interface{}, err error) {
+				cb(c, rs)
+			})
+		} else {
+			cb(c, rs)
+		}
+	})
+	<-done
 }
 
 func httpError(w http.ResponseWriter, err error) {
@@ -124,16 +137,18 @@ func httpError(w http.ResponseWriter, err error) {
 
 	var code int
 	switch rerr.Code {
-	case "system.notFound":
+	case reserr.CodeNotFound:
 		fallthrough
-	case "system.timeout":
-		code = 404
-	case "system.accessDenied":
-		code = 401
-	case "system.internalError":
-		fallthrough
+	case reserr.CodeTimeout:
+		code = http.StatusNotFound
+	case reserr.CodeAccessDenied:
+		code = http.StatusUnauthorized
+	case reserr.CodeMethodNotAllowed:
+		code = http.StatusMethodNotAllowed
+	case reserr.CodeInternalError:
+		code = http.StatusInternalServerError
 	default:
-		code = 500
+		code = http.StatusBadRequest
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

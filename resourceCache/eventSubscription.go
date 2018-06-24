@@ -1,7 +1,6 @@
 package resourceCache
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/jirenius/resgate/mq"
@@ -19,9 +18,9 @@ const (
 )
 
 const (
-	Collection ResourceType = ResourceType(stateCollection)
-	Model      ResourceType = ResourceType(stateModel)
-	Error      ResourceType = ResourceType(stateError)
+	TypeCollection ResourceType = ResourceType(stateCollection)
+	TypeModel      ResourceType = ResourceType(stateModel)
+	TypeError      ResourceType = ResourceType(stateError)
 )
 
 type EventSubscription struct {
@@ -33,6 +32,7 @@ type EventSubscription struct {
 	mqSub   mq.Unsubscriber
 	base    *ResourceSubscription
 	queries map[string]*ResourceSubscription
+	links   map[string]*ResourceSubscription
 
 	// Mutex protected
 	mu    sync.Mutex
@@ -54,43 +54,44 @@ type queueEvent struct {
 	payload []byte
 }
 
-var (
-	errInvalidMQResponse = errors.New("Invalid message queue response")
-)
+func (e *EventSubscription) getResourceSubscription(q string) (rs *ResourceSubscription) {
+	if q == "" {
+		rs = e.base
+		if rs == nil {
+			rs = newResourceSubscription(e, "")
+			e.base = rs
+		}
+	} else {
+		if e.queries == nil {
+			e.queries = make(map[string]*ResourceSubscription)
+			rs = newResourceSubscription(e, q)
+			e.queries[q] = rs
+		} else {
+			rs = e.queries[q]
+			if rs == nil && e.links != nil {
+				rs = e.links[q]
+			}
+
+			if rs == nil {
+				rs = newResourceSubscription(e, q)
+				e.queries[q] = rs
+			}
+		}
+	}
+	return
+}
 
 func (e *EventSubscription) addSubscriber(sub Subscriber) {
 	e.Enqueue(func() {
 		var rs *ResourceSubscription
 		q := sub.ResourceQuery()
-		if q == "" {
-			rs = e.base
-			if rs == nil {
-				rs = newResourceSubscription(e, "")
-				e.base = rs
-			}
-		} else {
-			if e.queries == nil {
-				e.queries = make(map[string]*ResourceSubscription)
-				rs = newResourceSubscription(e, q)
-				e.queries[q] = rs
-			} else {
-				rs = e.queries[q]
-				if rs == nil {
-					rs = newResourceSubscription(e, q)
-					e.queries[q] = rs
-				}
-			}
-		}
+		rs = e.getResourceSubscription(q)
 
 		if rs.state != stateError {
 			rs.subs[sub] = struct{}{}
 		}
 
 		switch rs.state {
-		// If a request has already been sent
-		// In that case the subscriber will be handled
-		// on the response for that request
-		case stateRequested:
 		// A subscription is made, but no request for the data.
 		// A request is made and state progressed
 		case stateSubscribed:
@@ -102,6 +103,11 @@ func (e *EventSubscription) addSubscriber(sub Subscriber) {
 			e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
 				rs.enqueueGetResponse(data, err)
 			})
+
+		// If a request has already been sent
+		// In that case the subscriber will be handled
+		// on the response for that request
+		case stateRequested:
 
 		// An error occured during request
 		case stateError:
@@ -210,7 +216,6 @@ func (e *EventSubscription) addCount() {
 
 func (e *EventSubscription) removeCount(n int64) {
 	e.count -= n
-
 	if e.count == 0 {
 		e.cache.unsubQueue.Add(e)
 	}
@@ -306,22 +311,36 @@ func (e *EventSubscription) mqUnsubscribe() bool {
 	e.queue = nil
 
 	// Unsubscribe from message queue
-	err := e.mqSub.Unsubscribe()
-	if err != nil {
-		e.cache.Logf("Error unsubscribing to %s: %s", e.ResourceName, err)
-		return false
+	if e.mqSub != nil {
+		err := e.mqSub.Unsubscribe()
+		if err != nil {
+			e.cache.Logf("Error unsubscribing to %s: %s", e.ResourceName, err)
+			return false
+		}
 	}
 	return true
 }
 
-func (e *EventSubscription) handleReset() {
+func (e *EventSubscription) handleResetResource() {
 	e.Enqueue(func() {
 		if e.base != nil {
-			e.base.handleReset()
+			e.base.handleResetResource()
 		}
 
 		for _, rs := range e.queries {
-			rs.handleReset()
+			rs.handleResetResource()
+		}
+	})
+}
+
+func (e *EventSubscription) handleResetAccess() {
+	e.Enqueue(func() {
+		if e.base != nil {
+			e.base.handleResetAccess()
+		}
+
+		for _, rs := range e.queries {
+			rs.handleResetAccess()
 		}
 	})
 }

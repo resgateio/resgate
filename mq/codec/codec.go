@@ -1,11 +1,23 @@
 package codec
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/jirenius/resgate/reserr"
+)
+
+var (
+	noQueryGetRequest  = []byte(`{}`)
+	errMissingResult   = reserr.InternalError(errors.New("Response missing result"))
+	errInvalidResponse = reserr.InternalError(errors.New("Invalid service response"))
+	errInvalidValue    = reserr.InternalError(errors.New("Invalid value"))
+)
+
+const (
+	actionDelete = "delete"
 )
 
 type Request struct {
@@ -46,8 +58,9 @@ type EventQueryEvent struct {
 }
 
 type GetResult struct {
-	Model      map[string]json.RawMessage `json:"model"`
-	Collection []string                   `json:"collection"`
+	Model      map[string]Value `json:"model"`
+	Collection []Value          `json:"collection"`
+	Query      string           `json:"query"`
 }
 
 type GetResponse struct {
@@ -70,6 +83,15 @@ type Response struct {
 	Error  *reserr.Error   `json:"error"`
 }
 
+type NewResponse struct {
+	Result *NewResult    `json:"result"`
+	Error  *reserr.Error `json:"error"`
+}
+
+type NewResult struct {
+	RID string `json:"rid"`
+}
+
 type QueryEvent struct {
 	Subject string `json:"subject"`
 }
@@ -79,17 +101,17 @@ type ConnTokenEvent struct {
 }
 
 type AddEventData struct {
-	RID string `json:"rid"`
-	Idx int    `json:"idx"`
+	Idx   int   `json:"idx"`
+	Value Value `json:"value"`
 }
 
 type RemoveEventData struct {
-	RID string `json:"rid"`
-	Idx int    `json:"idx"`
+	Idx int `json:"idx"`
 }
 
 type SystemReset struct {
 	Resources []string `json:"resources"`
+	Access    []string `json:"access"`
 }
 
 type Requester interface {
@@ -101,8 +123,86 @@ type AuthRequester interface {
 	HTTPRequest() *http.Request
 }
 
-var noQueryGetRequest = []byte(`{"query":null}`)
-var errMissingResult = reserr.InternalError(errors.New("Response missing result"))
+type ValueType byte
+
+const (
+	ValueTypeNone ValueType = iota
+	ValueTypePrimitive
+	ValueTypeResource
+	ValueTypeDelete
+)
+
+type Value struct {
+	json.RawMessage
+	Type ValueType
+	RID  string
+}
+
+type ValueObject struct {
+	RID    *string `json:"rid"`
+	Action *string `json:"action"`
+}
+
+func (v *Value) UnmarshalJSON(data []byte) error {
+	err := v.RawMessage.UnmarshalJSON(data)
+	if err != nil {
+		return err
+	}
+
+	// Get first non-whitespace character
+	var c byte
+	i := 0
+	for {
+		c = v.RawMessage[i]
+		if c != 0x20 && c != 0x09 && c != 0x0A && c != 0x0D {
+			break
+		}
+		i++
+	}
+
+	switch c {
+	case '{':
+		var mvo ValueObject
+		err = json.Unmarshal(v.RawMessage, &mvo)
+		if err != nil {
+			return err
+		}
+
+		if mvo.RID != nil {
+			// Invalid to have both RID and Action set, or if RID is empty
+			if mvo.Action != nil || *mvo.RID == "" {
+				return errInvalidValue
+			}
+			v.Type = ValueTypeResource
+			v.RID = *mvo.RID
+		} else {
+			// Must be an action of type actionDelete
+			if mvo.Action == nil || *mvo.Action != actionDelete {
+				return errInvalidValue
+			}
+			v.Type = ValueTypeDelete
+		}
+	default:
+		v.Type = ValueTypePrimitive
+	}
+
+	return nil
+}
+
+func (v Value) Equal(w Value) bool {
+	if v.Type != w.Type {
+		return false
+	}
+
+	switch v.Type {
+	case ValueTypePrimitive:
+		return bytes.Equal(v.RawMessage, w.RawMessage)
+	case ValueTypeResource:
+		return v.RID == w.RID
+	}
+
+	return true
+}
 
 func CreateRequest(params interface{}, r Requester, query string, token interface{}) []byte {
 	out, _ := json.Marshal(Request{Params: params, Token: token, Query: query, CID: r.CID()})
@@ -122,10 +222,10 @@ func CreateGetRequest(query string) []byte {
 	return out
 }
 
-func CreateAuthRequest(params interface{}, r AuthRequester, token interface{}) []byte {
+func CreateAuthRequest(params interface{}, r AuthRequester, query string, token interface{}) []byte {
 	hr := r.HTTPRequest()
 	out, _ := json.Marshal(AuthRequest{
-		Request:    Request{Params: params, Token: token, CID: r.CID()},
+		Request:    Request{Params: params, Token: token, Query: query, CID: r.CID()},
 		Header:     hr.Header,
 		Host:       hr.Host,
 		RemoteAddr: hr.RemoteAddr,
@@ -147,6 +247,30 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 
 	if r.Result == nil {
 		return nil, errMissingResult
+	}
+
+	// Assert we got either a model or a collection
+	res := r.Result
+	if res.Model != nil {
+		if res.Collection != nil {
+			return nil, errInvalidResponse
+		}
+		// Assert model only has proper values
+		for _, v := range res.Model {
+			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
+				return nil, errInvalidResponse
+			}
+		}
+	} else {
+		if res.Collection == nil {
+			return nil, errInvalidResponse
+		}
+		// Assert collection only has proper values
+		for _, v := range res.Collection {
+			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
+				return nil, errInvalidResponse
+			}
+		}
 	}
 
 	return r.Result, nil
@@ -192,8 +316,8 @@ func DecodeEventQueryResponse(payload []byte) ([]*EventQueryEvent, error) {
 	return r.Result.Events, nil
 }
 
-func DecodeChangeEventData(data json.RawMessage) (map[string]json.RawMessage, error) {
-	var r map[string]json.RawMessage
+func DecodeChangeEventData(data json.RawMessage) (map[string]Value, error) {
+	var r map[string]Value
 	err := json.Unmarshal(data, &r)
 	if err != nil {
 		return nil, err
@@ -207,6 +331,12 @@ func DecodeAddEventData(data json.RawMessage) (*AddEventData, error) {
 	err := json.Unmarshal(data, &d)
 	if err != nil {
 		return nil, err
+	}
+
+	// Assert it is a proper value
+	t := d.Value.Type
+	if t != ValueTypeResource && t != ValueTypePrimitive {
+		return nil, errInvalidValue
 	}
 
 	return &d, nil
@@ -264,6 +394,28 @@ func DecodeCallResponse(payload []byte) (json.RawMessage, error) {
 	return nil, r.Error
 }
 
+func DecodeNewResponse(payload []byte) (string, error) {
+	var r NewResponse
+	err := json.Unmarshal(payload, &r)
+	if err != nil {
+		return "", reserr.InternalError(err)
+	}
+
+	if r.Error != nil {
+		return "", err
+	}
+
+	if r.Result == nil {
+		return "", errMissingResult
+	}
+
+	if r.Result.RID == "" {
+		return "", errInvalidResponse
+	}
+
+	return r.Result.RID, nil
+}
+
 func DecodeConnTokenEvent(payload []byte) (*ConnTokenEvent, error) {
 	var e ConnTokenEvent
 	err := json.Unmarshal(payload, &e)
@@ -273,16 +425,16 @@ func DecodeConnTokenEvent(payload []byte) (*ConnTokenEvent, error) {
 	return &e, nil
 }
 
-func DecodeSystemReset(data json.RawMessage) ([]string, error) {
+func DecodeSystemReset(data json.RawMessage) (SystemReset, error) {
 	var r SystemReset
 	if len(data) == 0 {
-		return nil, nil
+		return r, nil
 	}
 
 	err := json.Unmarshal(data, &r)
 	if err != nil {
-		return nil, err
+		return r, err
 	}
 
-	return r.Resources, nil
+	return r, nil
 }
