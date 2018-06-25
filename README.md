@@ -1,5 +1,5 @@
 # resgate - A RES gateway
-A [Go](http://golang.org) project implementing the [RES protocol](https://github.com/jirenius/resgate/blob/master/resprotocol.md) with [NATS server]() as messaging system.  
+A [Go](http://golang.org) project implementing the [RES protocol](https://github.com/jirenius/resgate/blob/master/resprotocol.md) with [NATS server](https://nats.io/about/) as messaging system.  
 Used for building *scaleable*, *resilient*, *extensible*, and *secure* client API's based on *simple*, *stateless* micro-services serving *live* resources to web application.
 
 Simple, stateless, and scalable like REST, but with push.
@@ -26,7 +26,7 @@ For a more extensive example, see the [Resgate Test App](https://github.com/jire
 
 ### Service (Node.js)
 
-Because of the simplicity of the RES-Service protocol, a service can be created without the need of a library. We can just subscribe and publish directly to the NATS server.
+Because of the simplicity of the RES-Service protocol, a service can be created without the need of a library. We can just subscribe and publish directly to the NATS server. The example below uses Node.js, but [all kinds of languages](https://nats.io/download/) are supported.
 
 Create an empty folder and install the *nats* client:
 
@@ -79,13 +79,19 @@ node service.js
 
 ### Client
 
-Copy the javascript code to [requirebin.com](http://requirebin.com/) and try it out from there.  
+**Using Chrome**  
+Copy the javascript below to [esnextb.in](https://esnextb.in/) and try it out from there (make sure you have the [latest resclient version](https://www.npmjs.org/package/resclient) under *Package*).  
+Or just try it out using [CodePen](https://codepen.io/sjirenius/pen/vraZPZ).  
+
+**Using some other browser**  
+Some browsers won't allow accessing a non-encrypted websocket from an encrypted page. You can get around that by running the script locally using a webpack server, or some other similar tool.
+
 Try running it in two separate tabs!
 
 ```javascript
-let ResClient = require('resclient').default;
+import ResClient from 'resclient';
 
-const client = new ResClient('ws://localhost:8080');
+let client = new ResClient('ws://localhost:8080');
 
 // Get the model from the service.
 client.get('exampleService.myModel').then(model => {
@@ -109,10 +115,22 @@ client.get('exampleService.myModel').then(model => {
 
 ### Web  resource
 
-Resources can be retrieved using an ordinary HTTP GET request:
+Resources can be retrieved using ordinary HTTP GET requests:
 
+**GET**  
 ```
 http://localhost:8080/api/exampleService/myModel
+```
+
+Methods can be called using HTTP POST requests:
+
+**POST**  
+```
+http://localhost:8080/api/exampleService/myModel/set
+```
+*Body*  
+```
+{ "message": "Updated through HTTP" }
 ```
 
 ## Usage
@@ -185,8 +203,8 @@ done
 
 ## Contributing
 
-The RES protocol and resgate is still under development, but is currently at a state where the protocol is starting to settle.
+The RES protocol and resgate is still under development, and is currently at a state where the protocol has settled, but the gateway has yet to be properly tested.
 
-While it is not recommended as of yet to use the gateway in a production environment, testing it out and giving feedback on the protocol and its implementation is highly appreciated!
+While it may be used in non-critical environments, it is not yet recommended to use the gateway for any critical systems. Any feedback on the protocol and its implementation is highly appreciated!
 
 If you find any issues with the protocol or the gateway, feel free to [report them](https://github.com/jirenius/resgate/issues/new) as an Issue.
