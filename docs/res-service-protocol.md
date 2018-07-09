@@ -2,13 +2,6 @@
 
 ## Table of contents
 - [Introduction](#introduction)
-  * [Features](#features)
-- [Getting started](#getting-started)
-- [Resources](#resources)
-  * [Resource IDs](#resource-ids)
-  * [Models](#models)
-  * [Collections](#collections)
-- [Values](#values)
 - [Requests](#requests)
   * [Request subject](#request-subject)
   * [Request payload](#request-payload)
@@ -39,116 +32,14 @@
   * [Query event](#query-event)
   * [Query request](#query-request)
 
-
 # Introduction
 
-RES (REsource Subscription) is a protocol for creating scaleable client-server APIs consisting of resources served from stateless services connected by a messaging system. Clients subscribe to resources, and call upon their methods, through an API agnostic gateway acting as a bridge between the services and clients.
+This document uses the definition of [resource](res-protocol.md#resources), [model](res-protocol.md#model), [collection](res-protocol.md#collection), [value](res-protocol.md#values), [messaging system](res-protocol.md#messaging-system), [service](res-protocol.md#services), [client](res-protocol.md#clients), and [gateway](res-protocol.md#gateways) as described in the [RES Protocol Specification](res-protocol.md).
 
-It is designed for creating modular cloud based applications where new services and functionality can be added without causing disruption to a running production environment.
-
-The protocol consists of two subprotocols:
-
-* RES-Client - the protocol used by the clients
-* RES-Service - the protocol used by the services
-
-## Features
-
-**Stateless**  
-No client context is held by the services between requests. Each request contains all the information necessary to service the request. Session state is instead held by the client and the gateway.
-
-**Live data**  
-All resources subscribed by the clients are live. The gateways will keep state on what resources are currently being used by any of its connected clients, making sure their data is updated.
-
-**Scalable**  
-Multiple gateways may be connecteded to the same messaging system to handle large amounts of clients. Multiple clusters of messaging systems, gateways, and services, may be used for further scaling.
-
-**Resilient**  
-In case of a lost connection or a gateway failure, the client can reconnect to any other gateway to resynchronize its stale data and resume operations. In case of a service failure, the gateways can resynchronize its data once the service is available again.
-
-**Secure**  
-The client uses WebSockets as transport layer, allowing for TLS/SSL encryption. Any access token issued by a service is stored on the gateway and not in the client.
-
-**Access control**  
-Access tokens may at any time be revoked or replaces. If a token is revoked/replaced, all subscriptions will be paused for reauthorization with the new token, and resources which no longer are authorized will be unsubscribed without delay.
-
-**Hot-adding**  
-Services can be added or removed to the API without any disruption or any configuration changes. Simply just connect/disconnect the service to the messaging system.
-
-**Caching**  
-All resources are cachable by the gateways, taking load off the services.
-
-**Resource queries**  
-The protocol supports resource queries where partial or filtered resources are requested, such as for searches, filters, or pagination. Just like any other resource, query resources are also live.
-
-**Web resources**  
-All resources may be accessed using ordinary web (http) requests, in a RESTful manner. The same goes for all resource method calls.
-
-**Simple**  
-The protocol is made to be simple. Simple to create services. Simple to access resources from the clients.
-
-
-# Getting started
-
-The best place to start is to [install resgate](https://github.com/jirenius/resgateway), a RES gateway implementation written in [Go](http://golang.org), using [NATS server](https://nats.io/documentation/server/gnatsd-intro/) as messaging system. The resgate README contains information on how to get started, and how to make a basic *Hello world* example service and client.
-
-
-# Resources
-
-RES protocol is built around a concept of resources: *model* resources and *collection* resources. A model is a single object with properties and values. A collection is an ordered list of values.  
-
-## Resource IDs
-Each resource (model or collection) is identified by a unique *resource ID* string, also called *rid* for short. A *resource ID* consist of a *resource name* and an optional *query*.  
-MUST be a string.
-
-**resource name**  
-Resource names are case-sensitive and must be non-empty alphanumeric strings with no embedded whitespace, and part-delimited using the dot character (`.`).  
-The first part SHOULD be the name of the service owning the resource. The following parts describes and identifies the specific resource.
-
-**query**  
-The query is separated from the resource name by a question mark (`?`). The format of the query is not enforced, but it is recommended to use URI queries in case the resources are to be accessed through web requests.  
-May be omitted. If omitted, then the question mark separator MUST also be omitted.
-
-**Examples**
-
-* `userService.users` - A collection representing a list of users
-* `userService.user.42` - A model representing a user
-* `userService.user.42.roles` - A collection of roles held by a user
-* `messageService.messages?start=0&limit=25` - A collection representing the first 25 messages of a list
-* `userService.users?q=Jane` - A collection of users with the name Jane
-
-## Models
-
-A model is an unordered set of named properties and [values](#values) represented by a JSON object.
-
-**Example**
-```
-{
-    "id": 42,
-    "name": "Jane Doe",
-    "roles": { rid: "userService.user.42.roles" }
-}
-```
-
-## Collections
-
-A collection is an ordered list of [values](#values) represented by a JSON array.
-
-**Example**
-```
-[ "admin", "tester", "developer" ]
-```
-
-# Values
-
-A value is either a *primitive* or a *resource reference*. Primitives are either a JSON `string`, `number`, `true`, `false`, or `null` value. A resource reference is a JSON object with the following parameter:
-
-**rid**  
-Resource ID of the referenced resource.  
-MUST be a [resource ID](#resource-ids).
-
+The RES-Service protocol is used in communication between the services and the gateways.
 
 # Requests
-Services listens to requests published by the gateways on on behalf of the clients. A request consists of a [subject](#request-subject) (also called *topic*) and a [payload](#request-payload).
+Services listens to requests published by the gateways and services over the messaging system. A request consists of a [subject](#request-subject) (also called *topic*) and a [payload](#request-payload).
 
 ## Request subject
 
@@ -158,7 +49,7 @@ It has the following structure:
 `<type>.<resourceName>.<method>`
 
 * type - the request type. May be either `access`, `get`, `call`, or `auth`.
-* resourceName - the resource name of the [resource ID](#resource-ids).
+* resourceName - the resource name of the [resource ID](res-protocol.md#resource-ids).
 * method - the request method. Only used for `call` or `auth` type requests.
 
 ## Request payload
@@ -245,7 +136,7 @@ Access token that MAY be omitted if the connection has no token.
 The value is defined by the service issuing the token.
 
 **query**  
-Query part of the [resource ID](#resource-ids) without the question mark separator.  
+Query part of the [resource ID](res-protocol.md#resource-ids) without the question mark separator.  
 MUST be omitted if the resource ID has no query.  
 MUST be a string.
 
@@ -275,18 +166,18 @@ Get requests are sent to get the JSON representation of a resource.
 The request payload may have the following parameter:
 
 **query**  
-Query part of the [resource ID](#resource-ids) without the question mark separator.  
+Query part of the [resource ID](res-protocol.md#resource-ids) without the question mark separator.  
 MUST be omitted if the resource ID has no query.  
 MUST be a string.
 
 ### Result
 
 **model**  
-An object containing the named properties and [values](#values) of the model.  
+An object containing the named properties and [values](res-protocol.md#values) of the model.  
 MUST be omitted if *collection* is provided.
 
 **collection**  
-An ordered array containing the [values](#values) of the collection.  
+An ordered array containing the [values](res-protocol.md#values) of the collection.  
 MUST be omitted if *model* is provided.  
 MUST be an array of strings.
 
@@ -321,7 +212,7 @@ Access token that MAY be omitted if the connection has no token.
 The value is defined by the service issuing the token.
 
 **query**  
-Query part of the [resource ID](#resource-ids) without the question mark separator.  
+Query part of the [resource ID](res-protocol.md#resource-ids) without the question mark separator.  
 MUST be omitted if the resource ID has no query.  
 MUST be a string.
 
@@ -359,7 +250,7 @@ Access token that MAY be omitted if the connection has no token.
 The value is defined by the service issuing the token.
 
 **query**  
-Query part of the [resource ID](#resource-ids) without the question mark separator.  
+Query part of the [resource ID](res-protocol.md#resource-ids) without the question mark separator.  
 MUST be omitted if the resource ID has no query.  
 MUST be a string.
 
@@ -413,9 +304,9 @@ The parameters described for each call method refers to the `params` parameter o
 A set request is used to update or delete a model's properties.
 
 **Parameters**  
-The parameters SHOULD be a key/value object describing the properties to be changed. Each property should have a new [value](#values) or a [delete action](#delete-action). Unchanged properties SHOULD NOT be included.  
+The parameters SHOULD be a key/value object describing the properties to be changed. Each property should have a new [value](res-protocol.md#values) or a [delete action](#delete-action). Unchanged properties SHOULD NOT be included.  
 If any of the model properties are changed, a [model change event](#model-change-event) MUST be sent prior to sending the response.  
-MUST NOT be sent on [collections](#collection).
+MUST NOT be sent on [collections](res-protocol.md#collection).
 
 ## New call request
 
@@ -426,11 +317,11 @@ A new request is used to create new resources.
 
 **Params**  
 
-For new models, the parameters SHOULD be an object containing the named properties and [values](#values) of the model.  
-For new collections, the parameters SHOULD be an ordered array containing the [values](#values) of the collection.
+For new models, the parameters SHOULD be an object containing the named properties and [values](res-protocol.md#values) of the model.  
+For new collections, the parameters SHOULD be an ordered array containing the [values](res-protocol.md#values) of the collection.
 
 **Result**  
-MUST be a [resource reference](#values) to the new resource.
+MUST be a [resource reference](res-protocol.md#values) to the new resource.
 
 
 # Events
@@ -458,10 +349,10 @@ When a resource is modified, the service MUST send the defined events that descr
 **Subject**  
 `event.<resourceName>.change`
 
-Change events are sent when a [model](#model)'s properties has been changed.  
-The event payload is a key/value object describing the properties that was change. Each property should have a new [value](#values) or a [delete action](#delete-action).  
+Change events are sent when a [model](res-protocol.md#model)'s properties has been changed.  
+The event payload is a key/value object describing the properties that was changed. Each property should have a new [value](res-protocol.md#values) or a [delete action](#delete-action).  
 Unchanged properties SHOULD NOT be included.  
-MUST NOT be sent on [collections](#collection).
+MUST NOT be sent on [collections](res-protocol.md#collection).
 
 **Example payload**
 ```
@@ -482,12 +373,12 @@ A delete action is a JSON object used when a property has been deleted from a mo
 **Subject**  
 `event.<resourceName>.add`
 
-Add events are sent when a value is added to a [collection](#collection).  
-MUST NOT be sent on [models](#model).  
+Add events are sent when a value is added to a [collection](res-protocol.md#collection).  
+MUST NOT be sent on [models](res-protocol.md#model).  
 The event payload has the following parameters:
 
 **value**  
-[Value](#values) that is added.
+[Value](res-protocol.md#values) that is added.
 
 **idx**  
 Zero-based index number of where the value is inserted.  
@@ -498,8 +389,8 @@ MUST be a number that is zero or greater and less than the length of the collect
 **Subject**  
 `event.<resourceName>.remove`
 
-Remove events are sent when a value is removed from a [collection](#collection).  
-MUST NOT be sent on [models](#model).  
+Remove events are sent when a value is removed from a [collection]res-protocol.md(#collection).  
+MUST NOT be sent on [models](res-protocol.md#model).  
 The event payload has the following parameter:
 
 **idx**  

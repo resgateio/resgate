@@ -4,6 +4,14 @@ Used for building *scaleable*, *resilient*, *extensible*, and *secure* client AP
 
 Simple, stateless, and scalable like REST, but with push.
 
+## Documentation
+
+For more in depth information on the protocol:
+
+* [RES protocol documentation](docs/res-protocol.md) - Entry point to get all the details
+* [RES-Service protocol](docs/res-service-protocol.md) - How to write services
+* [RES-Client protocol](docs/res-client-protocol.md) - How to write client libraries, if [ResClient](https://github.com/jirenius/resclient) doesn't fit your needs
+
 ## Quickstart
 
 If you just want to start using resgate, and you have:
@@ -21,12 +29,11 @@ resgate
 ## Hello world example
 
 A simple example of a service exposing a single resource, `exampleService.myModel`, and client application that accesses the resource.  
-For more in depth information on how to write services, see the [RES-Service protocol documentation](https://github.com/jirenius/resgate/blob/master/resprotocol.md).  
 For a more extensive example, see the [Resgate Test App](https://github.com/jirenius/resgate-test-app).
 
 ### Service (Node.js)
 
-Because of the simplicity of the RES-Service protocol, a service can be created without the need of a library. We can just subscribe and publish directly to the NATS server. The example below uses Node.js, but [all kinds of languages](https://nats.io/download/) are supported.
+Because of the simplicity of the [RES-Service protocol](docs/res-service-protocol.md), a service can be created without the need of a library. We can just subscribe and publish directly to the NATS server. The example below uses Node.js, but [all kinds of languages](https://nats.io/download/) are supported.
 
 Create an empty folder and install the *nats* client:
 
