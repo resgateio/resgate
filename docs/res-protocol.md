@@ -9,6 +9,11 @@
   * [Models](#models)
   * [Collections](#collections)
 - [Values](#values)
+- [Messaging system](#messaging-system)
+- [Services](#services)
+- [Gateways](#gateways)
+- [Clients](#clients)
+- [Architecture](#architecture)
 
 
 # Introduction
