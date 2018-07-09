@@ -154,6 +154,13 @@ A client is the application that accesses the API by connecting to a gateway's W
 
 A client uses the [RES-service protocol](#res-service-protocol.md) for communication.
 
+# Architecture
+
+![Diagram of a simple resgate architecture](img/res-network.svg)
+
+An example setup consisting of three services and two resgates with a load balancer.
+
+For additional scaling and high availability, the setup may be replicated and distributed geographically as long as each service has a way of synchronizing with the same services in other replicas.
 
 # Flow
 
