@@ -137,7 +137,7 @@ Resgate, the gateway implementation of the RES protocol, uses [NATS server](http
 
 A service, or microservice, is a server application that replies to requests sent by [gateways](#gateways) or other services, and emits [events](res-service-protocol.md#events) over the [messaging system](#messaging-system). The service that replies to [get requests](res-service-protocol.md#get-requests) for a specific resource is called the *owner* of that resource. Only one service per messaging system may have ownership of a specific resource at any time.
 
-There is no protocol limitation on how many services may be connected to a [messaging system](#messaging-system) as long as there is now conflict in resource ownership.
+There is no protocol limitation on how many services may be connected to a [messaging system](#messaging-system) as long as there is no conflict in resource ownership.
 
 A service uses the [RES-service protocol](#res-service-protocol.md) for communication.
 
@@ -166,34 +166,3 @@ A client uses the [RES-service protocol](#res-service-protocol.md) for communica
 An example setup consisting of three services and two resgates with a load balancer.
 
 For additional scaling and high availability, the setup may be replicated and distributed geographically as long as each service has a way of synchronizing with the same services in other replicas.
-
-# Flow
-
-## Client subscribe
-
-```sequence
-title Client subscribe
-
-participant Client as client
-participant Resgate as resgate
-participant NATS Server as nats
-
-client->+resgate: Client subscribe request:\n"subscribe.serv.resourceA"
-alt serv.resourceA is previously not explicitly subscribed by client
-    resgate->+nats: Service access request:\n"access.serv.resourceA"
-    note right of resgate: Add serv.resourceA to resource set
-    loop For each uncached resource in set
-        alt Resource has pending get response
-            note right of resgate: Await response of pending get request
-        else
-            resgate-->nats: Subscribe to "event.serv.resourceA.>"
-            resgate->+nats: Service get request\n"get.serv.resourceA"
-            nats->-resgate: Service get response
-        end
-        note right of resgate: Add referenced resources to resource set
-    end
-    nats->-resgate: Service access response
-end
-note over resgate: Increase client subscription count for "serv.resourceA" on success.\nError response if get or access request on "serv.resourceA" fails.
-resgate->-client: Client subscribe response
-```

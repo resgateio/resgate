@@ -489,7 +489,7 @@ MUST be a string.
 ## Query request
 
 **Subject**  
-Subject sent in a [query event](#query-event).
+Subject received from the [query event](#query-event).
 
 Query requests are sent in response to a [query event](#query-event). The service should respond with a list of events to be applied to the query resource. These events must be based on the state of the underlaying data at the time when the query event was sent. This requires the service to keep track of the changes made to a query resource's underlaying data for as long as the temporary request subject is being subscribed to.  
 The request payload has the following parameters:
