@@ -1,0 +1,461 @@
+# The RES-Client Protocol Specification
+
+## Table of contents
+- [Introduction](#introduction)
+- [Subscriptions](#subscriptions)
+  * [Direct subscription](#direct-subscription)
+  * [Indirect subscription](#indirect-subscription)
+  * [Resource set](#resource-set)
+- [Connection ID tag](#connection-id-tag)
+- [Client JSONRPC](#client-jsonrpc)
+  * [Error object](#error-object)
+  * [Pre-defined errors](#pre-defined-errors)
+- [Requests](#requests)
+  * [Request method](#request-method)
+- [Request types](#request-types)
+  * [Subscribe request](#subscribe-request)
+  * [Unsubscribe request](#unsubscribe-request)
+  * [Get request](#get-request)
+  * [Call request](#call-request)
+  * [Auth request](#auth-request)
+  * [New request](#new-request)
+- [Events](#events)
+  * [Event object](#event-object)
+  * [Model change event](#model-change-event)
+  * [Collection add event](#collection-add-event)
+  * [Collection remove event](#collection-remove-event)
+  * [Custom event](#custom-event)
+
+# Introduction
+
+This document uses the definition of [resource](res-protocol.md#resources), [model](res-protocol.md#model), [collection](res-protocol.md#collection), [value](res-protocol.md#values), [service](res-protocol.md#services), [client](res-protocol.md#clients), and [gateway](res-protocol.md#gateways) as described in the [RES Protocol Specification](res-protocol.md).
+
+The RES-Client protocol is used in communication between the client and the gateway.
+
+# Subscriptions
+
+A core concept in the RES-Client protocol is the subscriptions. A client may subscribe to resources by making [subscribe requests](#subscribe-request) with the unique [resource ID](#resource-ids), or when creating a new resource using [new request](#new-request).
+
+A resource may be subscribed to [directly](direct-subscription) or [indirectly](indirect-subscription). Any reference to *subscription*, or a resource being *subscribed* to, in this document should be interpreted as both *direct* and *indirect* subscriptions, unless specified.
+
+Events that happends on a subscribed resource will be sent to the client as an [event](#events). A subscription lasts until the client [unsubcribes](#unsubscribe-request) to the directly subscribed resource, or disconnects from the gateway.
+
+Any [unsubscribe request](#unsubscribe-request), [change event](#change-event), or [remove event](#remove-event) that results in a resource
+
+## Direct subscription
+The resource that is subscribed to with a [subscribe request](#subscribe-request), or created with a [new request](#new-request) will be considered *directly subscribed*.
+
+It is possible to make multiple direct subscriptions on a resource. It will be considered directly subscribed until an equal number of [unsubscribe requests](#unsubscribe-request) has been made.
+
+## Indirect subscription
+A resource that is referred to with a [resource reference](res-protocol.md#values) by a [directly subscribed](#direct-subscription) resource, or by an indirectly subscribed resource, will be considered *indirectly subscribed*. Cyclic references where none of the resources are directly subscribed will not be considered subscribed.
+
+
+## Resource set
+Any request or event resulting in new subscriptions will contain a set of resources that contains any subscribed resource previously not subscribed by the client.
+
+The set is grouped by type, `models`, `collections`, and `errors`. Each group is represented by a key/value object where the key is the [resource ID](#resource-ids), and the value is the [model](#models), [collection](res-protocol.md#collection), or [error](#error-object).
+
+**Example**
+```
+{
+  "models": {
+    "messageService.message.1": {
+      "id": 1,
+      "msg": "foo"
+    },
+    "messageService.message.2": {
+      "id": 2,
+      "msg": "bar"
+    }
+  },
+  "collections": {
+    "messageService.messages": [
+        { "rid": "messageService.message.1" },
+        { "rid": "messageService.message.2" },
+        { "rid": "messageService.message.3" }
+    ]
+  },
+  "errors": {
+    "messageService.message.3": {
+      "code": "system.notFound",
+      "message": "Not found"
+    }
+  }
+}
+```
+
+# Connection ID tag
+
+A connection ID tag is a specific string, "`{cid}`" (without the quotation marks), that may be used as part of a [resource ID](res-protocol.md#resource-id).
+
+The gateway will replace the tag with the clients actual [connection ID](res-protocol.md#connection-id) before passing any request further to the services.
+
+Any [event](#events) on a resource containing a connection ID tag will be sent to the client with the tag, never with the actual connection ID.
+
+**Example**
+
+`authService.user.{cid}` - Model representing the user currently logged in on the connection.
+
+# Client JSONRPC
+The client RPC protocol is a variant of the [JSONRPC 2.0 specification](http://www.jsonrpc.org/specification), with the RES gateway acting as server. It differs in the following:
+
+* WebSockets SHOULD be used for transport
+*	Request object SHOULD NOT include the `jsonrpc` property
+* Request object's `method` property MUST be a valid [request method](#request-subject)
+*	Response object does NOT contain `jsonrpc` property
+*	Response object does NOT require the `result` property
+*	Error object's MUST be a valid [error object](#error-object), where the `code` property MUST be a string.
+*	Batch requests are NOT supported
+*	Client notifications are NOT supported
+* Server may send [event objects](#event-object)
+
+## Error object
+
+An error object has following members:
+
+**code**  
+A dot-separated string identifying the error.  
+Custom errors SHOULD begin with the service name.  
+MUST be a string.
+
+**message**  
+A simple error sentence describing the error.  
+MUST be a string.
+
+**data**  
+Additional data that may be omitted.  
+The value is defined by the service.  
+It can be used to hold values for replacing placeholders in the message.
+
+## Pre-defined errors
+
+There are a number of predefined errors.
+
+Code                    | Message            | Meaning
+----------------------- | ------------------ | ----------------------------------------
+`system.notFound`       | Not found          | The resource was not found
+`system.invalidParams`  | Invalid parameters | Invalid parameters in method call
+`system.internalError`  | Internal error     | Internal error
+`system.methodNotFound` | Method not found   | Resource method not found
+`system.accessDenied`   | Access denied      | Access to a resource or method is denied
+`system.timeout`        | Request timeout    | Request timed out
+`system.noSubscription` | No subscription    | The resource has no direct subscription
+
+
+# Requests
+
+Clients sends request to the gateway and the gateway responds with a request result or a request error. The request's `method` property contains the [request method](#request-method), and the `params` property contains the parameters defined by the services for requests of type `call` and `auth`.
+
+## Request method
+
+A request method is a string identiying the type of request, which resource it is made for, and in case of `call` and `auth` requests which resource method is called.   
+A request method has the following structure:
+
+`<type>.<resourceID>.<resourceMethod>`
+
+* type - the request type. May be either `subscribe`, `unsubscribe`, `get`, `call`, `auth`, or `new`.
+* resourceID - the [resource ID](#resource-ids).
+* resourceMethod - the resource method. Only used for `call` or `auth` type requests. If not included, the separating dot (`.`) must also not be included.
+
+**Examples**  
+
+* `subscribe.userService.users` - Subscribe request of a collection of users
+* `call.userService.user.42.set` - Call request to set properties on a user
+* `new.userService.users` - New request to create a new user
+* `auth.authService.login` - Authentication request to login
+
+
+# Request types
+
+## Subscribe request
+
+**method**  
+`subscribe.<resourceID>`
+
+Subscribe requests are sent by the client to [subscribe](#subscriptions) to a resource.  
+The request has no parameters.
+
+### Result
+
+**models**  
+[Resource set](#resource-set) models.  
+May be omitted if no new models were subscribed.
+
+**collections**  
+[Resource set](#resource-set) collections.  
+May be omitted if no new collections were subscribed.
+
+**errors**  
+[Resource set](#resource-set) errors.  
+May be omitted if no subscribed resources encountered errors.
+
+### Error
+
+An error response will be sent if the resource couldn't be subscribed to.  
+Any [resource reference](res-protocol.md#values) that fails will not lead to an error response, but the error will be added to the [resource set](#resource-set) errors.
+
+## Unsubscribe request
+
+Unsubscribe requests are sent by the client to unsubscribe to a previous made [direct subscription](#direct-subscription).
+
+The resource will only be considered unsubscribed when there are no more [direct](#direct-subscription) or [indirect](#indirect-subscription) subscriptions.
+
+**method**  
+`unsubscribe.<resourceID>`
+
+### Parameters
+The request has no parameters.
+
+### Result
+The result has no payload.
+
+### Error
+
+An error response with code `system.noSubscription` will be sent if the resource has no direct subscription.
+
+
+## Get request
+
+Get requests are sent by the client to get a resource without making a subscription.
+
+**method**  
+`get.<resourceID>`
+
+### Parameters
+The request has no parameters.
+
+### Result
+
+**models**  
+[Resource set](#resource-set) models.  
+May be omitted if no new models were retrieved.
+
+**collections**  
+[Resource set](#resource-set) collections.  
+May be omitted if no new collections were retrieved.
+
+**errors**  
+[Resource set](#resource-set) errors.  
+May be omitted if no retrieved resources encountered errors.
+
+### Error
+
+An error response will be sent if the resource couldn't be retrieved.  
+Any [resource reference](res-protocol.md#values) that fails will not lead to an error response, but the error will be added to the [resource set](#resource-set) errors.
+
+
+## Call request
+
+Call requests are sent by the client to invoke a method on the resource.
+
+**method**  
+`call.<resourceID>.<resourceMethod>`
+
+### Parameters
+The request parameters are defined by the service.
+
+### Result
+The result payload is defined by the service.
+
+### Error
+An error response will be sent if the method couldn't be called, or if the method was called, but an error was encountered.
+
+## Auth request
+
+Auth requests are sent by the client to authenticate the client connection.
+
+**method**  
+`auth.<resourceID>.<resourceMethod>`
+
+### Parameters
+The request parameters are defined by the service.
+
+### Result
+The result payload is defined by the service.
+
+### Error
+An error response will be sent if the method couldn't be called, or if the authentication failed.
+
+
+## New request
+
+New requests are sent by the client to create a new resource.
+
+The newly created resource will get a direct subscription, and will be sent to the client in the [resource set](#resourcec-set).
+
+**method**  
+`new.<resourceID>`
+
+### Parameters
+The request parameters are defined by the service.  
+For new models, the parameters are usually an object containing the named properties and [values](res-protocol.md#values) of the model.  
+For new collections, the parameters are usually an ordered array containing the [values](res-protocol.md#values) of the collection.
+
+### Result
+**rid**  
+Resource ID of the created resource.
+
+**models**  
+[Resource set](#resource-set) models.  
+May be omitted if no new models were subscribed.
+
+**collections**  
+[Resource set](#resource-set) collections.  
+May be omitted if no new collections were subscribed.
+
+**errors**  
+[Resource set](#resource-set) errors.  
+May be omitted if no subscribed resources encountered errors.
+
+### Error
+An error response will be sent if the resource could not be created, or if an error was encountered retrieving the newly created resource.
+
+# Events
+
+The gateway sends [event objects](#event-object) to describe events on resources currently subscribed to by the client.
+
+RES protocol does not guarantee that all events sent by the service will reach the client. It only guarantees that the events sent on a resource will describe the modifications required to get the resource into the same state as on the service.
+
+## Event object
+An event object has the following members:
+
+**event**  
+Identiying which resource the event occured on, and the type of event.  
+It has the following structure:
+
+`<resourceID>.<eventName>`
+
+MUST be a string.
+
+**data**  
+Event data. The payload is defined by the event type.
+
+## Model change event
+
+Change events are sent when a [model](res-protocol.md#model)'s properties has been changed.  
+Will result in new [indirect subscriptions](#indirect-subscription) if changed properties contain [resource references](res-protocol.md#values) previously not subscribed.  
+Change events are only sent on [models](res-protocol.md#model).
+
+**event**  
+`<resourceID>.change`
+
+**data**  
+A key/value object describing the properties that was changed. Each property contains the new [value](res-protocol.md#values) or a [delete action](#delete-action).  
+Unchanged properties may be included and SHOULD be ignored.
+
+**models**  
+[Resource set](#resource-set) models.  
+May be omitted if no new models were subscribed.
+
+**collections**  
+[Resource set](#resource-set) collections.  
+May be omitted if no new collections were subscribed.
+
+**errors**  
+[Resource set](#resource-set) errors.  
+May be omitted if no subscribed resources encountered errors.
+
+### Example
+```
+{
+  "event": "myService.myModel.change",
+  "data": {
+    "myProperty": "New value",
+    "unusedProperty": { "action": "delete" }
+  }
+}
+```
+
+### Delete action
+A delete action is a JSON object used when a property has been deleted from a model. It has the following signature:  
+```
+{ "action": "delete" }
+```
+
+## Collection add event
+Add events are sent when a value is added to a [collection](res-protocol.md#collection).  
+Will result in one or more new [indirect subscriptions](#indirect-subscription) if added value is a [resource references](res-protocol.md#values) previously not subscribed.  
+Add events are only sent on [collections](res-protocol.md#collection).
+
+**event**  
+`<resourceID>.add`
+
+**data**  
+[Add event object](#add-event-object).
+
+### Add event object
+The add event object has the following parameters:
+
+**idx**  
+Zero-based index number of where the value is inserted.
+
+**value**  
+[Value](res-protocol.md#values) that is added.
+
+**models**  
+[Resource set](#resource-set) models.  
+May be omitted if no new models were subscribed.
+
+**collections**  
+[Resource set](#resource-set) collections.  
+May be omitted if no new collections were subscribed.
+
+**errors**  
+[Resource set](#resource-set) errors.  
+May be omitted if no subscribed resources encountered errors.
+
+### Example
+```
+{
+  "event": "userService.users.add",
+  "data": {
+    "idx": 12,
+    "value": { "rid": "userService.user.42" },
+    "models": {
+      "userService.user.42": {
+        "id": 42,
+        "firstName": "Jane",
+        "lastName": "Doe"
+      }
+    }
+  }
+}
+```
+
+## Collection remove event
+Remove events are sent when a value is removed from a [collection](res-protocol.md#collection).  
+Remove events are only sent on [collections](res-protocol.md#collection).
+
+**event**  
+`<resourceID>.remove`
+
+**data**  
+[Remove event object](#remove-event-object).
+
+### Remove event object
+The remove event object has the following parameter:
+
+**idx**  
+Zero-based index number of the value being removed.
+
+### Example
+```
+{
+  "event": "userService.users.remove",
+  "data": {
+    "idx": 12,
+  }
+}
+```
+
+## Custom event
+
+Custom events are defined by the services, and may have any event name except `change`, `add`, `remove`, and `reaccess`.  
+Custom events MUST NOT be used to change the state of the resource.
+
+**event**  
+`<resourceID>.<eventName>`
+
+**data**  
+Payload is defined by the service.
