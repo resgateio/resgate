@@ -4,15 +4,16 @@
 - [Introduction](#introduction)
   * [Features](#features)
 - [Getting started](#getting-started)
-- [Resources](#resources)
+- [Terminology](#terminology)
+  * [Resources](#resources)
   * [Resource IDs](#resource-ids)
   * [Models](#models)
   * [Collections](#collections)
-- [Values](#values)
-- [Messaging system](#messaging-system)
-- [Services](#services)
-- [Gateways](#gateways)
-- [Clients](#clients)
+  * [Values](#values)
+  * [Messaging system](#messaging-system)
+  * [Services](#services)
+  * [Gateways](#gateways)
+  * [Clients](#clients)
 - [Architecture](#architecture)
 
 
@@ -35,7 +36,7 @@ This document gives an overview of the protocol and its features, and describes 
 No client context is held by the services between requests. Each request contains all the information necessary to service the request. Session state is instead held by the client and the gateway.
 
 **Live data**  
-All resources subscribed by the clients are live. The gateways will keep state on what resources are currently being used by any of its connected clients, making sure their data is updated.
+All resources subscribed by the clients are live. The gateways will keep state on what resources are currently being subscribed by any of its connected clients, making sure their data is updated.
 
 **Scalable**  
 Multiple gateways may be connecteded to the same messaging system to handle large amounts of clients. Multiple clusters of messaging systems, gateways, and services, may be used for further scaling.
@@ -62,14 +63,18 @@ The protocol supports resource queries where partial or filtered resources are r
 All resources may be accessed using ordinary web (http) requests, in a RESTful manner. The same goes for all resource method calls.
 
 **Simple**  
-The protocol is made to be simple. Simple to create services. Simple to use in clients. The gateway takes care of the complex synchronization parts.
+The protocol is made to be simple. Simple to create services. Simple to use in clients. The gateway takes care of much of the complexity.
 
 
 # Getting started
 
-The best place to start is to [install resgate](https://github.com/jirenius/resgateway), a RES gateway implementation written in [Go](http://golang.org), using [NATS server](https://nats.io/documentation/server/gnatsd-intro/) as messaging system. The resgate README contains information on how to get started, and how to make a basic *Hello world* example service and client.
+The best place to start is to [install resgate](../README.md#quickstart). The resgate README contains information on how to get started, and how to make a basic *Hello world* example service and client.
 
-# Resources
+To get a more extensive example, [Resgate Test App](https://github.com/jirenius/resgate-test-app) can be used as a reference and aid in understanding how the RES protocol works.
+
+# Terminology
+
+## Resources
 
 RES protocol is built around a concept of resources. A resource may be either be a [*model*](#models) or a [*collection*](#collections). Each resource (model or collection) is identified by a unique [*resource ID*](#resource-ids), also called *rid* for short.
 
@@ -114,15 +119,20 @@ A collection is an ordered list of [values](#values) represented by a JSON array
 [ "admin", "tester", "developer" ]
 ```
 
-# Values
+## Values
 
-A value is either a *primitive* or a *resource reference*. Primitives are either a JSON `string`, `number`, `true`, `false`, or `null` value. A resource reference is a JSON object with the following parameter:
+A value is either a *primitive* or a *resource reference*.  
+Primitives are either a JSON `string`, `number`, `true`, `false`, or `null` value.  
+Resource references are JSON objects with the following parameter:
 
 **rid**  
 Resource ID of the referenced resource.  
 MUST be a valid [resource ID](#resource-ids).
 
-# Messaging system
+### Example
+`{ "rid": "userService.user.42" }`
+
+## Messaging system
 
 The messaging system handles the communication between [services](#services) and [gateways](#gateways). It MUST provide the following functionality:
 * support publish-subscribe pattern
@@ -133,7 +143,7 @@ The messaging system handles the communication between [services](#services) and
 
 Resgate, the gateway implementation of the RES protocol, uses [NATS server](https://nats.io/documentation/server/gnatsd-intro/) as messaging system.
 
-# Services
+## Services
 
 A service, or microservice, is a server application that replies to requests sent by [gateways](#gateways) or other services, and emits [events](res-service-protocol.md#events) over the [messaging system](#messaging-system). The service that replies to [get requests](res-service-protocol.md#get-requests) for a specific resource is called the *owner* of that resource. Only one service per messaging system may have ownership of a specific resource at any time.
 
@@ -141,7 +151,7 @@ There is no protocol limitation on how many services may be connected to a [mess
 
 A service uses the [RES-service protocol](#res-service-protocol.md) for communication.
 
-# Gateways
+## Gateways
 
 A gateway acts as a bridge between [services](#services) and [clients](#clients). It communicates with services through the [messaging system](#messaging-system) using the [RES-service protocol](#res-service-protocol.md), and lets clients connect with WebSocket to communicate using the [RES-client protocol](#res-client-protocol.md). It may also act as a web server to allow access to the API resources using HTTP requests.
 
@@ -153,7 +163,7 @@ There is no protocol limitation on how many gateways may be connected to a [mess
 
 If a gateway loses the connection to a client, it will make no attempt at recovering the connection, but will clear any state it held for that connection. If a gateway loses the connection to the messaging system, it SHOULD disconnect all of its clients to allow them to reconnect to another gateway.
 
-# Clients
+## Clients
 
 A client is the application that accesses the API by connecting to a gateway's WebSocket. While it may be possible to access the API resources through HTTP requests, any reference in these documentations to *client* implies a client using the WebSocket.
 
@@ -161,8 +171,9 @@ A client uses the [RES-service protocol](#res-service-protocol.md) for communica
 
 # Architecture
 
+An example setup consisting of three services and two resgates with a load balancer.
+
 ![Diagram of a simple resgate architecture](img/res-network.svg)
 
-An example setup consisting of three services and two resgates with a load balancer.
 
 For additional scaling and high availability, the setup may be replicated and distributed geographically as long as each service has a way of synchronizing with the same services in other replicas.

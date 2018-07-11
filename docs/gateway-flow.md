@@ -2,7 +2,7 @@
 
 # Introduction
 
-This document gives an overview of how data flows through the resgate, the RES gateway implementation, using a NATS Server for messaging system.
+This document gives an overview of how data flows through the resgate.
 
 ## Conventions
 This document uses the definition of [resource](res-protocol.md#resources), [model](res-protocol.md#model), [collection](res-protocol.md#collection), [value](res-protocol.md#values), [service](res-protocol.md#services), [client](res-protocol.md#clients), and [gateway](res-protocol.md#gateways) as described in the [RES Protocol Specification](res-protocol.md).
@@ -13,11 +13,9 @@ References to requests and events described in the [RES-Client Protocol Specific
 
 Dotted lines in the sequence diagrams refers to a [NATS subscription/unsubscription](https://nats.io/documentation/concepts/nats-pub-sub/) made on a subject.
 
-# Gateway internal flows
-
 ## Cache request
 
-When a resource is requested, the gateway will attempt to fetch if from the cache, or populate the cache on a miss.
+When a resource is requested, as a result of a client request or service event, the gateway will attempt to fetch if from the cache, or populate the cache on a miss.
 
 ![Cache request sequence diagram](img/sequence-cache-request.png)
 
@@ -51,8 +49,6 @@ resgate->-req: Return serv.resourceA or error
 ### Notes
 * Any *service resource event*, except `reaccess` events, recieve prior to the *Service get response* will be discarded.
 * `reaccess` events will be handled after the cache request is completed
-
-# Initiated by client
 
 ## Client subscribe
 
@@ -94,7 +90,7 @@ Below diagrams shows a resource change event triggered by a call to the *set* me
 ![Client set call sequence diagram](img/sequence-client-set-call.png)
 
 <!--
-```
+```res
 title Client set call
 
 participant Client as client

@@ -1,6 +1,9 @@
 # resgate - A RES gateway
+
+*Push API with live resources in a simple way.*
+
 A [Go](http://golang.org) project implementing the [RES protocol](https://github.com/jirenius/resgate/blob/master/resprotocol.md) with [NATS server](https://nats.io/about/) as messaging system.  
-Used for building *scaleable*, *resilient*, *extensible*, and *secure* client API's based on *simple*, *stateless* micro-services serving *live* resources to web application.
+Used for building *scaleable*, *resilient*, *extensible*, and *secure* client API's based on *simple*, *stateless* micro-services serving *live* resources to web applications.
 
 Simple, stateless, and scalable like REST, but with push.
 
@@ -32,6 +35,8 @@ A simple example of a service exposing a single resource, `exampleService.myMode
 For a more extensive example, see the [Resgate Test App](https://github.com/jirenius/resgate-test-app).
 
 ### Service (Node.js)
+
+Also available as a [Go service](docs/go-service/main.go).
 
 Because of the simplicity of the [RES-Service protocol](docs/res-service-protocol.md), a service can be created without the need of a library. We can just subscribe and publish directly to the NATS server. The example below uses Node.js, but [all kinds of languages](https://nats.io/download/) are supported.
 

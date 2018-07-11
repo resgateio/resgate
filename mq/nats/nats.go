@@ -155,7 +155,7 @@ func (c *Client) Subscribe(namespace string, cb mq.Response) (mq.Unsubscriber, e
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	sub, err := c.mq.ChanSubscribe(namespace+".>", c.mqCh)
+	sub, err := sub, err := c.mq.ChanSubscribe(namespace+".>", c.mqCh)
 	if err != nil {
 		return nil, err
 	}
