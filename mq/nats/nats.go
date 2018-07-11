@@ -56,7 +56,7 @@ func (c *Client) Connect() error {
 	defer c.mu.Unlock()
 
 	// No reconnects as all resources are instantly stale anyhow
-	nc, err := nats.Connect(c.URL, nats.MaxReconnects(0))
+	nc, err := nats.Connect(c.URL, nats.NoReconnect())
 	if err != nil {
 		return err
 	}
