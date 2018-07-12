@@ -28,19 +28,17 @@
 
 # Introduction
 
-This document uses the definition of [resource](res-protocol.md#resources), [model](res-protocol.md#model), [collection](res-protocol.md#collection), [value](res-protocol.md#values), [service](res-protocol.md#services), [client](res-protocol.md#clients), and [gateway](res-protocol.md#gateways) as described in the [RES Protocol Specification](res-protocol.md).
+This document uses the definition of [resource](res-protocol.md#resources), [model](res-protocol.md#models), [collection](res-protocol.md#collections), [value](res-protocol.md#values), [service](res-protocol.md#services), [client](res-protocol.md#clients), and [gateway](res-protocol.md#gateways) as described in the [RES Protocol specification](res-protocol.md).
 
 The RES-Client protocol is used in communication between the client and the gateway.
 
 # Subscriptions
 
-A core concept in the RES-Client protocol is the subscriptions. A client may subscribe to resources by making [subscribe requests](#subscribe-request) with the unique [resource ID](#resource-ids), or when creating a new resource using [new request](#new-request).
+A core concept in the RES-Client protocol is the subscriptions. A client may subscribe to resources by making [subscribe requests](#subscribe-request) with the unique [resource ID](res-protocol.md#resource-ids), or when creating a new resource using [new request](#new-request).
 
-A resource may be subscribed to [directly](direct-subscription) or [indirectly](indirect-subscription). Any reference to *subscription*, or a resource being *subscribed* to, in this document should be interpreted as both *direct* and *indirect* subscriptions, unless specified.
+A resource may be subscribed to [directly](#direct-subscription) or [indirectly](#indirect-subscription). Any reference to *subscription*, or a resource being *subscribed* to, in this document should be interpreted as both *direct* and *indirect* subscriptions, unless specified.
 
-Events that happends on a subscribed resource will be sent to the client as an [event](#events). A subscription lasts until the client [unsubcribes](#unsubscribe-request) to the directly subscribed resource, or disconnects from the gateway.
-
-Any [unsubscribe request](#unsubscribe-request), [change event](#change-event), or [remove event](#remove-event) that results in a resource
+The client will receive [events](#events) on anything that happens on a subscribed resource. A subscription lasts as long as the resource has direct or indirect subscriptions, or when the connection to the gateway is closed.
 
 ## Direct subscription
 The resource that is subscribed to with a [subscribe request](#subscribe-request), or created with a [new request](#new-request) will be considered *directly subscribed*.
@@ -54,7 +52,7 @@ A resource that is referred to with a [resource reference](res-protocol.md#value
 ## Resource set
 Any request or event resulting in new subscriptions will contain a set of resources that contains any subscribed resource previously not subscribed by the client.
 
-The set is grouped by type, `models`, `collections`, and `errors`. Each group is represented by a key/value object where the key is the [resource ID](#resource-ids), and the value is the [model](#models), [collection](res-protocol.md#collection), or [error](#error-object).
+The set is grouped by type, `models`, `collections`, and `errors`. Each group is represented by a key/value object where the key is the [resource ID](res-protocol.md#resource-ids), and the value is the [model](res-protocol.md#models), [collection](res-protocol.md#collections), or [error](#error-object).
 
 **Example**
 ```
@@ -87,9 +85,9 @@ The set is grouped by type, `models`, `collections`, and `errors`. Each group is
 
 # Connection ID tag
 
-A connection ID tag is a specific string, "`{cid}`" (without the quotation marks), that may be used as part of a [resource ID](res-protocol.md#resource-id).
+A connection ID tag is a specific string, "`{cid}`" (without the quotation marks), that may be used as part of a [resource ID](res-protocol.md#resource-ids).
 
-The gateway will replace the tag with the clients actual [connection ID](res-protocol.md#connection-id) before passing any request further to the services.
+The gateway will replace the tag with the clients actual [connection ID](res-protocol.md#connection-ids) before passing any request further to the services.
 
 Any [event](#events) on a resource containing a connection ID tag will be sent to the client with the tag, never with the actual connection ID.
 
@@ -102,7 +100,7 @@ The client RPC protocol is a variant of the [JSONRPC 2.0 specification](http://w
 
 * WebSockets SHOULD be used for transport
 *	Request object SHOULD NOT include the `jsonrpc` property
-* Request object's `method` property MUST be a valid [request method](#request-subject)
+* Request object's `method` property MUST be a valid [request method](#request-method)
 *	Response object does NOT contain `jsonrpc` property
 *	Response object does NOT require the `result` property
 *	Error object's MUST be a valid [error object](#error-object), where the `code` property MUST be a string.
@@ -149,13 +147,13 @@ Clients sends request to the gateway and the gateway responds with a request res
 
 ## Request method
 
-A request method is a string identiying the type of request, which resource it is made for, and in case of `call` and `auth` requests which resource method is called.   
+A request method is a string identifying the type of request, which resource it is made for, and in case of `call` and `auth` requests which resource method is called.   
 A request method has the following structure:
 
 `<type>.<resourceID>.<resourceMethod>`
 
 * type - the request type. May be either `subscribe`, `unsubscribe`, `get`, `call`, `auth`, or `new`.
-* resourceID - the [resource ID](#resource-ids).
+* resourceID - the [resource ID](res-protocol.md#resource-ids).
 * resourceMethod - the resource method. Only used for `call` or `auth` type requests. If not included, the separating dot (`.`) must also not be included.
 
 **Examples**  
@@ -282,7 +280,7 @@ An error response will be sent if the method couldn't be called, or if the authe
 
 New requests are sent by the client to create a new resource.
 
-The newly created resource will get a direct subscription, and will be sent to the client in the [resource set](#resourcec-set).
+The newly created resource will get a direct subscription, and will be sent to the client in the [resource set](#resource-set).
 
 **method**  
 `new.<resourceID>`
@@ -333,9 +331,9 @@ Event data. The payload is defined by the event type.
 
 ## Model change event
 
-Change events are sent when a [model](res-protocol.md#model)'s properties has been changed.  
+Change events are sent when a [model](res-protocol.md#models)'s properties has been changed.  
 Will result in new [indirect subscriptions](#indirect-subscription) if changed properties contain [resource references](res-protocol.md#values) previously not subscribed.  
-Change events are only sent on [models](res-protocol.md#model).
+Change events are only sent on [models](res-protocol.md#models).
 
 **event**  
 `<resourceID>.change`
@@ -374,9 +372,9 @@ A delete action is a JSON object used when a property has been deleted from a mo
 ```
 
 ## Collection add event
-Add events are sent when a value is added to a [collection](res-protocol.md#collection).  
+Add events are sent when a value is added to a [collection](res-protocol.md#collections).  
 Will result in one or more new [indirect subscriptions](#indirect-subscription) if added value is a [resource references](res-protocol.md#values) previously not subscribed.  
-Add events are only sent on [collections](res-protocol.md#collection).
+Add events are only sent on [collections](res-protocol.md#collections).
 
 **event**  
 `<resourceID>.add`
@@ -424,8 +422,8 @@ May be omitted if no subscribed resources encountered errors.
 ```
 
 ## Collection remove event
-Remove events are sent when a value is removed from a [collection](res-protocol.md#collection).  
-Remove events are only sent on [collections](res-protocol.md#collection).
+Remove events are sent when a value is removed from a [collection](res-protocol.md#collections).  
+Remove events are only sent on [collections](res-protocol.md#collections).
 
 **event**  
 `<resourceID>.remove`

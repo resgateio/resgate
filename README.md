@@ -2,7 +2,7 @@
 
 *Push API with live resources in a simple way.*
 
-A [Go](http://golang.org) project implementing the [RES protocol](https://github.com/jirenius/resgate/blob/master/resprotocol.md) with [NATS server](https://nats.io/about/) as messaging system.  
+A [Go](http://golang.org) project implementing the [RES protocol](docs/res-protocol.md) with [NATS server](https://nats.io/about/) as messaging system.  
 Used for building *scaleable*, *resilient*, *extensible*, and *secure* client API's based on *simple*, *stateless* micro-services serving *live* resources to web applications.
 
 Simple, stateless, and scalable like REST, but with push.
@@ -11,14 +11,14 @@ Simple, stateless, and scalable like REST, but with push.
 
 For more in depth information on the protocol:
 
-* [RES protocol documentation](docs/res-protocol.md) - Entry point to get all the details
+* [RES protocol](docs/res-protocol.md) - Entry point to get all the details
 * [RES-Service protocol](docs/res-service-protocol.md) - How to write services
 * [RES-Client protocol](docs/res-client-protocol.md) - How to write client libraries, if [ResClient](https://github.com/jirenius/resclient) doesn't fit your needs
 
 ## Quickstart
 
 If you just want to start using resgate, and you have:
-* [installed Go](https://golang.org/doc/install) and [set your `$GOPATH`](https://golang.org/cmd/go/#GOPATH_environment_variable)
+* [installed Go](https://golang.org/doc/install) and [set your `$GOPATH`](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable)
 * Added `$GOPATH/bin` (where your binaries ends up) to your `PATH`
 * [installed NATS server](https://nats.io/download/nats-io/gnatsd/) and have it running.
 
@@ -93,7 +93,7 @@ node service.js
 
 **Using Chrome**  
 Copy the javascript below to [esnextb.in](https://esnextb.in/) and try it out from there (make sure you have the [latest resclient version](https://www.npmjs.org/package/resclient) under *Package*).  
-Or just try it out using [CodePen](https://codepen.io/sjirenius/pen/vraZPZ).  
+Or just try it out in this [CodePen](https://codepen.io/sjirenius/pen/vraZPZ).  
 
 **Using some other browser**  
 Some browsers won't allow accessing a non-encrypted websocket from an encrypted page. You can get around that by running the script locally using a webpack server, or some other similar tool.

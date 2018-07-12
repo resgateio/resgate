@@ -5,7 +5,7 @@
 This document gives an overview of how data flows through the resgate.
 
 ## Conventions
-This document uses the definition of [resource](res-protocol.md#resources), [model](res-protocol.md#model), [collection](res-protocol.md#collection), [value](res-protocol.md#values), [service](res-protocol.md#services), [client](res-protocol.md#clients), and [gateway](res-protocol.md#gateways) as described in the [RES Protocol Specification](res-protocol.md).
+This document uses the definition of [resource](res-protocol.md#resources), [model](res-protocol.md#models), [collection](res-protocol.md#collections), [value](res-protocol.md#values), [service](res-protocol.md#services), [client](res-protocol.md#clients), and [gateway](res-protocol.md#gateways) as described in the [RES Protocol Specification](res-protocol.md).
 
 References to requests and events described in the [RES-Service Protocol Specification](res-service-protocol.md) will be prefixed with the word *service*, such as [*service get request*](res-service-protocol.md#get-request), [*service model change event*](res-service-protocol.md#model-change-event), or [*service reaccess event*](res-service-protocol.md#reaccess-event).
 
