@@ -6,7 +6,7 @@
 /debug
 
 # Local configuration
-/config.json
+/*.json
 
 # Test binary, build with `go test -c`
 *.test

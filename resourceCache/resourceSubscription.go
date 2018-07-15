@@ -302,8 +302,6 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (n
 		rs.subs = nil
 		rs.unregister()
 
-		rs.e.cache.Logf("Subscription %s: Get error - %s", rs.e.ResourceName, err)
-
 		rs.e.removeCount(c)
 		nrs = rs
 		return
