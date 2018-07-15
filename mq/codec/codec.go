@@ -370,7 +370,7 @@ func DecodeAccessResponse(payload []byte) (*AccessResult, error) {
 	}
 
 	if r.Error != nil {
-		return nil, err
+		return nil, r.Error
 	}
 
 	if r.Result == nil {
