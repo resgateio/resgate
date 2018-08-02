@@ -461,11 +461,11 @@ func lcs(a, b []codec.Value) []*ResourceEvent {
 		s++
 	}
 
-	if m == n && s == m {
+	if s == m && s == n {
 		return nil
 	}
 
-	for s <= m && s <= n && a[m-1].Equal(b[n-1]) {
+	for s < m && s < n && a[m-1].Equal(b[n-1]) {
 		m--
 		n--
 	}
