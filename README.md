@@ -1,11 +1,12 @@
 # resgate - A RES gateway
 
-*Push API with live resources in a simple way.*
+*Web APIs with real-time resources in a simple way.*
 
-A [Go](http://golang.org) project implementing the [RES protocol](docs/res-protocol.md) with [NATS server](https://nats.io/about/) as messaging system.  
-Used for building *scaleable*, *resilient*, *extensible*, and *secure* client API's based on *simple*, *stateless* micro-services serving *live* resources to web applications.
+A [Go](http://golang.org) project implementing a Real-time API gateway for the [RES protocol](docs/res-protocol.md) with [NATS server](https://nats.io/about/) as messaging system.
 
-Simple, stateless, and scalable like REST, but with push.
+Used for building *scaleable*, *resilient*, *extensible*, and *secure* client web APIs based on *simple*, *stateless* micro-services serving *realtime* resources to web applications.
+
+Simple, stateless, and scalable like REST, but updated in real-time.
 
 ## Documentation
 
@@ -29,6 +30,16 @@ go get github.com/jirenius/resgate
 resgate
 ```
 
+## Writing a service
+Because of the simplicity of the [RES-Service protocol](docs/res-service-protocol.md), a single-threaded service can be created without the need of a library, as with the [Hello world example](#hello-world-example) below. NATS supports [many other languages](https://nats.io/download/) as well.
+
+For writing multi-threaded services in Go:
+
+* Go - https://github.com/jirenius/go-res
+
+*Have you written a library? Send a link to have it added to the README.*
+
+
 ## Hello world example
 
 A simple example of a service exposing a single resource, `exampleService.myModel`, and client application that accesses the resource.  
@@ -37,8 +48,6 @@ For a more extensive example, see the [Resgate Test App](https://github.com/jire
 ### Service (Node.js)
 
 Also available as a [Go service](docs/go-service/main.go).
-
-Because of the simplicity of the [RES-Service protocol](docs/res-service-protocol.md), a service can be created without the need of a library. We can just subscribe and publish directly to the NATS server. The example below uses Node.js, but [all kinds of languages](https://nats.io/download/) are supported.
 
 Create an empty folder and install the *nats* client:
 
