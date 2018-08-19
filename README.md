@@ -85,15 +85,27 @@ For more in depth information on the protocol:
 * [RES-Service protocol](docs/res-service-protocol.md) - How to write services
 * [RES-Client protocol](docs/res-client-protocol.md) - How to write client libraries, if [ResClient](https://github.com/jirenius/resclient) doesn't fit your needs
 
-## Writing a service
+## Architecture
+
+There are many possible setups. Below is an example setup consisting of three micro-services and two resgates with a load balancer.
+
+![Diagram of a simple resgate architecture](docs/img/res-network.svg)
+
+For additional scaling and high availability, the setup may be replicated and distributed geographically as long as each service has a way of synchronizing with the same services in other replicas.
+
+## Services
 Because of the simplicity of the [RES-Service protocol](docs/res-service-protocol.md), a single-threaded service can be created without the need of a library, as with the [resgate-test-app](https://github.com/jirenius/resgate-test-app).
 
 For writing multi-threaded services in Go:
 
 * Go - https://github.com/jirenius/go-res
 
-*Have you written a library? Send a link to have it added to the README.*
+*Have you written a service library? Send a link to have it added to the README.*
 
+## Clients
+* Javascript - https://github.com/jirenius/resclient
+
+*Have you written a client library? Send a link to have it added to the README.*
 ## Usage
 ```
 resgate [options]
