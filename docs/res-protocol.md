@@ -31,48 +31,6 @@ The protocol consists of two subprotocols:
 
 This document gives an overview of the protocol and its features, and describes the common concepts used in the RES-Client and RES-Service protocols.
 
-## Features
-
-**Stateless**  
-No client context is held by the services between requests. Each request contains all the information necessary to service the request. Session state is instead held by the client and the gateway.
-
-**Live data**  
-All resources subscribed by the clients are live. The gateways will keep state on what resources are currently being subscribed by any of its connected clients, making sure their data is updated.
-
-**Scalable**  
-Multiple gateways may be connecteded to the same messaging system to handle large amounts of clients. Multiple clusters of messaging systems, gateways, and services, may be used for further scaling.
-
-**Resilient**  
-In case of a lost connection or a gateway failure, the client can reconnect to any other gateway to resynchronize its stale data and resume operations. In case of a service failure, the gateways can resynchronize its data once the service is available again.
-
-**Secure**  
-The client uses WebSockets as transport layer, allowing for TLS/SSL encryption. Any access token issued by a service is stored on the gateway and not in the client.
-
-**Access control**  
-Access tokens may at any time be revoked or replaces. If a token is revoked/replaced, all subscriptions will be paused for reauthorization with the new token, and resources which no longer are authorized will be unsubscribed without delay.
-
-**Hot-adding**  
-Services can be added or removed to the API without any disruption or any configuration changes. Simply just connect/disconnect the service to the messaging system.
-
-**Caching**  
-All resources are cachable by the gateways, taking load off the services. The gateway keeps its cache up-to-date using the events emitted from the services.
-
-**Resource queries**  
-The protocol supports resource queries where partial or filtered resources are requested, such as for searches, filters, or pagination. Just like any other resource, query resources are also live.
-
-**Web resources**  
-All resources may be accessed using ordinary web (http) requests, in a RESTful manner. The same goes for all resource method calls.
-
-**Simple**  
-The protocol is made to be simple. Simple to create services. Simple to use in clients. The gateway takes care of much of the complexity.
-
-
-# Getting started
-
-The best place to start is to [install resgate](../README.md#quickstart). The resgate README contains information on how to get started, and how to make a basic *Hello world* example service and client.
-
-To get a more extensive example, [Resgate Test App](https://github.com/jirenius/resgate-test-app) can be used as a reference and aid in understanding how the RES protocol works.
-
 # Terminology
 
 ## Resources

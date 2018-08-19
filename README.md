@@ -1,12 +1,81 @@
-# resgate - A RES gateway
+# Resgate - A Realtime + REST API gateway
 
-*Web APIs with real-time resources in a simple way.*
-
-A [Go](http://golang.org) project implementing a Real-time API gateway for the [RES protocol](docs/res-protocol.md) with [NATS server](https://nats.io/about/) as messaging system.
+A [Go](http://golang.org) project implementing a Realtime API gateway for the [RES protocol](docs/res-protocol.md) with [NATS server](https://nats.io/about/) as messaging system.
 
 Used for building *scaleable*, *resilient*, *extensible*, and *secure* client web APIs based on *simple*, *stateless* micro-services serving *realtime* resources to web applications.
 
 Simple, stateless, and scalable like REST, but updated in real-time.
+
+![Book Collection Animation](docs/img/book-collection-anim.gif)
+*Book Collection Example from the [go-res project](https://github.com/jirenius/go-res)*.
+
+## Features
+
+**Realtime data**  
+All resources subscribed by the clients are updated in realtime. The gateways will keep track on what resources are currently being subscribed by any of its connected clients, making sure their data is kept up-to-date.
+
+**Stateless**  
+No client context is held by the services between requests. Each request contains all the information necessary to service the request.
+
+**Scalable**  
+Multiple gateways may be connecteded to the same messaging system to handle large amounts of clients. Multiple clusters of messaging systems, gateways, and services, may be used for further scaling.
+
+**Resilient**  
+The system can recover from lost connections, service failures, or gateway failures. The client will be updated as soon as the system is back online.
+
+**Access control**  
+Resource access can be handled using access tokens. Tokens may at any time be revoked or replaces. If a token is revoked/replaced, all subscriptions will be paused for reauthorization with the new token, and resources which no longer are authorized will be unsubscribed without delay.
+
+**Secure**  
+The client uses WebSockets as transport layer, allowing for TLS/SSL encryption. Access tokens for access control are stored on the gateway and not in the client, protecting against token theft.
+
+**Hot-adding**  
+Services can be added or removed to the API without any disruption or configuration changes. Simply just connect/disconnect the service to the messaging system.
+
+**Caching**  
+All resources are cachable by the gateways, taking load off the services. The gateway keeps its cache up-to-date using the events emitted from the services.
+
+**Resource queries**  
+The protocol supports resource queries where partial or filtered resources are requested, such as for searches, filters, or pagination. Just like any other resource, query resources are also live.
+
+**Web resources**  
+All resources may be accessed using ordinary web (http) requests, in a RESTful manner. The same goes for all resource method calls.
+
+**Language agnostic**  
+Services may be written in any language [supported by the messaging system](https://nats.io/download/). 
+
+**Simple**  
+The protocol is designed to be simple. Simple to create services.
+
+## Quickstart
+
+If you just want to see what Resgate can do, and you have:
+* [installed Go](https://golang.org/doc/install) and [set your `$GOPATH`](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable)
+* added `$GOPATH/bin` (where your binaries ends up) to your `PATH`
+* [installed node.js](https://nodejs.org/en/download/) (for the test app)
+
+Install and run [NATS server](https://nats.io/download/nats-io/gnatsd/) and Resgate:
+```bash
+go get github.com/nats-io/gnatsd
+gnatsd
+```
+```bash
+go get github.com/jirenius/resgate
+resgate
+```
+
+Install and run [resgate-test-app](https://github.com/jirenius/resgate-test-app):
+```bash
+git clone https://github.com/jirenius/resgate-test-app
+cd resgate-test-app
+npm install
+npm run start
+```
+
+Open your favourite browser and go to:
+```
+http://localhost:8000/
+```
 
 ## Documentation
 
@@ -16,143 +85,14 @@ For more in depth information on the protocol:
 * [RES-Service protocol](docs/res-service-protocol.md) - How to write services
 * [RES-Client protocol](docs/res-client-protocol.md) - How to write client libraries, if [ResClient](https://github.com/jirenius/resclient) doesn't fit your needs
 
-## Quickstart
-
-If you just want to start using resgate, and you have:
-* [installed Go](https://golang.org/doc/install) and [set your `$GOPATH`](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable)
-* Added `$GOPATH/bin` (where your binaries ends up) to your `PATH`
-* [installed NATS server](https://nats.io/download/nats-io/gnatsd/) and have it running.
-
-Install and run resgate:
-
-```
-go get github.com/jirenius/resgate
-resgate
-```
-
 ## Writing a service
-Because of the simplicity of the [RES-Service protocol](docs/res-service-protocol.md), a single-threaded service can be created without the need of a library, as with the [Hello world example](#hello-world-example) below. NATS supports [many other languages](https://nats.io/download/) as well.
+Because of the simplicity of the [RES-Service protocol](docs/res-service-protocol.md), a single-threaded service can be created without the need of a library, as with the [resgate-test-app](https://github.com/jirenius/resgate-test-app).
 
 For writing multi-threaded services in Go:
 
 * Go - https://github.com/jirenius/go-res
 
 *Have you written a library? Send a link to have it added to the README.*
-
-
-## Hello world example
-
-A simple example of a service exposing a single resource, `exampleService.myModel`, and client application that accesses the resource.  
-For a more extensive example, see the [Resgate Test App](https://github.com/jirenius/resgate-test-app).
-
-### Service (Node.js)
-
-Also available as a [Go service](docs/go-service/main.go).
-
-Create an empty folder and install the *nats* client:
-
-```
-npm install nats
-```
-
-Create file `service.js` :
-
-```javascript
-const nats = require('nats').connect("nats://localhost:4222");
-
-let myModel = { message: "Hello world" };
-
-// Access listener. Everyone gets read access and access to call the set-method
-nats.subscribe('access.exampleService.myModel', (request, replyTo, subject) => {
-	nats.publish(replyTo, JSON.stringify({ result: { get: true, call: "set" }}));
-});
-
-// Get listener. Reply with the json encoded model
-nats.subscribe('get.exampleService.myModel', (request, replyTo, subject) => {
-	nats.publish(replyTo, JSON.stringify({ result: { model: myModel }}));
-});
-
-// Set listener for updating the myModel.message property
-nats.subscribe('call.exampleService.myModel.set', (request, replyTo, subject) => {
-	let req = JSON.parse(request);
-	let p = req.params || {};
-	// Check if the message property was changed
-	if (typeof p.message === 'string' && p.message !== myModel.message) {
-		myModel.message = p.message;
-		// The model is updated. Send a change event.
-		nats.publish('event.exampleService.myModel.change', JSON.stringify({ message: p.message }));
-	}
-	// Reply success by sending an empty result
-	nats.publish(replyTo, JSON.stringify({result: null}));
-});
-
-// System resets tells resgate that the service has been (re)started.
-// Resgate will then update any cached resource from exampleService
-nats.publish('system.reset', JSON.stringify({ resources: [ 'exampleService.>' ]}));
-
-```
-
-Start the service:
-
-```
-node service.js
-```
-
-### Client
-
-**Using Chrome**  
-Copy the javascript below to [esnextb.in](https://esnextb.in/) and try it out from there (make sure you have the [latest resclient version](https://www.npmjs.org/package/resclient) under *Package*).  
-Or just try it out in this [CodePen](https://codepen.io/sjirenius/pen/vraZPZ).  
-
-**Using some other browser**  
-Some browsers won't allow accessing a non-encrypted websocket from an encrypted page. You can get around that by running the script locally using a webpack server, or some other similar tool.
-
-Try running it in two separate tabs!
-
-```javascript
-import ResClient from 'resclient';
-
-let client = new ResClient('ws://localhost:8080');
-
-// Get the model from the service.
-client.get('exampleService.myModel').then(model => {
-	// Create an input element
-	let input = document.createElement('input');
-	input.value = model.message;
-	document.body.appendChild(input);
-
-	// Call set to update the remote model
-	input.addEventListener('input', () => {
-		model.set({ message: input.value });
-	});
-
-	// Listen for model change events.
-	// The model will be unsubscribed after calling model.off
-	model.on('change', () => {
-		input.value = model.message;
-	});
-});
-```
-
-### Web  resource
-
-Resources can be retrieved using ordinary HTTP GET requests:
-
-**GET**  
-```
-http://localhost:8080/api/exampleService/myModel
-```
-
-Methods can be called using HTTP POST requests:
-
-**POST**  
-```
-http://localhost:8080/api/exampleService/myModel/set
-```
-*Body*  
-```
-{ "message": "Updated through HTTP" }
-```
 
 ## Usage
 ```
