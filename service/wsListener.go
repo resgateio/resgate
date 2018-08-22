@@ -23,6 +23,12 @@ func (s *Service) initWsListener() {
 	s.mux.HandleFunc(s.cfg.WSPath, s.wsHandler)
 }
 
+// GetWSHandlerFunc returns the websocket http.Handler
+// Used for testing purposes
+func (s *Service) GetWSHandlerFunc() http.Handler {
+	return http.HandlerFunc(s.wsHandler)
+}
+
 func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 	// Only allow exact matching path
 	if r.URL.Path != s.cfg.WSPath {
