@@ -17,17 +17,22 @@ func (s *Service) initHTTPServer() {
 // startHTTPServer initializes the server and starts a goroutine with a http server
 // Service.mu is held when called
 func (s *Service) startHTTPServer() {
+	if s.cfg.NoHTTP {
+		return
+	}
+
 	s.Log("Starting HTTP server")
-	s.h = &http.Server{Addr: s.cfg.portString, Handler: s.mux}
+	h := &http.Server{Addr: s.cfg.portString, Handler: s.mux}
+	s.h = h
 
 	go func() {
 		s.Logf("Listening on %s://%s%s", s.cfg.scheme, "0.0.0.0", s.cfg.portString)
 
 		var err error
 		if s.cfg.TLS {
-			err = s.h.ListenAndServeTLS(s.cfg.TLSCert, s.cfg.TLSKey)
+			err = h.ListenAndServeTLS(s.cfg.TLSCert, s.cfg.TLSKey)
 		} else {
-			err = s.h.ListenAndServe()
+			err = h.ListenAndServe()
 		}
 
 		if err != nil {

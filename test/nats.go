@@ -160,7 +160,7 @@ func (s *Subscription) Unsubscribe() error {
 	defer s.c.mu.Unlock()
 
 	v, ok := s.c.subs[s.ns]
-	if ok {
+	if !ok {
 		panic("natstest: no subscription for " + s.ns)
 	}
 	if v != s {

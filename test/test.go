@@ -1,6 +1,8 @@
 package test
 
 import (
+	"time"
+
 	"github.com/gorilla/websocket"
 	"github.com/jirenius/resgate/service"
 	"github.com/posener/wstest"
@@ -24,7 +26,9 @@ func Setup() *Session {
 		conns:      make(map[*Conn]struct{}),
 	}
 
-	s.Connect()
+	if err := serv.Start(); err != nil {
+		panic("test: failed to start server: " + err.Error())
+	}
 	return s
 }
 
@@ -42,11 +46,19 @@ func Teardown(s *Session) {
 	for conn := range s.conns {
 		conn.Disconnect()
 	}
-	s.Close()
+	st := s.s.StopChannel()
+	go s.s.Stop(nil)
+
+	select {
+	case <-st:
+	case <-time.After(3 * time.Second):
+		panic("test: failed to stop server: timeout")
+	}
 }
 
 func TestConfig() service.Config {
 	var cfg service.Config
 	cfg.SetDefault()
+	cfg.NoHTTP = true
 	return cfg
 }
