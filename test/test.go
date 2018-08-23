@@ -37,9 +37,8 @@ func (s *Session) Connect() *Conn {
 	if err != nil {
 		panic(err)
 	}
-	return &Conn{
-		c: c,
-	}
+
+	return NewConn(c)
 }
 
 func Teardown(s *Session) {

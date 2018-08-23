@@ -2,15 +2,22 @@ package test
 
 import "testing"
 
-func TestConnect(t *testing.T) {
+func TestStart(t *testing.T) {
 	s := Setup()
 	defer Teardown(s)
+}
+
+func TestConnectClient(t *testing.T) {
+	s := Setup()
+	defer Teardown(s)
+	s.Connect()
 }
 
 func TestSubscribe(t *testing.T) {
 	s := Setup()
 	defer Teardown(s)
-
-	s.Connect()
-
+	c := s.Connect()
+	c.Request("get.test.model", nil)
+	r := s.GetRequest(t)
+	r.Equals(t, "get.test.model", nil)
 }
