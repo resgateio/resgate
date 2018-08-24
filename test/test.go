@@ -1,6 +1,7 @@
 package test
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -60,4 +61,18 @@ func TestConfig() service.Config {
 	cfg.SetDefault()
 	cfg.NoHTTP = true
 	return cfg
+}
+
+func concatJSON(raws ...[]byte) json.RawMessage {
+	l := 0
+	for _, raw := range raws {
+		l += len(raw)
+	}
+
+	out := make([]byte, 0, l)
+	for _, raw := range raws {
+		out = append(out, raw...)
+	}
+
+	return out
 }

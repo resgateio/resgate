@@ -3,6 +3,7 @@ package test
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,10 +20,11 @@ type Subscription struct {
 
 // Request represent a request to NATS
 type Request struct {
-	Subject string
-	Payload []byte
-	c       *NATSClient
-	cb      mq.Response
+	Subject    string
+	RawPayload []byte
+	Payload    interface{}
+	c          *NATSClient
+	cb         mq.Response
 }
 
 // NATSClient holds a client connection to a nats server.
@@ -32,6 +34,9 @@ type NATSClient struct {
 	connected bool
 	mu        sync.Mutex
 }
+
+// ParallelRequests holds multiple requests in undetermined order
+type ParallelRequests []*Request
 
 type responseCont struct {
 	isReq bool
@@ -73,11 +78,18 @@ func (c *NATSClient) SendRequest(subj string, payload []byte, cb mq.Response) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	var p interface{}
+	err := json.Unmarshal(payload, &p)
+	if err != nil {
+		panic("test: error unmarshalling request payload: " + err.Error())
+	}
+
 	r := &Request{
-		Subject: subj,
-		Payload: payload,
-		c:       c,
-		cb:      cb,
+		Subject:    subj,
+		RawPayload: payload,
+		Payload:    p,
+		c:          c,
+		cb:         cb,
 	}
 
 	c.reqs <- r
@@ -90,7 +102,7 @@ func (c *NATSClient) Subscribe(namespace string, cb mq.Response) (mq.Unsubscribe
 	defer c.mu.Unlock()
 
 	if _, ok := c.subs[namespace]; ok {
-		panic("natstest: subscription for " + namespace + " already exists")
+		panic("test: subscription for " + namespace + " already exists")
 	}
 
 	s := &Subscription{c: c, ns: namespace, cb: cb}
@@ -141,13 +153,13 @@ func (c *NATSClient) Event(rid string, event string, payload interface{}) {
 	s, ok := c.subs[ns]
 	if !ok {
 		c.mu.Unlock()
-		panic("natstest: no subscription for " + ns)
+		panic("test: no subscription for " + ns)
 	}
 
 	data, err := json.Marshal(payload)
 	if err != nil {
 		c.mu.Unlock()
-		panic("natstest: error marshalling event: " + err.Error())
+		panic("test: error marshalling event: " + err.Error())
 	}
 
 	c.mu.Unlock()
@@ -161,10 +173,10 @@ func (s *Subscription) Unsubscribe() error {
 
 	v, ok := s.c.subs[s.ns]
 	if !ok {
-		panic("natstest: no subscription for " + s.ns)
+		panic("test: no subscription for " + s.ns)
 	}
 	if v != s {
-		panic("natstest: subscription inconsistency")
+		panic("test: subscription inconsistency")
 	}
 
 	delete(s.c.subs, s.ns)
@@ -181,11 +193,20 @@ func (c *NATSClient) GetRequest(t *testing.T) *Request {
 	return nil
 }
 
+// GetParallelRequests gets n number of requests where the order is uncertain.
+func (c *NATSClient) GetParallelRequests(t *testing.T, n int) ParallelRequests {
+	pr := make(ParallelRequests, n)
+	for i := 0; i < n; i++ {
+		pr[i] = c.GetRequest(t)
+	}
+	return pr
+}
+
 // getCallback returns the request's callback.
 // It panics if the request is already responded to.
 func (r *Request) getCallback() mq.Response {
 	if r.cb == nil {
-		panic("natstest: request already responded to")
+		panic("test: request already responded to")
 	}
 
 	cb := r.cb
@@ -198,7 +219,7 @@ func (r *Request) Respond(data interface{}) {
 	cb := r.getCallback()
 	out, err := json.Marshal(data)
 	if err != nil {
-		panic("natstest: error marshalling response: " + err.Error())
+		panic("test: error marshalling response: " + err.Error())
 	}
 	cb("__RESPONSE_SUBJECT__", out, nil)
 }
@@ -236,22 +257,66 @@ func (r *Request) AssertPayload(t *testing.T, payload interface{}) {
 	var err error
 	pj, err := json.Marshal(payload)
 	if err != nil {
-		panic("natstest: error marshalling assertion payload: " + err.Error())
+		panic("test: error marshalling assertion payload: " + err.Error())
 	}
 
-	var o1 interface{}
-	var o2 interface{}
-
-	err = json.Unmarshal(pj, &o1)
+	var p interface{}
+	err = json.Unmarshal(pj, &p)
 	if err != nil {
-		panic("natstest: error unmarshalling assertion payload: " + err.Error())
-	}
-	err = json.Unmarshal(r.Payload, &o2)
-	if err != nil {
-		panic("natstest: error unmarshalling request payload: " + err.Error())
+		panic("test: error unmarshalling assertion payload: " + err.Error())
 	}
 
-	if !reflect.DeepEqual(o1, o2) {
-		t.Fatalf("expected request payload to be:\n%s\nbut got:\n%s", pj, r.Payload)
+	if !reflect.DeepEqual(p, r.Payload) {
+		t.Fatalf("expected request payload to be:\n%s\nbut got:\n%s", pj, r.RawPayload)
 	}
+}
+
+// Asserts that a the request payload at a given dot-separated path in a nested object
+// has the expected payload.
+func (r *Request) AssertPathPayload(t *testing.T, path string, payload interface{}) {
+	parts := strings.Split(path, ".")
+	v := reflect.ValueOf(r.Payload)
+	for _, part := range parts {
+		typ := v.Type()
+		if typ.Kind() != reflect.Map {
+			t.Fatalf("expected to find path %#v, but could not find %#v", path, part)
+		}
+		if typ.Key().Kind() != reflect.String {
+			panic("test: key of part " + part + " of path " + path + " is not of type string")
+		}
+		v = v.MapIndex(reflect.ValueOf(part))
+	}
+
+	var err error
+	pj, err := json.Marshal(payload)
+	if err != nil {
+		panic("test: error marshalling assertion path payload: " + err.Error())
+	}
+	var p interface{}
+	err = json.Unmarshal(pj, &p)
+	if err != nil {
+		panic("test: error unmarshalling assertion path payload: " + err.Error())
+	}
+
+	pp := v.Interface()
+	if !reflect.DeepEqual(p, pp) {
+		ppj, err := json.Marshal(pp)
+		if err != nil {
+			panic("test: error marshalling request path payload: " + err.Error())
+		}
+
+		t.Fatalf("expected request payload of path %+v to be:\n%s\nbut got:\n%s", path, pj, ppj)
+	}
+}
+
+// GetRequest returns a request based on subject.
+func (pr ParallelRequests) GetRequest(t *testing.T, subject string) *Request {
+	for _, r := range pr {
+		if r.Subject == subject {
+			return r
+		}
+	}
+
+	t.Fatalf("expected parallel requests to contain subject %#v, but found none", subject)
+	return nil
 }
