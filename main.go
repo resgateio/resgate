@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jirenius/resgate/logger"
 	"github.com/jirenius/resgate/mq/nats"
 	"github.com/jirenius/resgate/service"
 )
@@ -167,9 +168,14 @@ func main() {
 
 	cfg.Init(fs, os.Args[1:])
 
-	nats.SetDebug(cfg.Debug)
+	l := logger.NewStdLogger(cfg.Debug, cfg.Debug)
 	service.SetDebug(cfg.Debug)
-	serv := service.NewService(&nats.Client{URL: cfg.NatsURL, RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Second}, cfg.Config)
+	serv := service.NewService(&nats.Client{
+		URL:            cfg.NatsURL,
+		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Second,
+		Logger:         l,
+	}, cfg.Config)
+	serv.SetLogger(l)
 
 	if err := serv.Start(); err != nil {
 		printAndDie(err.Error(), false)

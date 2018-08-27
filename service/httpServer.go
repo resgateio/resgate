@@ -21,7 +21,7 @@ func (s *Service) startHTTPServer() {
 		return
 	}
 
-	s.Log("Starting HTTP server")
+	s.Logf("Starting HTTP server")
 	h := &http.Server{Addr: s.cfg.portString, Handler: s.mux}
 	s.h = h
 
@@ -36,7 +36,7 @@ func (s *Service) startHTTPServer() {
 		}
 
 		if err != nil {
-			s.Log(err)
+			s.Logf("%s", err)
 			s.Stop(err)
 		}
 	}()
@@ -51,7 +51,7 @@ func (s *Service) stopHTTPServer() {
 		return
 	}
 
-	s.Log("Stopping HTTP server...")
+	s.Logf("Stopping HTTP server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -60,8 +60,8 @@ func (s *Service) stopHTTPServer() {
 	s.h = nil
 
 	if ctx.Err() == context.DeadlineExceeded {
-		s.Log("HTTP server forcefully stopped after timeout")
+		s.Logf("HTTP server forcefully stopped after timeout")
 	} else {
-		s.Log("HTTP server gracefully stopped")
+		s.Logf("HTTP server gracefully stopped")
 	}
 }

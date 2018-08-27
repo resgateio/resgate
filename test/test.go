@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -10,26 +11,32 @@ import (
 )
 
 type Session struct {
-	*NATSClient
+	*NATSTestClient
 	s     *service.Service
 	d     *websocket.Dialer
 	conns map[*Conn]struct{}
+	l     *TestLogger
 }
 
-func Setup() *Session {
-	c := &NATSClient{}
+func setup() *Session {
+	l := NewTestLogger()
+
+	c := NewNATSTestClient(l)
 	serv := service.NewService(c, TestConfig())
+	serv.SetLogger(l)
 
 	s := &Session{
-		NATSClient: c,
-		d:          wstest.NewDialer(serv.GetWSHandlerFunc()),
-		s:          serv,
-		conns:      make(map[*Conn]struct{}),
+		NATSTestClient: c,
+		d:              wstest.NewDialer(serv.GetWSHandlerFunc()),
+		s:              serv,
+		conns:          make(map[*Conn]struct{}),
+		l:              l,
 	}
 
 	if err := serv.Start(); err != nil {
 		panic("test: failed to start server: " + err.Error())
 	}
+
 	return s
 }
 
@@ -42,7 +49,7 @@ func (s *Session) Connect() *Conn {
 	return NewConn(c)
 }
 
-func Teardown(s *Session) {
+func teardown(s *Session) {
 	for conn := range s.conns {
 		conn.Disconnect()
 	}
@@ -75,4 +82,20 @@ func concatJSON(raws ...[]byte) json.RawMessage {
 	}
 
 	return out
+}
+
+func runTest(t *testing.T, cb func(s *Session)) {
+	var s *Session
+	panicked := true
+	defer func() {
+		if panicked {
+			t.Logf("Trace log:\n%s", s.l)
+		}
+	}()
+
+	s = setup()
+	cb(s)
+	teardown(s)
+
+	panicked = false
 }

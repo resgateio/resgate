@@ -1,13 +1,12 @@
 package nats
 
 import (
-	"log"
-	"os"
 	"reflect"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/jirenius/resgate/logger"
 	"github.com/jirenius/resgate/mq"
 	"github.com/jirenius/timerqueue"
 	nats "github.com/nats-io/go-nats"
@@ -17,18 +16,13 @@ const (
 	natsChannelSize = 256
 )
 
-var logger = log.New(os.Stdout, "[NATS] ", log.Ltime)
-var debug = false
-
-// SetDebug enables debug logging
-func SetDebug(enabled bool) {
-	debug = enabled
-}
+var logPrefix = "[NATS] "
 
 // Client holds a client connection to a nats server.
 type Client struct {
 	RequestTimeout time.Duration
 	URL            string
+	Logger         logger.Logger
 
 	mq      *nats.Conn
 	mqCh    chan *nats.Msg
@@ -48,6 +42,30 @@ type responseCont struct {
 	isReq bool
 	f     mq.Response
 	t     *time.Timer
+}
+
+// Logf writes a formatted log message
+func (c *Client) Logf(format string, v ...interface{}) {
+	if c.Logger == nil {
+		return
+	}
+	c.Logger.Logf("[NATS] ", format, v...)
+}
+
+// Debugf writes a formatted debug message
+func (c *Client) Debugf(format string, v ...interface{}) {
+	if c.Logger == nil {
+		return
+	}
+	c.Logger.Debugf("[NATS] ", format, v...)
+}
+
+// Tracef writes a formatted trace message
+func (c *Client) Tracef(format string, v ...interface{}) {
+	if c.Logger == nil {
+		return
+	}
+	c.Logger.Tracef("[NATS] ", format, v...)
 }
 
 // Connect creates a connection to the nats server.
@@ -134,9 +152,7 @@ func (c *Client) SendRequest(subj string, payload []byte, cb mq.Response) {
 		return
 	}
 
-	if debug {
-		logger.Printf("<== %s: %s", subj, payload)
-	}
+	c.Tracef("<== %s: %s", subj, payload)
 
 	err = c.mq.PublishRequest(subj, inbox, payload)
 	if err != nil {
@@ -185,9 +201,7 @@ func (c *Client) listener(ch chan *nats.Msg, stopped chan struct{}) {
 			if len(msg.Data) > 0 && (msg.Data[0]|32)-'a' < 26 {
 				c.parseMeta(msg, rc)
 				c.mu.Unlock()
-				if debug {
-					logger.Printf("==> %s: %s", msg.Subject, msg.Data)
-				}
+				c.Tracef("==> %s: %s", msg.Subject, msg.Data)
 				continue
 			}
 
@@ -201,9 +215,7 @@ func (c *Client) listener(ch chan *nats.Msg, stopped chan struct{}) {
 		c.mu.Unlock()
 
 		if ok {
-			if debug {
-				logger.Printf("==> %s: %s", msg.Subject, msg.Data)
-			}
+			c.Tracef("==> %s: %s", msg.Subject, msg.Data)
 			rc.f(msg.Subject, msg.Data, nil)
 		}
 	}
@@ -248,8 +260,6 @@ func (c *Client) onTimeout(v interface{}) {
 	}
 	sub.Unsubscribe()
 
-	if debug {
-		logger.Printf("x=> Request timeout")
-	}
+	c.Tracef("x=> Request timeout")
 	rc.f("", nil, mq.ErrRequestTimeout)
 }

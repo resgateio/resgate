@@ -2,11 +2,10 @@ package service
 
 import (
 	"errors"
-	"log"
 	"net/http"
-	"os"
 	"sync"
 
+	"github.com/jirenius/resgate/logger"
 	"github.com/jirenius/resgate/mq"
 	"github.com/jirenius/resgate/resourceCache"
 )
@@ -14,7 +13,7 @@ import (
 // Service is a RES gateway implementation
 type Service struct {
 	cfg      Config
-	logger   *log.Logger
+	logger   logger.Logger
 	mu       sync.Mutex
 	stopping bool
 	stop     chan error
@@ -35,15 +34,9 @@ type Service struct {
 
 // NewService creates a new Service
 func NewService(mq mq.Client, cfg Config) *Service {
-	logFlags := log.LstdFlags
-	if debug {
-		logFlags = log.Ltime
-	}
 	s := &Service{
-		cfg:      cfg,
-		mq:       mq,
-		logFlags: logFlags,
-		logger:   log.New(os.Stdout, "[Main] ", logFlags),
+		cfg: cfg,
+		mq:  mq,
 	}
 
 	s.cfg.prepare()
@@ -62,14 +55,31 @@ func SetDebug(enabled bool) {
 	resourceCache.SetDebug(enabled)
 }
 
-// Log writes a log message
-func (s *Service) Log(v ...interface{}) {
-	s.logger.Print(v...)
+func (s *Service) SetLogger(l logger.Logger) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.stop != nil {
+		panic("SetLogger must be called before starting server")
+	}
+
+	s.logger = l
 }
 
 // Logf writes a formatted log message
 func (s *Service) Logf(format string, v ...interface{}) {
-	s.logger.Printf(format, v...)
+	if s.logger == nil {
+		return
+	}
+	s.logger.Logf("[Main] ", format, v...)
+}
+
+// Debugf writes a formatted debug message
+func (s *Service) Debugf(format string, v ...interface{}) {
+	if s.logger == nil {
+		return
+	}
+	s.logger.Debugf("[Main] ", format, v...)
 }
 
 // Start connects the Service to the nats server
@@ -93,7 +103,7 @@ func (s *Service) start() error {
 		return errors.New("Service is stopping")
 	}
 
-	s.Log("Starting service")
+	s.Logf("Starting service")
 	s.stop = make(chan error, 1)
 
 	if err := s.startMQClient(); err != nil {
@@ -116,7 +126,7 @@ func (s *Service) Stop(err error) {
 	s.stopping = true
 	s.mu.Unlock()
 
-	s.Log("Stopping service...")
+	s.Logf("Stopping service...")
 
 	s.stopWsListener()
 	s.stopHTTPServer()
@@ -127,7 +137,7 @@ func (s *Service) Stop(err error) {
 	close(s.stop)
 	s.stop = nil
 	s.stopping = false
-	s.Log("Service stopped")
+	s.Logf("Service stopped")
 	s.mu.Unlock()
 }
 
