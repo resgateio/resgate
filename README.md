@@ -64,7 +64,11 @@ go get github.com/jirenius/resgate
 resgate
 ```
 
-Install and run [resgate-test-app](https://github.com/jirenius/resgate-test-app):
+Run one of the examples:
+* [Hello World example](examples/hello-world/)
+* [Book Collection example](examples/book-collection/)
+
+Or install and run [Resgate Test App](https://github.com/jirenius/resgate-test-app):
 ```bash
 git clone https://github.com/jirenius/resgate-test-app
 cd resgate-test-app
