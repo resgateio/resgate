@@ -154,3 +154,45 @@ func (cr *ClientResponse) AssertResult(t *testing.T, result interface{}) {
 		t.Fatalf("expected response result to be:\n%s\nbut got:\n%s", rj, crj)
 	}
 }
+
+// AssertError asserts that the response has the expected error
+func (cr *ClientResponse) AssertError(t *testing.T, err *reserr.Error) {
+	// Assert it is an error
+	if cr.Error == nil {
+		var err error
+		rj, err := json.Marshal(cr.Result)
+		if err != nil {
+			panic("test: error marshalling response result: " + err.Error())
+		}
+		t.Fatalf("expected error response, but got result:\n%s", rj)
+	}
+
+	if !reflect.DeepEqual(err, cr.Error) {
+		ej, err := json.Marshal(err)
+		if err != nil {
+			panic("test: error marshalling assertion error: " + err.Error())
+		}
+		cej, err := json.Marshal(cr.Error)
+		if err != nil {
+			panic("test: error marshalling response error: " + err.Error())
+		}
+		t.Fatalf("expected response result to be:\n%s\nbut got:\n%s", ej, cej)
+	}
+}
+
+// AssertErrorCode asserts that the response has the expected error code
+func (cr *ClientResponse) AssertErrorCode(t *testing.T, code string) {
+	// Assert it is an error
+	if cr.Error == nil {
+		var err error
+		rj, err := json.Marshal(cr.Result)
+		if err != nil {
+			panic("test: error marshalling response result: " + err.Error())
+		}
+		t.Fatalf("expected error response, but got result:\n%s", rj)
+	}
+
+	if cr.Error.Code != code {
+		t.Fatalf("expected response error code to be:\n%#v\nbut got:\n%#v", code, cr.Error.Code)
+	}
+}

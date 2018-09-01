@@ -10,6 +10,7 @@ import (
 
 	"github.com/jirenius/resgate/logger"
 	"github.com/jirenius/resgate/mq"
+	"github.com/jirenius/resgate/reserr"
 )
 
 // Subscription implements the mq.Unsubscriber interface.
@@ -260,11 +261,11 @@ func (r *Request) Respond(data interface{}) {
 	cb("__RESPONSE_SUBJECT__", out, nil)
 }
 
-// RespondError sends an error response
-func (r *Request) RespondError(err error) {
+// SendError sends an error response
+func (r *Request) SendError(err error) {
 	cb := r.getCallback()
-	r.c.Tracef("==> %s: %s", r.Subject, err)
-	cb("__RESPONSE_SUBJECT__", nil, err)
+	r.c.Tracef("X== %s: %s", r.Subject, err)
+	cb("", nil, err)
 }
 
 // RespondSuccess sends a success response
@@ -274,6 +275,20 @@ func (r *Request) RespondSuccess(result interface{}) {
 	}{
 		Result: result,
 	})
+}
+
+// RespondError sends an error response
+func (r *Request) RespondError(err *reserr.Error) {
+	r.Respond(struct {
+		Error *reserr.Error `json:"error"`
+	}{
+		Error: err,
+	})
+}
+
+// Timeout lets the request timeout
+func (r *Request) Timeout() {
+	r.SendError(mq.ErrRequestTimeout)
 }
 
 // Equals asserts that the request has the expected subject and payload
