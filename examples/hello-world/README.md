@@ -1,8 +1,8 @@
 # Hello World example
 
-This is an example of a simple Hello World RES service written in Javascript (Node.js).
-* It exposes a single resource: `exampleService.myModel`.
-* It allows setting the resource's Message property through the `set` method.
+This is an example of a simple Hello World RES service written in javascript (node.js).
+* It exposes a single resource, `exampleService.myModel`.
+* It allows setting the resource's *message* property through the `set` method.
 
 ## Prerequisite
 
@@ -16,25 +16,28 @@ Run the following commands:
 npm install
 npm start
 ```
-### Open the client
+Open the client
 ```
 http://localhost:8081
 ```
 
-### Web resource
+## Things to try out
 
-Resources can be retrieved using ordinary HTTP GET requests:
+**Realtime updates**  
+Run the client in two separate tabs, edit the message in one tab, and observe realtime updates in both.
 
-**GET**  
+## Web resources
+
+Resources can be retrieved using ordinary HTTP GET requests, and methods can be called using HTTP POST requests.
+
+### Get model
 ```
-http://localhost:8080/api/exampleService/myModel
+GET http://localhost:8080/api/exampleService/myModel
 ```
 
-Methods can be called using HTTP POST requests:
-
-**POST**  
+### Update model
 ```
-http://localhost:8080/api/exampleService/myModel/set
+POST http://localhost:8080/api/exampleService/myModel/set
 ```
 *Body*  
 ```
