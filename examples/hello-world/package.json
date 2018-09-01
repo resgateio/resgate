@@ -1,0 +1,15 @@
+{
+  "name": "hello-world",
+  "version": "1.0.0",
+  "description": "Resgate Hello World Example",
+  "main": "server.js",
+  "dependencies": {
+    "connect": "^3.6.6",
+    "nats": "^1.0.1",
+    "serve-static": "^1.13.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node server.js"
+  }
+}

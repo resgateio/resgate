@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<title>Book Collection Example</title>
+		<script src="https://unpkg.com/resclient@latest/dist/resclient.min.js"></script>
+		<script src="https://unpkg.com/modapp-base-component@latest/dist/modapp-base-component.min.js"></script>
+		<script src="https://unpkg.com/modapp-resource-component@latest/dist/modapp-resource-component.min.js"></script>
+		<style>
+			body {
+				background: #eee;
+				font-family: Arial, Helvetica, sans-serif;
+				padding: 0;
+				margin: 0;
+			}
+			header {
+				background: #000;
+				color: #fff;
+				padding: 16px 1em;
+			}
+			h1 {
+				margin: 0;
+				padding: 0;
+				line-height: 32px;
+				font-size: 24px;
+			}
+			.top {
+				margin: 1em 1em;
+			}
+			.shadow {
+				box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+			}
+			#books {
+				max-width: 800px;
+				margin: 0 1em;
+			}
+			.new-container { margin: 1em 0; }
+			label {
+				margin: 0.5em 1em 0.5em 0;
+				font-weight: bold;
+			}
+			.new-container input { margin-right: 1em; }
+			#error-msg { color: #800 }
+			button {
+				display: inline-block;
+				border: none;
+				background: none;
+				color: #006;
+			}
+			button:hover { background: rgba(0,0,0,0.12); }
+			.list-item { padding: 8px 0; }
+			.card {
+				background: #fff;
+				padding: 1em 1em;
+				box-sizing: border-box;
+			}
+			.action { float: right }
+			.editing > .card { background: #eaeaff; }
+			.card > .edit { display: none; }
+			.editing > .card > .edit {	display: inherit; }
+			.editing > .card > .view {	display: none; }
+			.card h3 { margin: 0 0 8px 0; }
+			.card .author { font-style: italic; }
+			.label {
+				display: inline-block;
+				width: 80px;
+				font-weight: bold;
+			}
+			.edit-input + .edit-input { margin-top: 4px; }
+		</style>
+	</head>
+	<body>
+		<header class="shadow">
+			<h1>Book Collection Example</h1>
+		</header>
+		<div class="top">
+			<div class="new-container">
+				<label for="new-title">Title</label><input id="new-title" />
+				<label for="new-author">Author</label><input id="new-author" />
+				<button id="add-new">Add new</button>
+			</div>
+			<div id="error-msg"></div>
+		</div>
+		<hr>
+		<div id="books"></div>
+		<script>
+			const { Elem, Txt, Button, Input } = window["modapp-base-component"];
+			const { CollectionList, ModelTxt } = window["modapp-resource-component"];
+			const ResClient = resclient.default;
+
+			let client = new ResClient('ws://localhost:8080');
+
+			// Error handling
+			let errMsg = new Txt();
+			let errTimer = null;
+			errMsg.render(document.getElementById('error-msg'));
+			let showError = (err) => {
+				errMsg.setText(err && err.message ? err.message : String(err));
+				clearTimeout(errTimer);
+				errTimer = setTimeout(() => errMsg.setText(''), 7000);
+			};
+
+			// Add new click callback
+			document.getElementById('add-new').addEventListener('click', () => {
+				let newTitle = document.getElementById('new-title');
+				let newAuthor = document.getElementById('new-author');
+				client.call('bookService.books', 'new', {
+					title: newTitle.value,
+					author: newAuthor.value
+				}).then(() => {
+					// Clear values on successful add
+					newTitle.value = "";
+					newAuthor.value = "";
+				}).catch(showError);
+			});
+
+			// Get the collection from the service.
+			client.get('bookService.books').then(books => {
+				// Here we use modapp components to render the view.
+				// It is a protest against all these frameworks with virtual doms.
+				// Why use virtual doms when it is faster with vanilla javascript?
+				new Elem(n =>
+					n.component(new CollectionList(books, book => {
+						let c = new Elem(n =>
+							n.elem('div', { className: 'list-item' }, [
+								n.elem('div', { className: 'card shadow' }, [
+									n.elem('div', { className: 'view' }, [
+										n.elem('div', { className: 'action' }, [
+											n.component(new Button(`Edit`, () => {
+												c.getNode('titleInput').setValue(book.title);
+												c.getNode('authorInput').setValue(book.author);
+												c.addClass('editing');
+											})),
+											n.component(new Button(`Delete`, () => books.call('delete', { id: book.id }).catch(showError)))
+										]),
+										n.elem('div', { className: 'title' }, [
+											n.component(new ModelTxt(book, book => book.title, { tagName: 'h3'}))
+										]),
+										n.elem('div', { className: 'author' }, [
+											n.component(new Txt("By ")),
+											n.component(new ModelTxt(book, book => book.author))
+										])
+									]),
+									n.elem('div', { className: 'edit' }, [
+										n.elem('div', { className: 'action' }, [
+											n.component(new Button(`OK`, () => {
+												book.set({
+													title: c.getNode('titleInput').getValue(),
+													author: c.getNode('authorInput').getValue()
+												})
+													.then(() => c.removeClass('editing'))
+													.catch(showError);
+											})),
+											n.component(new Button(`Cancel`, () => c.removeClass('editing')))
+										]),
+										n.elem('div', { className: 'edit-input' }, [
+											n.component(new Txt("Title", { className: 'label' })),
+											n.component('titleInput', new Input())
+										]),
+										n.elem('div', { className: 'edit-input' }, [
+											n.component(new Txt("Author", { className: 'label' })),
+											n.component('authorInput', new Input())
+										])
+									])
+								])
+							])
+						);
+						return c;
+					}, { className: 'list' }))
+				).render(document.getElementById('books'));
+			}).catch(err => showError(err.code === 'system.connectionError'
+				? "Connection error. Are NATS Server and Resgate running?"
+				: err
+			));
+		</script>
+	</body>
+</html>
