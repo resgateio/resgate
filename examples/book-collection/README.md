@@ -11,8 +11,8 @@ This is an example, written in javascript (node.js), of a RES service with colle
 
 ## Prerequisite
 
-* Have NATS Server and Resgate running
-* Have node.js installed
+* Have [NATS Server](https://nats.io/download/nats-io/gnatsd/) and [Resgate](https://github.com/jirenius/resgate) running
+* Have [node.js](https://nodejs.org/en/download/) installed
 
 ## Running the example
 
