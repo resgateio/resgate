@@ -281,35 +281,41 @@ func TestResponseOnLinkedModelSubscribeWithOverlappingSubscription(t *testing.T)
 	runTest(t, func(s *Session) {
 		model := resource["test.model"]
 		modelParent := resource["test.model.parent"]
+		modelSecondParent := resource["test.model.secondparent"]
 
 		c := s.Connect()
 		// Get model
-		creq := c.Request("subscribe.test.model", nil)
-
-		// Handle parent get and access request of
-		mreqs := s.GetParallelRequests(t, 2)
-		req := mreqs.GetRequest(t, "get.test.model")
-		req.RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
-		req = mreqs.GetRequest(t, "access.test.model")
-		req.RespondSuccess(json.RawMessage(`{"get":true}`))
-
-		// Validate client response
-		cresp := creq.GetResponse(t)
-		cresp.AssertResult(t, json.RawMessage(`{"models":{"test.model":`+model+`}}`))
-
-		// Get parent model
-		creq = c.Request("subscribe.test.model.parent", nil)
+		creq := c.Request("subscribe.test.model.parent", nil)
 
 		// Handle parent get and access request
-		mreqs = s.GetParallelRequests(t, 2)
-		req = mreqs.GetRequest(t, "get.test.model.parent")
+		mreqs := s.GetParallelRequests(t, 2)
+		req := mreqs.GetRequest(t, "get.test.model.parent")
 		req.RespondSuccess(json.RawMessage(`{"model":` + modelParent + `}`))
 		req = mreqs.GetRequest(t, "access.test.model.parent")
 		req.RespondSuccess(json.RawMessage(`{"get":true}`))
 
+		// Handle child get request
+		mreqs = s.GetParallelRequests(t, 1)
+		req = mreqs.GetRequest(t, "get.test.model")
+		req.RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+
+		// Get client response
+		cresp := creq.GetResponse(t)
+		cresp.AssertResult(t, json.RawMessage(`{"models":{"test.model":`+model+`,"test.model.parent":`+modelParent+`}}`))
+
+		// Get second parent model
+		creq = c.Request("subscribe.test.model.secondparent", nil)
+
+		// Handle parent get and access request
+		mreqs = s.GetParallelRequests(t, 2)
+		req = mreqs.GetRequest(t, "get.test.model.secondparent")
+		req.RespondSuccess(json.RawMessage(`{"model":` + modelSecondParent + `}`))
+		req = mreqs.GetRequest(t, "access.test.model.secondparent")
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+
 		// Validate client response
 		cresp = creq.GetResponse(t)
-		cresp.AssertResult(t, json.RawMessage(`{"models":{"test.model.parent":`+modelParent+`}}`))
+		cresp.AssertResult(t, json.RawMessage(`{"models":{"test.model.secondparent":`+modelSecondParent+`}}`))
 	})
 }
 
@@ -431,34 +437,40 @@ func TestResponseOnLinkedCollectionSubscribeWithOverlappingSubscription(t *testi
 	runTest(t, func(s *Session) {
 		collection := resource["test.collection"]
 		collectionParent := resource["test.collection.parent"]
+		collectionSecondParent := resource["test.collection.secondparent"]
 
 		c := s.Connect()
 		// Get collection
-		creq := c.Request("subscribe.test.collection", nil)
-
-		// Handle parent get and access request of
-		mreqs := s.GetParallelRequests(t, 2)
-		req := mreqs.GetRequest(t, "get.test.collection")
-		req.RespondSuccess(json.RawMessage(`{"collection":` + collection + `}`))
-		req = mreqs.GetRequest(t, "access.test.collection")
-		req.RespondSuccess(json.RawMessage(`{"get":true}`))
-
-		// Validate client response
-		cresp := creq.GetResponse(t)
-		cresp.AssertResult(t, json.RawMessage(`{"collections":{"test.collection":`+collection+`}}`))
-
-		// Get parent collection
-		creq = c.Request("subscribe.test.collection.parent", nil)
+		creq := c.Request("subscribe.test.collection.parent", nil)
 
 		// Handle parent get and access request
-		mreqs = s.GetParallelRequests(t, 2)
-		req = mreqs.GetRequest(t, "get.test.collection.parent")
+		mreqs := s.GetParallelRequests(t, 2)
+		req := mreqs.GetRequest(t, "get.test.collection.parent")
 		req.RespondSuccess(json.RawMessage(`{"collection":` + collectionParent + `}`))
 		req = mreqs.GetRequest(t, "access.test.collection.parent")
 		req.RespondSuccess(json.RawMessage(`{"get":true}`))
 
+		// Handle child get request
+		mreqs = s.GetParallelRequests(t, 1)
+		req = mreqs.GetRequest(t, "get.test.collection")
+		req.RespondSuccess(json.RawMessage(`{"collection":` + collection + `}`))
+
+		// Get client response
+		cresp := creq.GetResponse(t)
+		cresp.AssertResult(t, json.RawMessage(`{"collections":{"test.collection":`+collection+`,"test.collection.parent":`+collectionParent+`}}`))
+
+		// Get second parent collection
+		creq = c.Request("subscribe.test.collection.secondparent", nil)
+
+		// Handle parent get and access request
+		mreqs = s.GetParallelRequests(t, 2)
+		req = mreqs.GetRequest(t, "get.test.collection.secondparent")
+		req.RespondSuccess(json.RawMessage(`{"collection":` + collectionSecondParent + `}`))
+		req = mreqs.GetRequest(t, "access.test.collection.secondparent")
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+
 		// Validate client response
 		cresp = creq.GetResponse(t)
-		cresp.AssertResult(t, json.RawMessage(`{"collections":{"test.collection.parent":`+collectionParent+`}}`))
+		cresp.AssertResult(t, json.RawMessage(`{"collections":{"test.collection.secondparent":`+collectionSecondParent+`}}`))
 	})
 }
