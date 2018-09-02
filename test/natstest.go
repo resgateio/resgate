@@ -196,7 +196,7 @@ func (c *NATSTestClient) Event(rid string, event string, payload interface{}) {
 
 	c.mu.Unlock()
 	subj := ns + "." + event
-	c.Tracef("E=> %s: %s", data)
+	c.Tracef("E=> %s: %s", subj, data)
 	s.cb(subj, data, nil)
 }
 

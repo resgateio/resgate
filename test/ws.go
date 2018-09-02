@@ -12,8 +12,10 @@ import (
 )
 
 type Conn struct {
+	s    *Session
 	ws   *websocket.Conn
 	reqs map[uint64]*ClientRequest
+	evs  chan *ClientEvent
 	mu   sync.Mutex
 }
 
@@ -27,6 +29,8 @@ type clientResponse struct {
 	Result interface{}   `json:"result"`
 	Error  *reserr.Error `json:"error"`
 	ID     uint64        `json:"id"`
+	Event  *string       `json:"event"`
+	Data   interface{}   `json:"data"`
 }
 
 var clientRequestID uint64 = 0
@@ -43,10 +47,20 @@ type ClientResponse struct {
 	Error  *reserr.Error
 }
 
-func NewConn(ws *websocket.Conn) *Conn {
+type ClientEvent struct {
+	Event string
+	Data  interface{}
+}
+
+// ParallelEvents holds multiple events in undetermined order
+type ParallelEvents []*ClientEvent
+
+func NewConn(s *Session, ws *websocket.Conn) *Conn {
 	c := &Conn{
+		s:    s,
 		ws:   ws,
 		reqs: make(map[uint64]*ClientRequest),
+		evs:  make(chan *ClientEvent, 32),
 	}
 	go c.listen()
 	return c
@@ -83,6 +97,51 @@ func (c *Conn) Disconnect() {
 	c.Disconnect()
 }
 
+func (c *Conn) GetEvent(t *testing.T) *ClientEvent {
+	select {
+	case ev := <-c.evs:
+		return ev
+	case <-time.After(1 * time.Second):
+		t.Fatal("expected a client event but found none")
+	}
+	return nil
+}
+
+// GetParallelEvents gets n number of events where the order is uncertain.
+func (c *Conn) GetParallelEvents(t *testing.T, n int) ParallelEvents {
+	pev := make(ParallelEvents, n)
+	for i := 0; i < n; i++ {
+		pev[i] = c.GetEvent(t)
+	}
+	return pev
+}
+
+// AssertNoEvent assert that no events are queued
+func (c *Conn) AssertNoEvent(t *testing.T, rid string) {
+	// Quick check if an event already exists
+	select {
+	case ev := <-c.evs:
+		t.Fatalf("expected no client event, but found %#v", ev.Event)
+	default:
+	}
+
+	// Flush out events by sending an auth on the resource
+	// We use auth as it requires no access check, but will
+	// be processed by the same goroutine as events.
+	creq := c.Request("auth."+rid+".foo", nil)
+	req := c.s.GetRequest(t)
+	req.AssertSubject(t, "auth."+rid+".foo")
+	req.RespondSuccess(nil)
+	creq.GetResponse(t)
+
+	// Check if an event has arrived meanwhile
+	select {
+	case ev := <-c.evs:
+		t.Fatalf("expected no client event, but found %#v", ev.Event)
+	default:
+	}
+}
+
 func (c *Conn) listen() {
 	var in []byte
 	var err error
@@ -100,17 +159,26 @@ func (c *Conn) listen() {
 		}
 
 		c.mu.Lock()
-		req, ok := c.reqs[cr.ID]
-		if !ok {
+		// Check if it is an event
+		if cr.Event != nil {
+			c.evs <- &ClientEvent{
+				Event: *cr.Event,
+				Data:  cr.Data,
+			}
 			c.mu.Unlock()
-			panic("test: response without matching request")
-		}
-		delete(c.reqs, cr.ID)
-		c.mu.Unlock()
+		} else {
+			req, ok := c.reqs[cr.ID]
+			if !ok {
+				c.mu.Unlock()
+				panic("test: response without matching request")
+			}
+			delete(c.reqs, cr.ID)
+			c.mu.Unlock()
 
-		req.ch <- &ClientResponse{
-			Result: cr.Result,
-			Error:  cr.Error,
+			req.ch <- &ClientResponse{
+				Result: cr.Result,
+				Error:  cr.Error,
+			}
 		}
 	}
 }
@@ -194,5 +262,53 @@ func (cr *ClientResponse) AssertErrorCode(t *testing.T, code string) {
 
 	if cr.Error.Code != code {
 		t.Fatalf("expected response error code to be:\n%#v\nbut got:\n%#v", code, cr.Error.Code)
+	}
+}
+
+// GetEvent returns a event based on event name.
+func (pr ParallelEvents) GetEvent(t *testing.T, event string) *ClientEvent {
+	for _, r := range pr {
+		if r.Event == event {
+			return r
+		}
+	}
+
+	t.Fatalf("expected parallel events to contain %#v, but found none", event)
+	return nil
+}
+
+// Equals asserts that the event has the expected event name and payload
+func (ev *ClientEvent) Equals(t *testing.T, event string, data interface{}) {
+	ev.AssertEventName(t, event)
+	ev.AssertData(t, data)
+}
+
+// AssertEventName asserts that the event has the expected event name
+func (ev *ClientEvent) AssertEventName(t *testing.T, event string) {
+	if ev.Event != event {
+		t.Fatalf("expected event to be %#v, but got %#v", event, ev.Event)
+	}
+}
+
+// AssertData asserts that the event has the expected data
+func (ev *ClientEvent) AssertData(t *testing.T, data interface{}) {
+	var err error
+	dj, err := json.Marshal(data)
+	if err != nil {
+		panic("test: error marshalling assertion data: " + err.Error())
+	}
+
+	var p interface{}
+	err = json.Unmarshal(dj, &p)
+	if err != nil {
+		panic("test: error unmarshalling assertion data: " + err.Error())
+	}
+
+	if !reflect.DeepEqual(p, ev.Data) {
+		evdj, err := json.Marshal(ev.Data)
+		if err != nil {
+			panic("test: error marshalling event data: " + err.Error())
+		}
+		t.Fatalf("expected event data to be:\n%s\nbut got:\n%s", dj, evdj)
 	}
 }

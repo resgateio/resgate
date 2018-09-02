@@ -25,7 +25,7 @@ func TestConnectClient(t *testing.T) {
 func TestGetAndAccessOnSubscribe(t *testing.T) {
 	runTest(t, func(s *Session) {
 		c := s.Connect()
-		c.Request("get.test.model", nil)
+		c.Request("subscribe.test.model", nil)
 		mreqs := s.GetParallelRequests(t, 2)
 
 		// Validate get request
@@ -157,7 +157,7 @@ func TestResponseOnLinkedModelSubscribe(t *testing.T) {
 		modelParent := resource["test.model.parent"]
 
 		c := s.Connect()
-		creq := c.Request("get.test.model.parent", nil)
+		creq := c.Request("subscribe.test.model.parent", nil)
 
 		// Handle parent get and access request
 		mreqs := s.GetParallelRequests(t, 2)
@@ -177,6 +177,42 @@ func TestResponseOnLinkedModelSubscribe(t *testing.T) {
 	})
 }
 
+// Test that events are subscribed to on linked model subscription
+func TestEventsOnLinkedModelSubscribe(t *testing.T) {
+	runTest(t, func(s *Session) {
+		model := resource["test.model"]
+		modelParent := resource["test.model.parent"]
+		event := json.RawMessage(`{"foo":"bar"}`)
+
+		c := s.Connect()
+		creq := c.Request("subscribe.test.model.parent", nil)
+
+		// Handle parent get and access request
+		mreqs := s.GetParallelRequests(t, 2)
+		req := mreqs.GetRequest(t, "get.test.model.parent")
+		req.RespondSuccess(json.RawMessage(`{"model":` + modelParent + `}`))
+		req = mreqs.GetRequest(t, "access.test.model.parent")
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+
+		// Handle child get request
+		mreqs = s.GetParallelRequests(t, 1)
+		req = mreqs.GetRequest(t, "get.test.model")
+		req.RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+
+		// Get client response
+		cresp := creq.GetResponse(t)
+		cresp.AssertResult(t, json.RawMessage(`{"models":{"test.model":`+model+`,"test.model.parent":`+modelParent+`}}`))
+
+		// Send event on model and validate client event
+		s.Event("test.model", "custom", event)
+		c.GetEvent(t).Equals(t, "test.model.custom", event)
+
+		// Send event on model parent and validate client event
+		s.Event("test.model.parent", "custom", event)
+		c.GetEvent(t).Equals(t, "test.model.parent.custom", event)
+	})
+}
+
 // Test that a response with chain-linked models is sent to the client on a client
 // subscribe request
 func TestResponseOnChainLinkedModelSubscribe(t *testing.T) {
@@ -186,7 +222,7 @@ func TestResponseOnChainLinkedModelSubscribe(t *testing.T) {
 		modelGrandparent := resource["test.model.grandparent"]
 
 		c := s.Connect()
-		creq := c.Request("get.test.model.grandparent", nil)
+		creq := c.Request("subscribe.test.model.grandparent", nil)
 
 		// Handle grandparent get and access request
 		mreqs := s.GetParallelRequests(t, 2)
@@ -219,7 +255,7 @@ func TestResponseOnCircularModelSubscribe(t *testing.T) {
 		modelB := resource["test.model.b"]
 
 		c := s.Connect()
-		creq := c.Request("get.test.model.a", nil)
+		creq := c.Request("subscribe.test.model.a", nil)
 
 		// Handle parent get and access request
 		mreqs := s.GetParallelRequests(t, 2)
