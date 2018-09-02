@@ -142,6 +142,19 @@ func (c *Conn) AssertNoEvent(t *testing.T, rid string) {
 	}
 }
 
+// AssertNoNATSRequest assert that no request are queued on NATS
+func (c *Conn) AssertNoNATSRequest(t *testing.T, rid string) {
+	// Flush out requests by sending an auth on the resource
+	// and validate it is the request next in queue.
+	creq := c.Request("auth."+rid+".foo", nil)
+	req := c.s.GetRequest(t)
+	if req.Subject != "auth."+rid+".foo" {
+		t.Fatalf("expected no NATS request, but found %#v", req.Subject)
+	}
+	req.RespondSuccess(nil)
+	creq.GetResponse(t)
+}
+
 func (c *Conn) listen() {
 	var in []byte
 	var err error

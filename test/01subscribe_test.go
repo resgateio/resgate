@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/jirenius/resgate/mq"
-
 	"github.com/jirenius/resgate/reserr"
 )
 
