@@ -262,17 +262,17 @@ MAY be omitted.
 HTTP headers used on client connection. May be omitted.  
 MUST be a key/value object, where the key is the canonical format of the MIME header, and the value is an array of strings associated with the key.
 
-**host**
+**host**  
 The host on which the URL is sought by the client. Per RFC 2616, this is either the value of the "Host" header or the host name given in the URL itself.  
 May be omitted.  
 MUST be a string.
 
-**remoteAddr**
+**remoteAddr**  
 The network address of the client that sent the request.  
 The format is not specified, and it may be omitted.  
 MUST be a string.
 
-**uri**
+**uri**  
 The unmodified Request-URI of the Request-Line (RFC 2616, Section 5.1) as sent by the client when connecting to the gateway.  
 May be omitted.  
 MUST be a string.

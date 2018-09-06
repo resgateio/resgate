@@ -37,6 +37,7 @@ func TestGetAndAccessOnSubscribe(t *testing.T) {
 	})
 }
 
+// Test responses to client get and subscribe requests
 func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 	model := resource["test.model"]
 	brokenModel := json.RawMessage(`{"foo":"bar"}`)

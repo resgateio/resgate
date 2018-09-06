@@ -323,21 +323,10 @@ func (r *Request) AssertPayload(t *testing.T, payload interface{}) {
 	}
 }
 
-// Asserts that a the request payload at a given dot-separated path in a nested object
-// has the expected payload.
+// AssertPathPayload asserts that a the request payload at a given dot-separated
+// path in a nested object has the expected payload.
 func (r *Request) AssertPathPayload(t *testing.T, path string, payload interface{}) {
-	parts := strings.Split(path, ".")
-	v := reflect.ValueOf(r.Payload)
-	for _, part := range parts {
-		typ := v.Type()
-		if typ.Kind() != reflect.Map {
-			t.Fatalf("expected to find path %#v, but could not find %#v", path, part)
-		}
-		if typ.Key().Kind() != reflect.String {
-			panic("test: key of part " + part + " of path " + path + " is not of type string")
-		}
-		v = v.MapIndex(reflect.ValueOf(part))
-	}
+	pp := r.PathPayload(t, path)
 
 	var err error
 	pj, err := json.Marshal(payload)
@@ -350,15 +339,49 @@ func (r *Request) AssertPathPayload(t *testing.T, path string, payload interface
 		panic("test: error unmarshalling assertion path payload: " + err.Error())
 	}
 
-	pp := v.Interface()
 	if !reflect.DeepEqual(p, pp) {
 		ppj, err := json.Marshal(pp)
 		if err != nil {
 			panic("test: error marshalling request path payload: " + err.Error())
 		}
 
-		t.Fatalf("expected request payload of path %+v to be:\n%s\nbut got:\n%s", path, pj, ppj)
+		t.Fatalf("expected request payload of path %#v to be:\n%s\nbut got:\n%s", path, pj, ppj)
 	}
+}
+
+// AssertPathPayload asserts that a the request payload at a given dot-separated
+// path in a nested object has the same type as typ.
+func (r *Request) AssertPathType(t *testing.T, path string, typ interface{}) {
+	pp := r.PathPayload(t, path)
+
+	ppt := reflect.TypeOf(pp)
+	pt := reflect.TypeOf(typ)
+
+	if ppt != pt {
+		t.Fatalf("expected request payload of path %#v to be of type \"%s\", but got \"%s\"", path, pt, ppt)
+	}
+}
+
+// PathPayload returns the request payload at a given dot-separated path in a nested object.
+// It gives a fatal error if the path doesn't exist.
+func (r *Request) PathPayload(t *testing.T, path string) interface{} {
+	parts := strings.Split(path, ".")
+	v := reflect.ValueOf(r.Payload)
+	for _, part := range parts {
+		typ := v.Type()
+		if typ.Kind() != reflect.Map {
+			t.Fatalf("expected to find path %#v, but part %#v is of type %s", path, part, typ)
+		}
+		if typ.Key().Kind() != reflect.String {
+			panic("test: key of part " + part + " of path " + path + " is not of type string")
+		}
+		v = v.MapIndex(reflect.ValueOf(part))
+		if !v.IsValid() {
+			t.Fatalf("expected to find path %#v, but missing map key %#v", path, part)
+		}
+	}
+
+	return v.Interface()
 }
 
 // GetRequest returns a request based on subject.

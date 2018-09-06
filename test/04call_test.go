@@ -8,7 +8,7 @@ import (
 	"github.com/jirenius/resgate/reserr"
 )
 
-// Test that events are not sent to a model fetched with a client get request
+// Test responses to client call requests
 func TestCallOnResource(t *testing.T) {
 
 	model := resource["test.model"]
@@ -83,6 +83,8 @@ func TestCallOnResource(t *testing.T) {
 					// Get call request
 					req = s.GetRequest(t)
 					req.AssertSubject(t, "call.test.model.method")
+					req.AssertPathType(t, "cid", string(""))
+					req.AssertPathPayload(t, "token", nil)
 					req.AssertPathPayload(t, "params", l.Params)
 					if l.CallResponse == callTimeout {
 						req.Timeout()

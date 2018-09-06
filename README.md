@@ -7,7 +7,7 @@ Used for building *scaleable*, *resilient*, *extensible*, and *secure* client we
 Simple, stateless, and scalable like REST, but updated in real-time.
 
 ![Book Collection Animation](docs/img/book-collection-anim.gif)  
-*Book Collection Example from the [go-res project](https://github.com/jirenius/go-res)*.
+*Screen capture from the [Book Collection Example](examples/book-collection/)*.
 
 ## Features
 
