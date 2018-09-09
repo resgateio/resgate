@@ -14,3 +14,9 @@ var resource = map[string]string{
 	"test.collection.a":            `[{"rid":"test.collection.b"}]`,
 	"test.collection.b":            `[{"rid":"test.collection.a"},{"rid":"test.collection.b"}]`,
 }
+
+// Call responses
+const (
+	requestTimeout uint64 = iota
+	noRequest
+)

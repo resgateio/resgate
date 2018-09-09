@@ -13,18 +13,16 @@ func TestAuthOnResource(t *testing.T) {
 
 	params := json.RawMessage(`{"value":42}`)
 	successResponse := json.RawMessage(`{"foo":"bar"}`)
-	// Call responses
-	callTimeout := &struct{}{}
 
 	tbl := []struct {
 		Params       interface{} // Params to use in call request
-		AuthResponse interface{} // Response on call request. callTimeout means timeout. noCall means no call request is expected
+		AuthResponse interface{} // Response on call request. requestTimeout means timeout.
 		Expected     interface{}
 	}{
 		{nil, successResponse, successResponse},
 		{nil, reserr.ErrInvalidParams, reserr.ErrInvalidParams},
 		{nil, nil, nil},
-		{nil, callTimeout, mq.ErrRequestTimeout},
+		{nil, requestTimeout, mq.ErrRequestTimeout},
 		{params, successResponse, successResponse},
 	}
 
@@ -52,7 +50,7 @@ func TestAuthOnResource(t *testing.T) {
 			req.AssertPathType(t, "host", string(""))
 			req.AssertPathType(t, "uri", string(""))
 			req.AssertPathPayload(t, "params", l.Params)
-			if l.AuthResponse == callTimeout {
+			if l.AuthResponse == requestTimeout {
 				req.Timeout()
 			} else if err, ok := l.AuthResponse.(*reserr.Error); ok {
 				req.RespondError(err)

@@ -402,7 +402,7 @@ func DecodeNewResponse(payload []byte) (string, error) {
 	}
 
 	if r.Error != nil {
-		return "", err
+		return "", r.Error
 	}
 
 	if r.Result == nil {

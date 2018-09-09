@@ -330,14 +330,32 @@ func (c *wsConn) NewResource(rid string, params interface{}, cb func(result *rpc
 				return
 			}
 
-			sub.OnLoaded(func(sub *Subscription) {
-				// Respond even if subscription contains errors,
-				// as the call to 'new' atleast succeeded.
-				cb(&rpc.NewResult{
-					RID:       sub.RID(),
-					Resources: sub.GetRPCResources(),
-				}, nil)
-				sub.ReleaseRPCResources()
+			sub.CanGet(func(err error) {
+				if err != nil {
+					// Respond with success even if the client is not allowed to get
+					// the resource it just created, as the call to 'new'
+					// atleast succeeded. But the resource is the access error.
+					cb(&rpc.NewResult{
+						RID: sub.RID(),
+						Resources: &rpc.Resources{
+							Errors: map[string]*reserr.Error{
+								sub.RID(): reserr.RESError(err),
+							},
+						},
+					}, nil)
+					c.Unsubscribe(sub, true, 1, true)
+					return
+				}
+
+				sub.OnLoaded(func(sub *Subscription) {
+					// Respond with success even if subscription contains errors,
+					// as the call to 'new' atleast succeeded.
+					cb(&rpc.NewResult{
+						RID:       sub.RID(),
+						Resources: sub.GetRPCResources(),
+					}, nil)
+					sub.ReleaseRPCResources()
+				})
 			})
 		})
 	})

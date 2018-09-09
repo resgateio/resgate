@@ -20,15 +20,12 @@ func TestCallOnResource(t *testing.T) {
 	multiMethodCallAccess := json.RawMessage(`{"get":true,"call":"foo,method"}`)
 	missingMethodCallAccess := json.RawMessage(`{"get":true,"call":"foo,bar"}`)
 	noCallAccess := json.RawMessage(`{"get":true}`)
-	// Call responses
-	callTimeout := &struct{}{}
-	noCall := &struct{}{}
 
 	tbl := []struct {
 		Subscribe      bool        // Flag if model is subscribed prior to call
 		Params         interface{} // Params to use in call request
 		AccessResponse interface{} // Response on access request. nil means timeout
-		CallResponse   interface{} // Response on call request. callTimeout means timeout. noCall means no call request is expected
+		CallResponse   interface{} // Response on call request. requestTimeout means timeout. noRequest means no call request is expected
 		Expected       interface{}
 	}{
 		{true, nil, fullCallAccess, successResponse, successResponse},
@@ -37,9 +34,9 @@ func TestCallOnResource(t *testing.T) {
 		{false, nil, methodCallAccess, successResponse, successResponse},
 		{true, nil, multiMethodCallAccess, successResponse, successResponse},
 		{false, nil, multiMethodCallAccess, successResponse, successResponse},
-		{false, nil, missingMethodCallAccess, noCall, reserr.ErrAccessDenied},
-		{false, nil, noCallAccess, noCall, reserr.ErrAccessDenied},
-		{false, nil, nil, noCall, mq.ErrRequestTimeout},
+		{false, nil, missingMethodCallAccess, noRequest, reserr.ErrAccessDenied},
+		{false, nil, noCallAccess, noRequest, reserr.ErrAccessDenied},
+		{false, nil, nil, noRequest, mq.ErrRequestTimeout},
 		{true, nil, fullCallAccess, reserr.ErrInvalidParams, reserr.ErrInvalidParams},
 		{false, nil, fullCallAccess, reserr.ErrInvalidParams, reserr.ErrInvalidParams},
 		{true, params, fullCallAccess, successResponse, successResponse},
@@ -79,14 +76,14 @@ func TestCallOnResource(t *testing.T) {
 
 				// Send client call request
 				creq = c.Request("call.test.model.method", l.Params)
-				if l.CallResponse != noCall {
+				if l.CallResponse != noRequest {
 					// Get call request
 					req = s.GetRequest(t)
 					req.AssertSubject(t, "call.test.model.method")
 					req.AssertPathType(t, "cid", string(""))
 					req.AssertPathPayload(t, "token", nil)
 					req.AssertPathPayload(t, "params", l.Params)
-					if l.CallResponse == callTimeout {
+					if l.CallResponse == requestTimeout {
 						req.Timeout()
 					} else if err, ok := l.CallResponse.(*reserr.Error); ok {
 						req.RespondError(err)
@@ -108,12 +105,12 @@ func TestCallOnResource(t *testing.T) {
 					req.RespondSuccess(l.AccessResponse)
 				}
 
-				if l.CallResponse != noCall {
+				if l.CallResponse != noRequest {
 					// Get call request
 					req = s.GetRequest(t)
 					req.AssertSubject(t, "call.test.model.method")
 					req.AssertPathPayload(t, "params", l.Params)
-					if l.CallResponse == callTimeout {
+					if l.CallResponse == requestTimeout {
 						req.Timeout()
 					} else if err, ok := l.CallResponse.(*reserr.Error); ok {
 						req.RespondError(err)

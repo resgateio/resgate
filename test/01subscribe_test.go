@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/jirenius/resgate/mq"
@@ -45,7 +46,7 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 	modelGetResponse := json.RawMessage(`{"model":` + model + `}`)
 	modelClientResponse := json.RawMessage(`{"models":{"test.model":` + model + `}}`)
 
-	// *reserr.Error implies an error response. nil implies a timeout. Otherwise success.
+	// *reserr.Error implies an error response. requestTimeout implies a timeout. Otherwise success.
 	tbl := []struct {
 		GetResponse    interface{}
 		AccessResponse interface{}
@@ -55,40 +56,53 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 		{modelGetResponse, json.RawMessage(`{"get":false}`), reserr.ErrAccessDenied},
 		{modelGetResponse, reserr.ErrAccessDenied, reserr.ErrAccessDenied},
 		{modelGetResponse, reserr.ErrInternalError, reserr.ErrInternalError},
-		{modelGetResponse, nil, mq.ErrRequestTimeout},
+		{modelGetResponse, requestTimeout, mq.ErrRequestTimeout},
 		{modelGetResponse, brokenAccess, reserr.CodeInternalError},
 		{reserr.ErrNotFound, json.RawMessage(`{"get":true}`), reserr.ErrNotFound},
 		{reserr.ErrNotFound, json.RawMessage(`{"get":false}`), reserr.ErrAccessDenied},
 		{reserr.ErrNotFound, reserr.ErrAccessDenied, reserr.ErrAccessDenied},
 		{reserr.ErrNotFound, reserr.ErrInternalError, reserr.ErrInternalError},
-		{reserr.ErrNotFound, nil, mq.ErrRequestTimeout},
+		{reserr.ErrNotFound, requestTimeout, mq.ErrRequestTimeout},
 		{reserr.ErrNotFound, brokenAccess, reserr.CodeInternalError},
 		{reserr.ErrInternalError, json.RawMessage(`{"get":true}`), reserr.ErrInternalError},
 		{reserr.ErrInternalError, json.RawMessage(`{"get":false}`), reserr.ErrAccessDenied},
 		{reserr.ErrInternalError, reserr.ErrAccessDenied, reserr.ErrAccessDenied},
 		{reserr.ErrInternalError, reserr.ErrDisposing, reserr.ErrDisposing},
-		{reserr.ErrInternalError, nil, mq.ErrRequestTimeout},
+		{reserr.ErrInternalError, requestTimeout, mq.ErrRequestTimeout},
 		{reserr.ErrInternalError, brokenAccess, reserr.CodeInternalError},
-		{nil, json.RawMessage(`{"get":true}`), mq.ErrRequestTimeout},
-		{nil, json.RawMessage(`{"get":false}`), reserr.ErrAccessDenied},
-		{nil, reserr.ErrAccessDenied, reserr.ErrAccessDenied},
-		{nil, reserr.ErrInternalError, reserr.ErrInternalError},
-		{nil, nil, mq.ErrRequestTimeout},
-		{nil, brokenAccess, reserr.CodeInternalError},
+		{requestTimeout, json.RawMessage(`{"get":true}`), mq.ErrRequestTimeout},
+		{requestTimeout, json.RawMessage(`{"get":false}`), reserr.ErrAccessDenied},
+		{requestTimeout, reserr.ErrAccessDenied, reserr.ErrAccessDenied},
+		{requestTimeout, reserr.ErrInternalError, reserr.ErrInternalError},
+		{requestTimeout, requestTimeout, mq.ErrRequestTimeout},
+		{requestTimeout, brokenAccess, reserr.CodeInternalError},
 		{brokenModel, json.RawMessage(`{"get":true}`), reserr.CodeInternalError},
 		{brokenModel, json.RawMessage(`{"get":false}`), reserr.ErrAccessDenied},
 		{brokenModel, reserr.ErrAccessDenied, reserr.ErrAccessDenied},
 		{brokenModel, reserr.ErrInternalError, reserr.ErrInternalError},
-		{brokenModel, nil, mq.ErrRequestTimeout},
+		{brokenModel, requestTimeout, mq.ErrRequestTimeout},
 		{brokenModel, brokenAccess, reserr.CodeInternalError},
 	}
 
-	for _, l := range tbl {
+	for i, l := range tbl {
 		// Run both "get" and "subscribe" tests
 		for _, method := range []string{"get", "subscribe"} {
 			// Run both orders for "get" and "access" response
 			for getFirst := true; getFirst; getFirst = false {
 				runTest(t, func(s *Session) {
+					panicked := true
+					defer func() {
+						if panicked {
+							s := fmt.Sprintf("Error in test %d when using %#v", i, method)
+							if getFirst {
+								s += " with get response sent first"
+							} else {
+								s += " with access response sent first"
+							}
+							t.Logf("%s", s)
+						}
+					}()
+
 					c := s.Connect()
 					var creq *ClientRequest
 					switch method {
@@ -103,7 +117,7 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 					if getFirst {
 						// Send get response
 						req = mreqs.GetRequest(t, "get.test.model")
-						if l.GetResponse == nil {
+						if l.GetResponse == requestTimeout {
 							req.Timeout()
 						} else if err, ok := l.GetResponse.(*reserr.Error); ok {
 							req.RespondError(err)
@@ -114,7 +128,7 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 
 					// Send access response
 					req = mreqs.GetRequest(t, "access.test.model")
-					if l.AccessResponse == nil {
+					if l.AccessResponse == requestTimeout {
 						req.Timeout()
 					} else if err, ok := l.AccessResponse.(*reserr.Error); ok {
 						req.RespondError(err)
@@ -143,6 +157,8 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 					} else {
 						cresp.AssertResult(t, l.Expected)
 					}
+
+					panicked = false
 				})
 			}
 		}
