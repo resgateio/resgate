@@ -2,7 +2,9 @@ package test
 
 import (
 	"encoding/json"
+	"os"
 	"reflect"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"testing"
@@ -223,7 +225,12 @@ func (c *NATSTestClient) GetRequest(t *testing.T) *Request {
 	case r := <-c.reqs:
 		return r
 	case <-time.After(1 * time.Second):
-		t.Fatal("expected a request but found none")
+		if t == nil {
+			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+			panic("expected a request but found none")
+		} else {
+			t.Fatal("expected a request but found none")
+		}
 	}
 	return nil
 }

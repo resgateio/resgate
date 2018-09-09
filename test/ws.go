@@ -2,7 +2,10 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
 	"reflect"
+	"runtime/pprof"
 	"sync"
 	"testing"
 	"time"
@@ -60,7 +63,7 @@ func NewConn(s *Session, ws *websocket.Conn) *Conn {
 		s:    s,
 		ws:   ws,
 		reqs: make(map[uint64]*ClientRequest),
-		evs:  make(chan *ClientEvent, 32),
+		evs:  make(chan *ClientEvent, 256),
 	}
 	go c.listen()
 	return c
@@ -85,7 +88,7 @@ func (c *Conn) Request(method string, params interface{}) *ClientRequest {
 		Method: method,
 		Params: params,
 		c:      c,
-		ch:     make(chan *ClientResponse),
+		ch:     make(chan *ClientResponse, 1),
 	}
 
 	c.reqs[id] = req
@@ -187,10 +190,13 @@ func (c *Conn) listen() {
 			}
 			delete(c.reqs, cr.ID)
 			c.mu.Unlock()
-
-			req.ch <- &ClientResponse{
+			select {
+			case req.ch <- &ClientResponse{
 				Result: cr.Result,
 				Error:  cr.Error,
+			}:
+			default:
+				panic("test: failed to write client response")
 			}
 		}
 	}
@@ -203,7 +209,12 @@ func (cr *ClientRequest) GetResponse(t *testing.T) *ClientResponse {
 	case resp := <-cr.ch:
 		return resp
 	case <-time.After(1 * time.Second):
-		t.Fatalf("expected a response to client request %#v, but found none", cr.Method)
+		if t == nil {
+			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+			panic(fmt.Sprintf("expected a response to client request %#v, but found none", cr.Method))
+		} else {
+			t.Fatalf("expected a response to client request %#v, but found none", cr.Method)
+		}
 	}
 	return nil
 }
