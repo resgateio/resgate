@@ -16,6 +16,7 @@ import (
 
 type Conn struct {
 	s    *Session
+	d    *websocket.Dialer
 	ws   *websocket.Conn
 	reqs map[uint64]*ClientRequest
 	evs  chan *ClientEvent
@@ -58,9 +59,10 @@ type ClientEvent struct {
 // ParallelEvents holds multiple events in undetermined order
 type ParallelEvents []*ClientEvent
 
-func NewConn(s *Session, ws *websocket.Conn) *Conn {
+func NewConn(s *Session, d *websocket.Dialer, ws *websocket.Conn) *Conn {
 	c := &Conn{
 		s:    s,
+		d:    d,
 		ws:   ws,
 		reqs: make(map[uint64]*ClientRequest),
 		evs:  make(chan *ClientEvent, 256),

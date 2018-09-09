@@ -299,20 +299,22 @@ func (r *Request) Timeout() {
 }
 
 // Equals asserts that the request has the expected subject and payload
-func (r *Request) Equals(t *testing.T, subject string, payload interface{}) {
+func (r *Request) Equals(t *testing.T, subject string, payload interface{}) *Request {
 	r.AssertSubject(t, subject)
 	r.AssertPayload(t, payload)
+	return r
 }
 
 // AssertSubject asserts that the request has the expected subject
-func (r *Request) AssertSubject(t *testing.T, subject string) {
+func (r *Request) AssertSubject(t *testing.T, subject string) *Request {
 	if r.Subject != subject {
 		t.Fatalf("expected subject to be %#v, but got %#v", subject, r.Subject)
 	}
+	return r
 }
 
 // AssertPayload asserts that the request has the expected payload
-func (r *Request) AssertPayload(t *testing.T, payload interface{}) {
+func (r *Request) AssertPayload(t *testing.T, payload interface{}) *Request {
 	var err error
 	pj, err := json.Marshal(payload)
 	if err != nil {
@@ -328,11 +330,12 @@ func (r *Request) AssertPayload(t *testing.T, payload interface{}) {
 	if !reflect.DeepEqual(p, r.Payload) {
 		t.Fatalf("expected request payload to be:\n%s\nbut got:\n%s", pj, r.RawPayload)
 	}
+	return r
 }
 
 // AssertPathPayload asserts that a the request payload at a given dot-separated
 // path in a nested object has the expected payload.
-func (r *Request) AssertPathPayload(t *testing.T, path string, payload interface{}) {
+func (r *Request) AssertPathPayload(t *testing.T, path string, payload interface{}) *Request {
 	pp := r.PathPayload(t, path)
 
 	var err error
@@ -354,11 +357,12 @@ func (r *Request) AssertPathPayload(t *testing.T, path string, payload interface
 
 		t.Fatalf("expected request payload of path %#v to be:\n%s\nbut got:\n%s", path, pj, ppj)
 	}
+	return r
 }
 
 // AssertPathPayload asserts that a the request payload at a given dot-separated
 // path in a nested object has the same type as typ.
-func (r *Request) AssertPathType(t *testing.T, path string, typ interface{}) {
+func (r *Request) AssertPathType(t *testing.T, path string, typ interface{}) *Request {
 	pp := r.PathPayload(t, path)
 
 	ppt := reflect.TypeOf(pp)
@@ -367,6 +371,7 @@ func (r *Request) AssertPathType(t *testing.T, path string, typ interface{}) {
 	if ppt != pt {
 		t.Fatalf("expected request payload of path %#v to be of type \"%s\", but got \"%s\"", path, pt, ppt)
 	}
+	return r
 }
 
 // PathPayload returns the request payload at a given dot-separated path in a nested object.

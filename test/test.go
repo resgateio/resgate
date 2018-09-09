@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/jirenius/resgate/service"
 	"github.com/posener/wstest"
 )
@@ -13,7 +12,6 @@ import (
 type Session struct {
 	*NATSTestClient
 	s     *service.Service
-	d     *websocket.Dialer
 	conns map[*Conn]struct{}
 	l     *TestLogger
 }
@@ -27,7 +25,6 @@ func setup() *Session {
 
 	s := &Session{
 		NATSTestClient: c,
-		d:              wstest.NewDialer(serv.GetWSHandlerFunc()),
 		s:              serv,
 		conns:          make(map[*Conn]struct{}),
 		l:              l,
@@ -41,12 +38,13 @@ func setup() *Session {
 }
 
 func (s *Session) Connect() *Conn {
-	c, _, err := s.d.Dial("ws://example.org/", nil)
+	d := wstest.NewDialer(s.s.GetWSHandlerFunc())
+	c, _, err := d.Dial("ws://example.org/", nil)
 	if err != nil {
 		panic(err)
 	}
 
-	return NewConn(s, c)
+	return NewConn(s, d, c)
 }
 
 func teardown(s *Session) {
