@@ -7,38 +7,22 @@ import (
 
 // Test change event on subscribed resource
 func TestAddAndRemoveEventOnSubscribedResource(t *testing.T) {
-	collection := resource["test.collection"]
-
 	runTest(t, func(s *Session) {
-
 		c := s.Connect()
-		creq := c.Request("subscribe.test.collection", nil)
-
-		// Handle collection get and access request
-		mreqs := s.GetParallelRequests(t, 2)
-		req := mreqs.GetRequest(t, "access.test.collection")
-		req.RespondSuccess(json.RawMessage(`{"get":true}`))
-		req = mreqs.GetRequest(t, "get.test.collection")
-		req.RespondSuccess(json.RawMessage(`{"collection":` + collection + `}`))
-
-		// Validate client response
-		cresp := creq.GetResponse(t)
-		cresp.AssertResult(t, json.RawMessage(`{"collections":{"test.collection":`+collection+`}}`))
+		subscribeToTestCollection(t, s, c)
 
 		// Send add event on collection and validate client event
-		s.Event("test.collection", "add", json.RawMessage(`{"idx":3,"value":"bar"}`))
+		s.ResourceEvent("test.collection", "add", json.RawMessage(`{"idx":3,"value":"bar"}`))
 		c.GetEvent(t).Equals(t, "test.collection.add", json.RawMessage(`{"idx":3,"value":"bar"}`))
 
 		// Send remove event on collection and validate client event
-		s.Event("test.collection", "remove", json.RawMessage(`{"idx":2}`))
+		s.ResourceEvent("test.collection", "remove", json.RawMessage(`{"idx":2}`))
 		c.GetEvent(t).Equals(t, "test.collection.remove", json.RawMessage(`{"idx":2}`))
 	})
 }
 
 // Test add and remove event effects on cached collection
 func TestAddRemoveEventsOnCachedCollection(t *testing.T) {
-	collection := `["foo",42,true,null]`
-
 	tbl := []struct {
 		EventName          string // Name of the event. Either add or remove.
 		EventPayload       string // Event payload (raw JSON)
@@ -62,22 +46,13 @@ func TestAddRemoveEventsOnCachedCollection(t *testing.T) {
 					}
 				}()
 
+				var creq *ClientRequest
+
 				c := s.Connect()
-				creq := c.Request("subscribe.test.collection", nil)
-
-				// Handle collection get and access request
-				mreqs := s.GetParallelRequests(t, 2)
-				req := mreqs.GetRequest(t, "access.test.collection")
-				req.RespondSuccess(json.RawMessage(`{"get":true}`))
-				req = mreqs.GetRequest(t, "get.test.collection")
-				req.RespondSuccess(json.RawMessage(`{"collection":` + collection + `}`))
-
-				// Validate client response
-				cresp := creq.GetResponse(t)
-				cresp.AssertResult(t, json.RawMessage(`{"collections":{"test.collection":`+collection+`}}`))
+				subscribeToTestCollection(t, s, c)
 
 				// Send event on collection and validate client event
-				s.Event("test.collection", l.EventName, json.RawMessage(l.EventPayload))
+				s.ResourceEvent("test.collection", l.EventName, json.RawMessage(l.EventPayload))
 				c.GetEvent(t).Equals(t, "test.collection."+l.EventName, json.RawMessage(l.EventPayload))
 
 				if sameClient {
@@ -91,12 +66,10 @@ func TestAddRemoveEventsOnCachedCollection(t *testing.T) {
 				}
 
 				// Handle collection access request
-				req = s.GetRequest(t).AssertSubject(t, "access.test.collection")
-				req.RespondSuccess(json.RawMessage(`{"get":true}`))
+				s.GetRequest(t).AssertSubject(t, "access.test.collection").RespondSuccess(json.RawMessage(`{"get":true}`))
 
 				// Validate client response
-				cresp = creq.GetResponse(t)
-				cresp.AssertResult(t, json.RawMessage(`{"collections":{"test.collection":`+l.ExpectedCollection+`}}`))
+				creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"collections":{"test.collection":`+l.ExpectedCollection+`}}`))
 
 				panicked = false
 			})
@@ -107,27 +80,15 @@ func TestAddRemoveEventsOnCachedCollection(t *testing.T) {
 // Test change event with new resource reference
 func TestAddEventWithNewResourceReference(t *testing.T) {
 	model := resource["test.model"]
-	collection := resource["test.collection"]
 	customEvent := json.RawMessage(`{"foo":"bar"}`)
 
 	runTest(t, func(s *Session) {
 
 		c := s.Connect()
-		creq := c.Request("subscribe.test.collection", nil)
-
-		// Handle collection get and access request
-		mreqs := s.GetParallelRequests(t, 2)
-		req := mreqs.GetRequest(t, "access.test.collection")
-		req.RespondSuccess(json.RawMessage(`{"get":true}`))
-		req = mreqs.GetRequest(t, "get.test.collection")
-		req.RespondSuccess(json.RawMessage(`{"collection":` + collection + `}`))
-
-		// Validate client response
-		cresp := creq.GetResponse(t)
-		cresp.AssertResult(t, json.RawMessage(`{"collections":{"test.collection":`+collection+`}}`))
+		subscribeToTestCollection(t, s, c)
 
 		// Send event on collection and validate client event
-		s.Event("test.collection", "add", json.RawMessage(`{"idx":1,"value":{"rid":"test.model"}}`))
+		s.ResourceEvent("test.collection", "add", json.RawMessage(`{"idx":1,"value":{"rid":"test.model"}}`))
 
 		// Handle collection get request
 		s.
@@ -138,47 +99,29 @@ func TestAddEventWithNewResourceReference(t *testing.T) {
 		c.GetEvent(t).Equals(t, "test.collection.add", json.RawMessage(`{"idx":1,"value":{"rid":"test.model"},"models":{"test.model":`+model+`}}`))
 
 		// Send event on model and validate client event
-		s.Event("test.model", "custom", customEvent)
+		s.ResourceEvent("test.model", "custom", customEvent)
 		c.GetEvent(t).Equals(t, "test.model.custom", customEvent)
 	})
 }
 
 // Test change event with removed resource reference
 func TestRemoveEventWithRemovedResourceReference(t *testing.T) {
-	collection := resource["test.collection"]
-	collectionParent := resource["test.collection.parent"]
 	customEvent := json.RawMessage(`{"foo":"bar"}`)
 
 	runTest(t, func(s *Session) {
 		c := s.Connect()
-		creq := c.Request("subscribe.test.collection.parent", nil)
-
-		// Handle parent get and access request
-		mreqs := s.GetParallelRequests(t, 2)
-		req := mreqs.GetRequest(t, "get.test.collection.parent")
-		req.RespondSuccess(json.RawMessage(`{"collection":` + collectionParent + `}`))
-		req = mreqs.GetRequest(t, "access.test.collection.parent")
-		req.RespondSuccess(json.RawMessage(`{"get":true}`))
-
-		// Handle child get request
-		mreqs = s.GetParallelRequests(t, 1)
-		req = mreqs.GetRequest(t, "get.test.collection")
-		req.RespondSuccess(json.RawMessage(`{"collection":` + collection + `}`))
-
-		// Get client response
-		cresp := creq.GetResponse(t)
-		cresp.AssertResult(t, json.RawMessage(`{"collections":{"test.collection":`+collection+`,"test.collection.parent":`+collectionParent+`}}`))
+		subscribeToTestCollectionParent(t, s, c, false)
 
 		// Send event on collection and validate client event
-		s.Event("test.collection", "custom", customEvent)
+		s.ResourceEvent("test.collection", "custom", customEvent)
 		c.GetEvent(t).Equals(t, "test.collection.custom", customEvent)
 
 		// Send event on collection and validate client event
-		s.Event("test.collection.parent", "remove", json.RawMessage(`{"idx":1}`))
+		s.ResourceEvent("test.collection.parent", "remove", json.RawMessage(`{"idx":1}`))
 		c.GetEvent(t).Equals(t, "test.collection.parent.remove", json.RawMessage(`{"idx":1}`))
 
 		// Send event on collection and validate client event is not sent to client
-		s.Event("test.collection", "custom", customEvent)
+		s.ResourceEvent("test.collection", "custom", customEvent)
 		c.AssertNoEvent(t, "test.collection")
 	})
 }

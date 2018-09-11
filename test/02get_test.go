@@ -25,7 +25,7 @@ func TestNoEventsOnPrimitiveModelGet(t *testing.T) {
 		creq.GetResponse(t)
 
 		// Send event on model and validate client did not get event
-		s.Event("test.model", "custom", event)
+		s.ResourceEvent("test.model", "custom", event)
 		c.AssertNoEvent(t, "test.model")
 	})
 }
@@ -56,11 +56,11 @@ func TestNoEventOnLinkedModelGet(t *testing.T) {
 		creq.GetResponse(t)
 
 		// Send event on model and validate client did not get event
-		s.Event("test.model", "custom", event)
+		s.ResourceEvent("test.model", "custom", event)
 		c.AssertNoEvent(t, "test.model")
 
 		// Send event on model parent and validate client did not get event
-		s.Event("test.model.parent", "custom", event)
+		s.ResourceEvent("test.model.parent", "custom", event)
 		c.AssertNoEvent(t, "test.model.parent")
 	})
 }

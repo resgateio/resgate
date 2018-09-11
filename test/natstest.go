@@ -178,12 +178,29 @@ func (c *NATSTestClient) HasSubcriptions(t *testing.T, rids ...string) {
 	}
 }
 
-// Event sends an event to resgate. The subject will be "event."+rid+"."+event .
+// ResourceEvent sends a resource event to resgate. The subject will be "event."+rid+"."+event .
 // It panics if there is no subscription for such event.
-func (c *NATSTestClient) Event(rid string, event string, payload interface{}) {
+func (c *NATSTestClient) ResourceEvent(rid string, event string, payload interface{}) {
+	c.event("event."+rid, event, payload)
+}
+
+// ConnEvent sends a connection event to resgate. The subject will be "conn."+cid+"."+event .
+// It panics if there is no subscription for such event.
+func (c *NATSTestClient) ConnEvent(cid string, event string, payload interface{}) {
+	c.event("conn."+cid, event, payload)
+}
+
+// SystemEvent sends a system event to resgate. The subject will be "system."+event .
+// It panics if there is no subscription for such event.
+func (c *NATSTestClient) SystemEvent(event string, payload interface{}) {
+	c.event("system", event, payload)
+}
+
+// event sends an event to resgate. The subject will be ns+"."+event .
+// It panics if there is no subscription for such event.
+func (c *NATSTestClient) event(ns string, event string, payload interface{}) {
 	c.mu.Lock()
 
-	ns := "event." + rid
 	s, ok := c.subs[ns]
 	if !ok {
 		c.mu.Unlock()

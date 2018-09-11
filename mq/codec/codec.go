@@ -143,6 +143,11 @@ type ValueObject struct {
 	Action *string `json:"action"`
 }
 
+var DeleteValue = Value{
+	RawMessage: json.RawMessage(`{"action":"delete"}`),
+	Type:       ValueTypeDelete,
+}
+
 func (v *Value) UnmarshalJSON(data []byte) error {
 	err := v.RawMessage.UnmarshalJSON(data)
 	if err != nil {

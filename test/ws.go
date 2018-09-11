@@ -222,7 +222,7 @@ func (cr *ClientRequest) GetResponse(t *testing.T) *ClientResponse {
 }
 
 // AssertResult asserts that the response has the expected result
-func (cr *ClientResponse) AssertResult(t *testing.T, result interface{}) {
+func (cr *ClientResponse) AssertResult(t *testing.T, result interface{}) *ClientResponse {
 	// Assert it is not an error
 	if cr.Error != nil {
 		t.Fatalf("expected successful response, but got error:\n%s: %s", cr.Error.Code, cr.Error.Message)
@@ -247,10 +247,11 @@ func (cr *ClientResponse) AssertResult(t *testing.T, result interface{}) {
 		}
 		t.Fatalf("expected response result to be:\n%s\nbut got:\n%s", rj, crj)
 	}
+	return cr
 }
 
 // AssertError asserts that the response has the expected error
-func (cr *ClientResponse) AssertError(t *testing.T, err *reserr.Error) {
+func (cr *ClientResponse) AssertError(t *testing.T, err *reserr.Error) *ClientResponse {
 	// Assert it is an error
 	if cr.Error == nil {
 		var err error
@@ -272,10 +273,11 @@ func (cr *ClientResponse) AssertError(t *testing.T, err *reserr.Error) {
 		}
 		t.Fatalf("expected response result to be:\n%s\nbut got:\n%s", ej, cej)
 	}
+	return cr
 }
 
 // AssertErrorCode asserts that the response has the expected error code
-func (cr *ClientResponse) AssertErrorCode(t *testing.T, code string) {
+func (cr *ClientResponse) AssertErrorCode(t *testing.T, code string) *ClientResponse {
 	// Assert it is an error
 	if cr.Error == nil {
 		var err error
@@ -289,6 +291,7 @@ func (cr *ClientResponse) AssertErrorCode(t *testing.T, code string) {
 	if cr.Error.Code != code {
 		t.Fatalf("expected response error code to be:\n%#v\nbut got:\n%#v", code, cr.Error.Code)
 	}
+	return cr
 }
 
 // GetEvent returns a event based on event name.
@@ -304,20 +307,22 @@ func (pr ParallelEvents) GetEvent(t *testing.T, event string) *ClientEvent {
 }
 
 // Equals asserts that the event has the expected event name and payload
-func (ev *ClientEvent) Equals(t *testing.T, event string, data interface{}) {
+func (ev *ClientEvent) Equals(t *testing.T, event string, data interface{}) *ClientEvent {
 	ev.AssertEventName(t, event)
 	ev.AssertData(t, data)
+	return ev
 }
 
 // AssertEventName asserts that the event has the expected event name
-func (ev *ClientEvent) AssertEventName(t *testing.T, event string) {
+func (ev *ClientEvent) AssertEventName(t *testing.T, event string) *ClientEvent {
 	if ev.Event != event {
 		t.Fatalf("expected event to be %#v, but got %#v", event, ev.Event)
 	}
+	return ev
 }
 
 // AssertData asserts that the event has the expected data
-func (ev *ClientEvent) AssertData(t *testing.T, data interface{}) {
+func (ev *ClientEvent) AssertData(t *testing.T, data interface{}) *ClientEvent {
 	var err error
 	dj, err := json.Marshal(data)
 	if err != nil {
@@ -337,4 +342,5 @@ func (ev *ClientEvent) AssertData(t *testing.T, data interface{}) {
 		}
 		t.Fatalf("expected event data to be:\n%s\nbut got:\n%s", dj, evdj)
 	}
+	return ev
 }

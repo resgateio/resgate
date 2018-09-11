@@ -420,8 +420,16 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 func (rs *ResourceSubscription) processResetModel(props map[string]codec.Value) {
 	// Update cached model properties
 	vals := rs.model.Values
+
+	for k := range vals {
+		if _, ok := props[k]; !ok {
+			props[k] = codec.DeleteValue
+		}
+	}
+
 	for k, v := range props {
-		if v.Equal(vals[k]) {
+		ov, ok := vals[k]
+		if ok && v.Equal(ov) {
 			delete(props, k)
 		}
 	}
