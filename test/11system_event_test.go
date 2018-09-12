@@ -93,3 +93,78 @@ func TestSystemResetGeneratesAddRemoveEventsOnCollection(t *testing.T) {
 		c.GetEvent(t).AssertEventName(t, "test.collection.add").AssertData(t, json.RawMessage(`{"idx":1,"value":"new"}`))
 	})
 }
+
+// Test that a system.reset event triggers a re-access call on subscribed resources
+// and that the resource are still subscribed after given access
+func TestSystemAccessEventTriggersAccessCallOnSubscribedResources(t *testing.T) {
+	runTest(t, func(s *Session) {
+		event := json.RawMessage(`{"foo":"bar"}`)
+
+		c := s.Connect()
+
+		// Get linked model
+		subscribeToTestModelParent(t, s, c, false)
+
+		// Get collection
+		subscribeToTestCollection(t, s, c)
+
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"access":["test.model.>"]}`))
+
+		// Handle access requests with access denied
+		s.GetRequest(t).AssertSubject(t, "access.test.model.parent").RespondSuccess(json.RawMessage(`{"get":true}`))
+
+		// Validate no unsubscribe events are sent to client
+		c.AssertNoEvent(t, "test.model.parent")
+
+		// Send event on model and validate client event
+		s.ResourceEvent("test.model", "custom", event)
+		c.GetEvent(t).Equals(t, "test.model.custom", event)
+
+		// Send event on model parent and validate client event
+		s.ResourceEvent("test.model.parent", "custom", event)
+		c.GetEvent(t).Equals(t, "test.model.parent.custom", event)
+
+		// Send event on collection and validate client event
+		s.ResourceEvent("test.collection", "custom", event)
+		c.GetEvent(t).Equals(t, "test.collection.custom", event)
+	})
+}
+
+// Test that a reaccess event triggers a re-access call on subscribed resources
+// and that the resource are unsubscribed after being deniedn access
+func TestSystemResetEventTriggersUnsubscribeOnDeniedAccessCall(t *testing.T) {
+	runTest(t, func(s *Session) {
+		event := json.RawMessage(`{"foo":"bar"}`)
+		reasonAccessDenied := json.RawMessage(`{"reason":{"code":"system.accessDenied","message":"Access denied"}}`)
+
+		c := s.Connect()
+
+		// Get linked model
+		subscribeToTestModelParent(t, s, c, false)
+
+		// Get collection
+		subscribeToTestCollection(t, s, c)
+
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"access":["test.model.>"]}`))
+
+		// Handle access requests with access denied
+		s.GetRequest(t).AssertSubject(t, "access.test.model.parent").RespondSuccess(json.RawMessage(`{"get":false}`))
+
+		// Validate unsubscribe events are sent to client
+		c.GetEvent(t).AssertEventName(t, "test.model.parent.unsubscribe").AssertData(t, reasonAccessDenied)
+
+		// Send event on model and validate client event
+		s.ResourceEvent("test.model", "custom", event)
+		c.AssertNoEvent(t, "test.model")
+
+		// Send event on model parent and validate client event
+		s.ResourceEvent("test.model.parent", "custom", event)
+		c.AssertNoEvent(t, "test.model.parent")
+
+		// Send event on collection and validate client event
+		s.ResourceEvent("test.collection", "custom", event)
+		c.GetEvent(t).Equals(t, "test.collection.custom", event)
+	})
+}
