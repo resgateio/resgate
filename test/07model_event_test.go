@@ -18,6 +18,30 @@ func TestChangeEventOnSubscribedResource(t *testing.T) {
 	})
 }
 
+// Test that change events sent prior to a get response is discarded
+func TestChangeEventPriorToGetResponseIsDiscarded(t *testing.T) {
+	runTest(t, func(s *Session) {
+		model := resource["test.model"]
+
+		c := s.Connect()
+
+		// Send subscribe request
+		creq := c.Request("subscribe.test.model", nil)
+		// Wait for get and access request
+		mreqs := s.GetParallelRequests(t, 2)
+		// Send change event
+		s.ResourceEvent("test.model", "change", json.RawMessage(`{"string":"bar","int":-12}`))
+		// Respond to get and access request
+		mreqs.GetRequest(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+		mreqs.GetRequest(t, "access.test.model").RespondSuccess(json.RawMessage(`{"get":true}`))
+		// Validate client response and validate
+		creq.GetResponse(t)
+
+		// Send event on model and validate client event
+		c.AssertNoEvent(t, "test.model")
+	})
+}
+
 // Test change event effect on cached model
 func TestChangeEventOnCachedModel(t *testing.T) {
 	tbl := []struct {

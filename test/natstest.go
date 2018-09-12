@@ -241,7 +241,7 @@ func (c *NATSTestClient) GetRequest(t *testing.T) *Request {
 	select {
 	case r := <-c.reqs:
 		return r
-	case <-time.After(1 * time.Second):
+	case <-time.After(timeoutSeconds * time.Second):
 		if t == nil {
 			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 			panic("expected a request but found none")

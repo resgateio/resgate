@@ -119,3 +119,37 @@ func getCID(t *testing.T, s *Session, c *Conn) string {
 	creq.GetResponse(t)
 	return cid
 }
+
+// subscribeToTestQueryModel makes a successful subscription to test.model
+// with a query and the normalized query. Returns the connection ID (cid)
+func subscribeToTestQueryModel(t *testing.T, s *Session, c *Conn, q, normq string) string {
+	model := resource["test.model"]
+
+	normqj, err := json.Marshal(normq)
+	if err != nil {
+		panic("test: failed to marshal normalized query: " + err.Error())
+	}
+
+	qj, err := json.Marshal("test.model?" + q)
+	if err != nil {
+		panic("test: failed to marshal query: " + err.Error())
+	}
+
+	// Send subscribe request
+	creq := c.Request("subscribe.test.model?"+q, nil)
+
+	// Handle model get and access request
+	mreqs := s.GetParallelRequests(t, 2)
+	mreqs.
+		GetRequest(t, "get.test.model").
+		AssertPathPayload(t, "query", q).
+		RespondSuccess(json.RawMessage(`{"model":` + model + `,"query":` + string(normqj) + `}`))
+	req := mreqs.GetRequest(t, "access.test.model").AssertPathPayload(t, "query", q)
+	cid := req.PathPayload(t, "cid").(string)
+	req.RespondSuccess(json.RawMessage(`{"get":true}`))
+
+	// Validate client response and validate
+	creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{`+string(qj)+`:`+model+`}}`))
+
+	return cid
+}

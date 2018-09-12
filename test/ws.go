@@ -106,7 +106,7 @@ func (c *Conn) GetEvent(t *testing.T) *ClientEvent {
 	select {
 	case ev := <-c.evs:
 		return ev
-	case <-time.After(1 * time.Second):
+	case <-time.After(timeoutSeconds * time.Second):
 		t.Fatal("expected a client event but found none")
 	}
 	return nil
@@ -210,7 +210,7 @@ func (cr *ClientRequest) GetResponse(t *testing.T) *ClientResponse {
 	select {
 	case resp := <-cr.ch:
 		return resp
-	case <-time.After(1 * time.Second):
+	case <-time.After(timeoutSeconds * time.Second):
 		if t == nil {
 			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 			panic(fmt.Sprintf("expected a response to client request %#v, but found none", cr.Method))
