@@ -59,19 +59,28 @@ func (hr *HTTPResponse) AssertStatusCode(t *testing.T, code int) *HTTPResponse {
 // AssertBody asserts that the response has the expected body
 func (hr *HTTPResponse) AssertBody(t *testing.T, body interface{}) *HTTPResponse {
 	var err error
-	bj, err := json.Marshal(body)
-	if err != nil {
-		panic("test: error marshalling assertion body: " + err.Error())
+	var bj []byte
+	var ab interface{}
+	if body != nil {
+		bj, err = json.Marshal(body)
+		if err != nil {
+			panic("test: error marshalling assertion body: " + err.Error())
+		}
+
+		err = json.Unmarshal(bj, &ab)
+		if err != nil {
+			panic("test: error unmarshalling assertion body: " + err.Error())
+		}
 	}
 
-	var ab interface{}
-	err = json.Unmarshal(bj, &ab)
-	if err != nil {
-		panic("test: error unmarshalling assertion body: " + err.Error())
+	bb := hr.Body.Bytes()
+	// Quick exit if both are empty
+	if len(bb) == 0 && body == nil {
+		return hr
 	}
 
 	var b interface{}
-	err = json.Unmarshal(hr.Body.Bytes(), &b)
+	err = json.Unmarshal(bb, &b)
 	if err != nil {
 		t.Fatalf("expected response body to be: \n%s\nbut got:\n%s", bj, hr.Body.String())
 	}
@@ -107,6 +116,21 @@ func (hr *HTTPResponse) AssertErrorCode(t *testing.T, code string) *HTTPResponse
 
 	if rerr.Code != code {
 		t.Fatalf("expected response error code to be:\n%#v\nbut got:\n%#v", code, rerr.Code)
+	}
+	return hr
+}
+
+// AssertHeaders asserts that the response includes the expected headers
+func (hr *HTTPResponse) AssertHeaders(t *testing.T, h map[string]string) *HTTPResponse {
+	for k, v := range h {
+		hv := hr.Result().Header.Get(k)
+		if hr.Result().Header.Get(k) != v {
+			if hv == "" {
+				t.Fatalf("expected response header %s to be %s, but header not found", k, v)
+			} else {
+				t.Fatalf("expected response header %s to be %s, but got %s", k, v, hv)
+			}
+		}
 	}
 	return hr
 }

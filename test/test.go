@@ -13,7 +13,7 @@ import (
 	"github.com/posener/wstest"
 )
 
-const timeoutSeconds = 1
+const timeoutSeconds = 3600
 
 type Session struct {
 	*NATSTestClient
@@ -56,9 +56,8 @@ func (s *Session) Connect() *Conn {
 // HTTPRequest sends a request over HTTP
 func (s *Session) HTTPRequest(method, url string, body []byte) *HTTPRequest {
 	var r io.Reader
-	if body != nil {
-		r = bytes.NewReader(body)
-	}
+	r = bytes.NewReader(body)
+
 	req, err := http.NewRequest(method, url, r)
 	if err != nil {
 		panic("test: failed to create new http request: " + err.Error())
