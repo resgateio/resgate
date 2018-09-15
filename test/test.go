@@ -1,7 +1,11 @@
 package test
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -47,6 +51,36 @@ func (s *Session) Connect() *Conn {
 	}
 
 	return NewConn(s, d, c)
+}
+
+// HTTPRequest sends a request over HTTP
+func (s *Session) HTTPRequest(method, url string, body []byte) *HTTPRequest {
+	var r io.Reader
+	if body != nil {
+		r = bytes.NewReader(body)
+	}
+	req, err := http.NewRequest(method, url, r)
+	if err != nil {
+		panic("test: failed to create new http request: " + err.Error())
+	}
+
+	// Record the response into a httptest.ResponseRecorder
+	rr := httptest.NewRecorder()
+
+	hr := &HTTPRequest{
+		req: req,
+		rr:  rr,
+		ch:  make(chan *HTTPResponse, 1),
+	}
+
+	go func() {
+		s.l.Tracef("[HTTP] ", "--> %s %s: %s", method, url, body)
+		s.s.ServeHTTP(rr, req)
+		s.l.Tracef("[HTTP] ", "<-- %s %s: %s", method, url, rr.Body.String())
+		hr.ch <- &HTTPResponse{ResponseRecorder: rr}
+	}()
+
+	return hr
 }
 
 func teardown(s *Session) {
