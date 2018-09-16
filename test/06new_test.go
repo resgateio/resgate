@@ -54,6 +54,22 @@ func TestNewOnResource(t *testing.T) {
 		{params, fullCallAccess, callResponse, modelGetResponse, reserr.ErrInvalidParams, modelClientInvalidParamsResponse},
 		{params, fullCallAccess, callResponse, modelGetResponse, reserr.ErrAccessDenied, modelClientRequestAccessDeniedResponse},
 		{params, fullCallAccess, callResponse, modelGetResponse, requestTimeout, modelClientRequestTimeoutResponse},
+		// Invalid service responses
+		{nil, fullCallAccess, []byte(`{"broken":JSON}`), noRequest, noRequest, reserr.CodeInternalError},
+		{nil, fullCallAccess, []byte(`{}`), noRequest, noRequest, reserr.CodeInternalError},
+		{nil, fullCallAccess, []byte(`{"result":{"foo":"bar"},"error":{"code":"system.custom","message":"Custom"}}`), noRequest, noRequest, "system.custom"},
+		{nil, fullCallAccess, json.RawMessage(`{}`), noRequest, noRequest, reserr.CodeInternalError},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":""}`), noRequest, noRequest, reserr.CodeInternalError},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"?q=foo"}`), noRequest, noRequest, reserr.CodeInternalError},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"test\tmodel"}`), noRequest, noRequest, reserr.CodeInternalError},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"test\nmodel"}`), noRequest, noRequest, reserr.CodeInternalError},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"test\rmodel"}`), noRequest, noRequest, reserr.CodeInternalError},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"test model"}`), noRequest, noRequest, reserr.CodeInternalError},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"test\ufffdmodel"}`), noRequest, noRequest, reserr.CodeInternalError},
+		// Invalid auth error response
+		{nil, fullCallAccess, []byte(`{"error":[]}`), noRequest, noRequest, reserr.CodeInternalError},
+		{nil, fullCallAccess, []byte(`{"error":{"message":"missing code"}}`), noRequest, noRequest, ""},
+		{nil, fullCallAccess, []byte(`{"error":{"code":12,"message":"integer code"}}`), noRequest, noRequest, reserr.CodeInternalError},
 	}
 
 	for i, l := range tbl {
@@ -90,6 +106,8 @@ func TestNewOnResource(t *testing.T) {
 					req.Timeout()
 				} else if err, ok := l.CallResponse.(*reserr.Error); ok {
 					req.RespondError(err)
+				} else if raw, ok := l.CallResponse.([]byte); ok {
+					req.RespondRaw(raw)
 				} else {
 					req.RespondSuccess(l.CallResponse)
 				}

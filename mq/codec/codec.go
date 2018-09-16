@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"unicode/utf8"
 
 	"github.com/jirenius/resgate/reserr"
 )
@@ -180,6 +181,9 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 			}
 			v.Type = ValueTypeResource
 			v.RID = *mvo.RID
+			if !IsValidRID(v.RID) {
+				return errInvalidValue
+			}
 		} else {
 			// Must be an action of type actionDelete
 			if mvo.Action == nil || *mvo.Action != actionDelete {
@@ -420,7 +424,7 @@ func DecodeNewResponse(payload []byte) (string, error) {
 		return "", errMissingResult
 	}
 
-	if r.Result.RID == "" {
+	if !IsValidRID(r.Result.RID) {
 		return "", errInvalidResponse
 	}
 
@@ -448,4 +452,39 @@ func DecodeSystemReset(data json.RawMessage) (SystemReset, error) {
 	}
 
 	return r, nil
+}
+
+// IsValidRID returns true if the RID is valid, otherwise false
+func IsValidRID(rid string) bool {
+	start := true
+	for i, r := range rid {
+		switch r {
+		case '?':
+			if i == 0 {
+				return false
+			}
+			return true
+		case '\t':
+			fallthrough
+		case '\n':
+			fallthrough
+		case '\r':
+			fallthrough
+		case ' ':
+			fallthrough
+		case '/':
+			fallthrough
+		case utf8.RuneError:
+			return false
+		case '.':
+			if start {
+				return false
+			}
+			start = true
+		default:
+			start = false
+		}
+	}
+
+	return !start
 }

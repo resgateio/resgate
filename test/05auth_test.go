@@ -24,6 +24,14 @@ func TestAuthOnResource(t *testing.T) {
 		{nil, nil, nil},
 		{nil, requestTimeout, mq.ErrRequestTimeout},
 		{params, successResponse, successResponse},
+		// Invalid service responses
+		{nil, []byte(`{"broken":JSON}`), reserr.CodeInternalError},
+		{nil, []byte(`{}`), reserr.CodeInternalError},
+		{nil, []byte(`{"result":{"foo":"bar"},"error":{"code":"system.custom","message":"Custom"}}`), "system.custom"},
+		// Invalid auth error response
+		{nil, []byte(`{"error":[]}`), reserr.CodeInternalError},
+		{nil, []byte(`{"error":{"message":"missing code"}}`), ""},
+		{nil, []byte(`{"error":{"code":12,"message":"integer code"}}`), reserr.CodeInternalError},
 	}
 
 	for i, l := range tbl {
@@ -54,6 +62,8 @@ func TestAuthOnResource(t *testing.T) {
 				req.Timeout()
 			} else if err, ok := l.AuthResponse.(*reserr.Error); ok {
 				req.RespondError(err)
+			} else if raw, ok := l.AuthResponse.([]byte); ok {
+				req.RespondRaw(raw)
 			} else {
 				req.RespondSuccess(l.AuthResponse)
 			}

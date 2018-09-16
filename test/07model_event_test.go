@@ -144,3 +144,33 @@ func TestChangeEventWithRemovedResourceReference(t *testing.T) {
 		c.AssertNoEvent(t, "test.model")
 	})
 }
+
+// Test change event with new resource reference
+func TestChangeEventWithChangedResourceReference(t *testing.T) {
+	collection := resource["test.collection"]
+	customEvent := json.RawMessage(`{"foo":"bar"}`)
+
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestModelParent(t, s, c, false)
+
+		// Send change event on model parent
+		s.ResourceEvent("test.model.parent", "change", json.RawMessage(`{"child":{"rid":"test.collection"}}`))
+
+		// Handle collection get request
+		s.
+			GetRequest(t).
+			AssertSubject(t, "get.test.collection").
+			RespondSuccess(json.RawMessage(`{"collection":` + collection + `}`))
+
+		c.GetEvent(t).Equals(t, "test.model.parent.change", json.RawMessage(`{"values":{"child":{"rid":"test.collection"}},"collections":{"test.collection":`+collection+`}}`))
+
+		// Send event on collection and validate client event
+		s.ResourceEvent("test.collection", "custom", customEvent)
+		c.GetEvent(t).Equals(t, "test.collection.custom", customEvent)
+
+		// Send event on model and validate no event is sent to client
+		s.ResourceEvent("test.model", "custom", customEvent)
+		c.AssertNoEvent(t, "test.model")
+	})
+}

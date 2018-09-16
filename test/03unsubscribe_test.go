@@ -3,6 +3,8 @@ package test
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/jirenius/resgate/reserr"
 )
 
 // Test that a client can unsubscribe to a model
@@ -19,6 +21,15 @@ func TestUnsubscribeModel(t *testing.T) {
 		// Send event on model and validate no event was sent to client
 		s.ResourceEvent("test.model", "custom", event)
 		c.AssertNoEvent(t, "test.model")
+	})
+}
+
+// Test unsubscribing without subscription
+func TestUnsubscribeWithoutSubscription(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Call unsubscribe
+		c.Request("unsubscribe.test.model", nil).GetResponse(t).AssertError(t, reserr.ErrNoSubscription)
 	})
 }
 
