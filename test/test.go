@@ -13,7 +13,7 @@ import (
 	"github.com/posener/wstest"
 )
 
-const timeoutSeconds = 3600
+const timeoutSeconds = 1
 
 type Session struct {
 	*NATSTestClient

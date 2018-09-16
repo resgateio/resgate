@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"runtime/pprof"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,6 +61,15 @@ func (hr *HTTPResponse) AssertStatusCode(t *testing.T, code int) *HTTPResponse {
 func (hr *HTTPResponse) AssertBody(t *testing.T, body interface{}) *HTTPResponse {
 	var err error
 	var bj []byte
+
+	// Check if we have an exact string
+	if bj, ok := body.([]byte); ok {
+		if strings.TrimSpace(hr.Body.String()) != string(bj) {
+			t.Fatalf("expected response body to be: \n%s\nbut got:\n%s", bj, hr.Body.String())
+		}
+		return hr
+	}
+
 	var ab interface{}
 	if body != nil {
 		bj, err = json.Marshal(body)

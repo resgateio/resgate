@@ -44,6 +44,8 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 	brokenModel := json.RawMessage(`{"foo":"bar"}`)
 	brokenAccess := json.RawMessage(`{"get":"foo"}`)
 	modelGetResponse := json.RawMessage(`{"model":` + model + `}`)
+	fullAccess := json.RawMessage(`{"get":true}`)
+	noAccess := json.RawMessage(`{"get":false}`)
 	modelClientResponse := json.RawMessage(`{"models":{"test.model":` + model + `}}`)
 
 	// *reserr.Error implies an error response. requestTimeout implies a timeout. Otherwise success.
@@ -52,36 +54,65 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 		AccessResponse interface{}
 		Expected       interface{}
 	}{
-		{modelGetResponse, json.RawMessage(`{"get":true}`), modelClientResponse},
-		{modelGetResponse, json.RawMessage(`{"get":false}`), reserr.ErrAccessDenied},
+		{modelGetResponse, fullAccess, modelClientResponse},
+		{modelGetResponse, noAccess, reserr.ErrAccessDenied},
 		{modelGetResponse, reserr.ErrAccessDenied, reserr.ErrAccessDenied},
 		{modelGetResponse, reserr.ErrInternalError, reserr.ErrInternalError},
 		{modelGetResponse, requestTimeout, mq.ErrRequestTimeout},
 		{modelGetResponse, brokenAccess, reserr.CodeInternalError},
-		{reserr.ErrNotFound, json.RawMessage(`{"get":true}`), reserr.ErrNotFound},
-		{reserr.ErrNotFound, json.RawMessage(`{"get":false}`), reserr.ErrAccessDenied},
+		{reserr.ErrNotFound, fullAccess, reserr.ErrNotFound},
+		{reserr.ErrNotFound, noAccess, reserr.ErrAccessDenied},
 		{reserr.ErrNotFound, reserr.ErrAccessDenied, reserr.ErrAccessDenied},
 		{reserr.ErrNotFound, reserr.ErrInternalError, reserr.ErrInternalError},
 		{reserr.ErrNotFound, requestTimeout, mq.ErrRequestTimeout},
 		{reserr.ErrNotFound, brokenAccess, reserr.CodeInternalError},
-		{reserr.ErrInternalError, json.RawMessage(`{"get":true}`), reserr.ErrInternalError},
-		{reserr.ErrInternalError, json.RawMessage(`{"get":false}`), reserr.ErrAccessDenied},
+		{reserr.ErrInternalError, fullAccess, reserr.ErrInternalError},
+		{reserr.ErrInternalError, noAccess, reserr.ErrAccessDenied},
 		{reserr.ErrInternalError, reserr.ErrAccessDenied, reserr.ErrAccessDenied},
 		{reserr.ErrInternalError, reserr.ErrDisposing, reserr.ErrDisposing},
 		{reserr.ErrInternalError, requestTimeout, mq.ErrRequestTimeout},
 		{reserr.ErrInternalError, brokenAccess, reserr.CodeInternalError},
-		{requestTimeout, json.RawMessage(`{"get":true}`), mq.ErrRequestTimeout},
-		{requestTimeout, json.RawMessage(`{"get":false}`), reserr.ErrAccessDenied},
+		{requestTimeout, fullAccess, mq.ErrRequestTimeout},
+		{requestTimeout, noAccess, reserr.ErrAccessDenied},
 		{requestTimeout, reserr.ErrAccessDenied, reserr.ErrAccessDenied},
 		{requestTimeout, reserr.ErrInternalError, reserr.ErrInternalError},
 		{requestTimeout, requestTimeout, mq.ErrRequestTimeout},
 		{requestTimeout, brokenAccess, reserr.CodeInternalError},
-		{brokenModel, json.RawMessage(`{"get":true}`), reserr.CodeInternalError},
-		{brokenModel, json.RawMessage(`{"get":false}`), reserr.ErrAccessDenied},
+		{brokenModel, fullAccess, reserr.CodeInternalError},
+		{brokenModel, noAccess, reserr.ErrAccessDenied},
 		{brokenModel, reserr.ErrAccessDenied, reserr.ErrAccessDenied},
 		{brokenModel, reserr.ErrInternalError, reserr.ErrInternalError},
 		{brokenModel, requestTimeout, mq.ErrRequestTimeout},
 		{brokenModel, brokenAccess, reserr.CodeInternalError},
+		// Untrimmed whitespaces
+		{json.RawMessage("\r\n \t{ \"model\":\t \r\n" + model + "\t} \t\n"), fullAccess, modelClientResponse},
+		{modelGetResponse, json.RawMessage("\r\n \t{\"get\":\ttrue}\n"), modelClientResponse},
+		// Invalid get response
+		{[]byte(`{"invalid":JSON}`), fullAccess, reserr.CodeInternalError},
+		{[]byte(``), fullAccess, reserr.CodeInternalError},
+		{[]byte(`{"invalid":"response"}`), fullAccess, reserr.CodeInternalError},
+		// Invalid access response
+		{modelGetResponse, []byte(`{"invalid":JSON}`), reserr.CodeInternalError},
+		{modelGetResponse, []byte(``), reserr.CodeInternalError},
+		{modelGetResponse, []byte(`{"invalid":"response"}`), reserr.CodeInternalError},
+		// Invalid get model or collection response
+		{json.RawMessage(`{"model":["with","array","data"]}`), fullAccess, reserr.CodeInternalError},
+		{json.RawMessage(`{"collection":{"with":"model data"}}`), fullAccess, reserr.CodeInternalError},
+		{json.RawMessage(`{"collection":[1,2],"model":{"and":"model"}}`), fullAccess, reserr.CodeInternalError},
+		{json.RawMessage(`{"model":{"array":[1,2]}}`), fullAccess, reserr.CodeInternalError},
+		{json.RawMessage(`{"model":{"prop":{"action":"delete"}}}`), fullAccess, reserr.CodeInternalError},
+		{json.RawMessage(`{"model":{"prop":{"action":"unknown"}}}`), fullAccess, reserr.CodeInternalError},
+		{json.RawMessage(`{"model":{"prop":{"unknown":"property"}}}`), fullAccess, reserr.CodeInternalError},
+		{json.RawMessage(`{"model":{"child":{"rid":false}}}`), fullAccess, reserr.CodeInternalError},
+		{json.RawMessage(`{"model":{"child":{"rid":false}}}`), fullAccess, reserr.CodeInternalError},
+		{json.RawMessage(`{"collection":["array",[1,2]]}`), fullAccess, reserr.CodeInternalError},
+		{json.RawMessage(`{"collection":["prop",{"action":"delete"}]}`), fullAccess, reserr.CodeInternalError},
+		{json.RawMessage(`{"collection":["prop",{"action":"unknown"}]}`), fullAccess, reserr.CodeInternalError},
+		{json.RawMessage(`{"collection":["prop",{"unknown":"property"}]}`), fullAccess, reserr.CodeInternalError},
+		// Invalid get error response
+		{[]byte(`{"error":[]}`), fullAccess, reserr.CodeInternalError},
+		{[]byte(`{"error":{"message":"missing code"}}`), fullAccess, ""},
+		{[]byte(`{"error":{"code":12,"message":"integer code"}}`), fullAccess, reserr.CodeInternalError},
 	}
 
 	for i, l := range tbl {
@@ -121,6 +152,8 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 							req.Timeout()
 						} else if err, ok := l.GetResponse.(*reserr.Error); ok {
 							req.RespondError(err)
+						} else if raw, ok := l.GetResponse.([]byte); ok {
+							req.RespondRaw(raw)
 						} else {
 							req.RespondSuccess(l.GetResponse)
 						}
@@ -132,6 +165,8 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 						req.Timeout()
 					} else if err, ok := l.AccessResponse.(*reserr.Error); ok {
 						req.RespondError(err)
+					} else if raw, ok := l.AccessResponse.([]byte); ok {
+						req.RespondRaw(raw)
 					} else {
 						req.RespondSuccess(l.AccessResponse)
 					}
@@ -143,6 +178,8 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 							req.Timeout()
 						} else if err, ok := l.GetResponse.(*reserr.Error); ok {
 							req.RespondError(err)
+						} else if raw, ok := l.GetResponse.([]byte); ok {
+							req.RespondRaw(raw)
 						} else {
 							req.RespondSuccess(l.GetResponse)
 						}

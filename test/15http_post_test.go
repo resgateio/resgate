@@ -9,6 +9,32 @@ import (
 	"github.com/jirenius/resgate/reserr"
 )
 
+// Test response to a HTTP POST request to a primitive query model method
+func TestHTTPPostOnPrimitiveQueryModel(t *testing.T) {
+	runTest(t, func(s *Session) {
+		successResponse := json.RawMessage(`{"foo":"bar"}`)
+
+		hreq := s.HTTPRequest("POST", "/api/test/model/method?q=foo&f=bar", nil)
+
+		// Handle query model access request
+		s.
+			GetRequest(t).
+			AssertSubject(t, "access.test.model").
+			AssertPathPayload(t, "token", nil).
+			AssertPathPayload(t, "query", "q=foo&f=bar").
+			RespondSuccess(json.RawMessage(`{"call":"method"}`))
+		// Handle query model call request
+		s.
+			GetRequest(t).
+			AssertSubject(t, "call.test.model.method").
+			AssertPathPayload(t, "query", "q=foo&f=bar").
+			RespondSuccess(successResponse)
+
+		// Validate http response
+		hreq.GetResponse(t).Equals(t, http.StatusOK, successResponse)
+	})
+}
+
 // Test responses to HTTP post requests
 func TestHTTPPostResponses(t *testing.T) {
 	params := []byte(`{"value":42}`)
@@ -27,19 +53,18 @@ func TestHTTPPostResponses(t *testing.T) {
 		ExpectedCode   int         // Expected response status code
 		Expected       interface{} // Expected response body
 	}{
+		// Params variants
 		{nil, fullCallAccess, successResponse, http.StatusOK, successResponse},
-		{nil, fullCallAccess, successResponse, http.StatusOK, successResponse},
+		{params, fullCallAccess, successResponse, http.StatusOK, successResponse},
+		// AccessResponse variants
 		{nil, methodCallAccess, successResponse, http.StatusOK, successResponse},
-		{nil, methodCallAccess, successResponse, http.StatusOK, successResponse},
-		{nil, multiMethodCallAccess, successResponse, http.StatusOK, successResponse},
 		{nil, multiMethodCallAccess, successResponse, http.StatusOK, successResponse},
 		{nil, missingMethodCallAccess, noRequest, http.StatusUnauthorized, reserr.ErrAccessDenied},
 		{nil, noCallAccess, noRequest, http.StatusUnauthorized, reserr.ErrAccessDenied},
 		{nil, nil, noRequest, http.StatusNotFound, mq.ErrRequestTimeout},
+		// CallResponse variants
 		{nil, fullCallAccess, reserr.ErrInvalidParams, http.StatusBadRequest, reserr.ErrInvalidParams},
-		{nil, fullCallAccess, reserr.ErrInvalidParams, http.StatusBadRequest, reserr.ErrInvalidParams},
-		{params, fullCallAccess, successResponse, http.StatusOK, successResponse},
-		{params, fullCallAccess, successResponse, http.StatusOK, successResponse},
+		{nil, fullCallAccess, nil, http.StatusNoContent, []byte{}},
 	}
 
 	for i, l := range tbl {
@@ -175,6 +200,46 @@ func TestHTTPPostNewResponses(t *testing.T) {
 				hresp.AssertBody(t, l.Expected)
 			}
 			hresp.AssertHeaders(t, l.ExpectedHeaders)
+
+			panicked = false
+		})
+	}
+}
+
+// Test invalid urls for HTTP post requests
+func TestHTTPPostInvalidURLs(t *testing.T) {
+	tbl := []struct {
+		URL          string // Url path
+		ExpectedCode int
+		Expected     interface{}
+	}{
+		{"/wrong_prefix/test/model/action", http.StatusNotFound, reserr.ErrNotFound},
+		{"/api/", http.StatusNotFound, reserr.ErrNotFound},
+		{"/api/action", http.StatusNotFound, reserr.ErrNotFound},
+		{"/api/test.model/action", http.StatusNotFound, reserr.ErrNotFound},
+	}
+
+	for i, l := range tbl {
+		runTest(t, func(s *Session) {
+			panicked := true
+			defer func() {
+				if panicked {
+					t.Logf("Error in test %d", i)
+				}
+			}()
+
+			hreq := s.HTTPRequest("POST", l.URL, nil)
+			hresp := hreq.
+				GetResponse(t).
+				AssertStatusCode(t, l.ExpectedCode)
+
+			if err, ok := l.Expected.(*reserr.Error); ok {
+				hresp.AssertError(t, err)
+			} else if code, ok := l.Expected.(string); ok {
+				hresp.AssertErrorCode(t, code)
+			} else {
+				hresp.AssertBody(t, l.Expected)
+			}
 
 			panicked = false
 		})

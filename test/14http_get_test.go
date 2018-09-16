@@ -2,11 +2,9 @@ package test
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"testing"
 
-	"github.com/jirenius/resgate/mq"
 	"github.com/jirenius/resgate/reserr"
 )
 
@@ -107,6 +105,30 @@ func TestHTTPGetOnCircularModel(t *testing.T) {
 	})
 }
 
+// Test getting a primitive query model with a HTTP GET request
+func TestHTTPGetOnPrimitiveQueryModel(t *testing.T) {
+	runTest(t, func(s *Session) {
+		model := resource["test.model"]
+
+		hreq := s.HTTPRequest("GET", "/api/test/model?q=foo&f=bar", nil)
+
+		// Handle model get and access request
+		mreqs := s.GetParallelRequests(t, 2)
+		mreqs.
+			GetRequest(t, "access.test.model").
+			AssertPathPayload(t, "token", nil).
+			AssertPathPayload(t, "query", "q=foo&f=bar").
+			RespondSuccess(json.RawMessage(`{"get":true}`))
+		mreqs.
+			GetRequest(t, "get.test.model").
+			AssertPathPayload(t, "query", "q=foo&f=bar").
+			RespondSuccess(json.RawMessage(`{"model":` + model + `,"query":"q=foo&f=bar"}`))
+
+		// Validate http response
+		hreq.GetResponse(t).Equals(t, http.StatusOK, json.RawMessage(model))
+	})
+}
+
 // Test getting a primitive collection with a HTTP GET request
 func TestHTTPGetOnPrimitiveCollection(t *testing.T) {
 	runTest(t, func(s *Session) {
@@ -204,121 +226,65 @@ func TestHTTPGetOnCircularCollection(t *testing.T) {
 	})
 }
 
-// Test different type of responses on getting a model with a HTTP GET request
-func TestHTTPGetResponsesOnPrimitiveModel(t *testing.T) {
-	model := resource["test.model"]
-	brokenModel := json.RawMessage(`{"foo":"bar"}`)
-	brokenAccess := json.RawMessage(`{"get":"foo"}`)
-	modelGetResponse := json.RawMessage(`{"model":` + model + `}`)
+// Test getting a primitive query collection with a HTTP GET request
+func TestHTTPGetOnPrimitiveQueryCollection(t *testing.T) {
+	runTest(t, func(s *Session) {
+		collection := resource["test.collection"]
 
-	// *reserr.Error implies an error response. requestTimeout implies a timeout. Otherwise success.
+		hreq := s.HTTPRequest("GET", "/api/test/collection?q=foo&f=bar", nil)
+
+		// Handle collection get and access request
+		mreqs := s.GetParallelRequests(t, 2)
+		mreqs.
+			GetRequest(t, "access.test.collection").
+			AssertPathPayload(t, "token", nil).
+			AssertPathPayload(t, "query", "q=foo&f=bar").
+			RespondSuccess(json.RawMessage(`{"get":true}`))
+		mreqs.
+			GetRequest(t, "get.test.collection").
+			AssertPathPayload(t, "query", "q=foo&f=bar").
+			RespondSuccess(json.RawMessage(`{"collection":` + collection + `,"query":"q=foo&f=bar"}`))
+
+		// Validate http response
+		hreq.GetResponse(t).Equals(t, http.StatusOK, json.RawMessage(collection))
+	})
+}
+
+// Test invalid urls for HTTP get requests
+func TestHTTPGetInvalidURLs(t *testing.T) {
 	tbl := []struct {
-		GetResponse    interface{}
-		AccessResponse interface{}
-		ExpectedCode   int
-		Expected       interface{}
+		URL          string // Url path
+		ExpectedCode int
+		Expected     interface{}
 	}{
-		{modelGetResponse, json.RawMessage(`{"get":true}`), http.StatusOK, json.RawMessage(model)},
-		{modelGetResponse, json.RawMessage(`{"get":false}`), http.StatusUnauthorized, reserr.ErrAccessDenied},
-		{modelGetResponse, reserr.ErrAccessDenied, http.StatusUnauthorized, reserr.ErrAccessDenied},
-		{modelGetResponse, reserr.ErrInternalError, http.StatusInternalServerError, reserr.ErrInternalError},
-		{modelGetResponse, requestTimeout, http.StatusNotFound, mq.ErrRequestTimeout},
-		{modelGetResponse, brokenAccess, http.StatusInternalServerError, reserr.CodeInternalError},
-		{reserr.ErrNotFound, json.RawMessage(`{"get":true}`), http.StatusNotFound, reserr.ErrNotFound},
-		{reserr.ErrNotFound, json.RawMessage(`{"get":false}`), http.StatusUnauthorized, reserr.ErrAccessDenied},
-		{reserr.ErrNotFound, reserr.ErrAccessDenied, http.StatusUnauthorized, reserr.ErrAccessDenied},
-		{reserr.ErrNotFound, reserr.ErrInternalError, http.StatusInternalServerError, reserr.ErrInternalError},
-		{reserr.ErrNotFound, requestTimeout, http.StatusNotFound, mq.ErrRequestTimeout},
-		{reserr.ErrNotFound, brokenAccess, http.StatusInternalServerError, reserr.CodeInternalError},
-		{reserr.ErrInternalError, json.RawMessage(`{"get":true}`), http.StatusInternalServerError, reserr.ErrInternalError},
-		{reserr.ErrInternalError, json.RawMessage(`{"get":false}`), http.StatusUnauthorized, reserr.ErrAccessDenied},
-		{reserr.ErrInternalError, reserr.ErrAccessDenied, http.StatusUnauthorized, reserr.ErrAccessDenied},
-		{reserr.ErrInternalError, reserr.ErrDisposing, http.StatusInternalServerError, reserr.ErrDisposing},
-		{reserr.ErrInternalError, requestTimeout, http.StatusNotFound, mq.ErrRequestTimeout},
-		{reserr.ErrInternalError, brokenAccess, http.StatusInternalServerError, reserr.CodeInternalError},
-		{requestTimeout, json.RawMessage(`{"get":true}`), http.StatusNotFound, mq.ErrRequestTimeout},
-		{requestTimeout, json.RawMessage(`{"get":false}`), http.StatusUnauthorized, reserr.ErrAccessDenied},
-		{requestTimeout, reserr.ErrAccessDenied, http.StatusUnauthorized, reserr.ErrAccessDenied},
-		{requestTimeout, reserr.ErrInternalError, http.StatusInternalServerError, reserr.ErrInternalError},
-		{requestTimeout, requestTimeout, http.StatusNotFound, mq.ErrRequestTimeout},
-		{requestTimeout, brokenAccess, http.StatusInternalServerError, reserr.CodeInternalError},
-		{brokenModel, json.RawMessage(`{"get":true}`), http.StatusInternalServerError, reserr.CodeInternalError},
-		{brokenModel, json.RawMessage(`{"get":false}`), http.StatusUnauthorized, reserr.ErrAccessDenied},
-		{brokenModel, reserr.ErrAccessDenied, http.StatusUnauthorized, reserr.ErrAccessDenied},
-		{brokenModel, reserr.ErrInternalError, http.StatusInternalServerError, reserr.ErrInternalError},
-		{brokenModel, requestTimeout, http.StatusNotFound, mq.ErrRequestTimeout},
-		{brokenModel, brokenAccess, http.StatusInternalServerError, reserr.CodeInternalError},
+		{"/wrong_prefix/test/model", http.StatusNotFound, reserr.ErrNotFound},
+		{"/api/", http.StatusNotFound, reserr.ErrNotFound},
+		{"/api/test.model", http.StatusNotFound, reserr.ErrNotFound},
 	}
 
 	for i, l := range tbl {
-		// Run both orders for "get" and "access" response
-		for getFirst := true; getFirst; getFirst = false {
-			runTest(t, func(s *Session) {
-				panicked := true
-				defer func() {
-					if panicked {
-						s := fmt.Sprintf("Error in test %d", i)
-						if getFirst {
-							s += " with get response sent first"
-						} else {
-							s += " with access response sent first"
-						}
-						t.Logf("%s", s)
-					}
-				}()
-
-				hreq := s.HTTPRequest("GET", "/api/test/model", nil)
-
-				mreqs := s.GetParallelRequests(t, 2)
-
-				var req *Request
-				if getFirst {
-					// Send get response
-					req = mreqs.GetRequest(t, "get.test.model")
-					if l.GetResponse == requestTimeout {
-						req.Timeout()
-					} else if err, ok := l.GetResponse.(*reserr.Error); ok {
-						req.RespondError(err)
-					} else {
-						req.RespondSuccess(l.GetResponse)
-					}
+		runTest(t, func(s *Session) {
+			panicked := true
+			defer func() {
+				if panicked {
+					t.Logf("Error in test %d", i)
 				}
+			}()
 
-				// Send access response
-				req = mreqs.GetRequest(t, "access.test.model")
-				if l.AccessResponse == requestTimeout {
-					req.Timeout()
-				} else if err, ok := l.AccessResponse.(*reserr.Error); ok {
-					req.RespondError(err)
-				} else {
-					req.RespondSuccess(l.AccessResponse)
-				}
+			hreq := s.HTTPRequest("GET", l.URL, nil)
+			hresp := hreq.
+				GetResponse(t).
+				AssertStatusCode(t, l.ExpectedCode)
 
-				if !getFirst {
-					// Send get response
-					req := mreqs.GetRequest(t, "get.test.model")
-					if l.GetResponse == nil {
-						req.Timeout()
-					} else if err, ok := l.GetResponse.(*reserr.Error); ok {
-						req.RespondError(err)
-					} else {
-						req.RespondSuccess(l.GetResponse)
-					}
-				}
+			if err, ok := l.Expected.(*reserr.Error); ok {
+				hresp.AssertError(t, err)
+			} else if code, ok := l.Expected.(string); ok {
+				hresp.AssertErrorCode(t, code)
+			} else {
+				hresp.AssertBody(t, l.Expected)
+			}
 
-				// Validate client response
-				hresp := hreq.GetResponse(t)
-				hresp.AssertStatusCode(t, l.ExpectedCode)
-				if err, ok := l.Expected.(*reserr.Error); ok {
-					hresp.AssertError(t, err)
-				} else if code, ok := l.Expected.(string); ok {
-					hresp.AssertErrorCode(t, code)
-				} else {
-					hresp.AssertBody(t, l.Expected)
-				}
-
-				panicked = false
-			})
-		}
+			panicked = false
+		})
 	}
 }

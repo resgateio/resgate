@@ -32,7 +32,7 @@ func (s *Service) GetWSHandlerFunc() http.Handler {
 func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 	// Only allow exact matching path
 	if r.URL.Path != s.cfg.WSPath {
-		http.NotFound(w, r)
+		s.httpHandler(w, r)
 		return
 	}
 	// Upgrade to gorilla websocket

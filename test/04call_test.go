@@ -28,8 +28,12 @@ func TestCallOnResource(t *testing.T) {
 		CallResponse   interface{} // Response on call request. requestTimeout means timeout. noRequest means no call request is expected
 		Expected       interface{}
 	}{
+		// Params variants
 		{true, nil, fullCallAccess, successResponse, successResponse},
 		{false, nil, fullCallAccess, successResponse, successResponse},
+		{true, params, fullCallAccess, successResponse, successResponse},
+		{false, params, fullCallAccess, successResponse, successResponse},
+		// AccessResponse variants
 		{true, nil, methodCallAccess, successResponse, successResponse},
 		{false, nil, methodCallAccess, successResponse, successResponse},
 		{true, nil, multiMethodCallAccess, successResponse, successResponse},
@@ -37,10 +41,28 @@ func TestCallOnResource(t *testing.T) {
 		{false, nil, missingMethodCallAccess, noRequest, reserr.ErrAccessDenied},
 		{false, nil, noCallAccess, noRequest, reserr.ErrAccessDenied},
 		{false, nil, nil, noRequest, mq.ErrRequestTimeout},
+		// CallResponse variants
 		{true, nil, fullCallAccess, reserr.ErrInvalidParams, reserr.ErrInvalidParams},
 		{false, nil, fullCallAccess, reserr.ErrInvalidParams, reserr.ErrInvalidParams},
-		{true, params, fullCallAccess, successResponse, successResponse},
-		{false, params, fullCallAccess, successResponse, successResponse},
+		{true, nil, fullCallAccess, nil, json.RawMessage(`null`)},
+		{false, nil, fullCallAccess, nil, json.RawMessage(`null`)},
+		{true, nil, fullCallAccess, 42, json.RawMessage(`42`)},
+		{false, nil, fullCallAccess, 42, json.RawMessage(`42`)},
+		// Invalid service responses
+		{false, nil, json.RawMessage(`{"get":"invalid"}`), noRequest, reserr.CodeInternalError},
+		{false, nil, []byte(`{"broken":JSON}`), noRequest, reserr.CodeInternalError},
+		{false, nil, methodCallAccess, []byte(`{"broken":JSON}`), reserr.CodeInternalError},
+		{false, nil, methodCallAccess, []byte(`{}`), reserr.CodeInternalError},
+		{false, nil, json.RawMessage("\r\n\t {\"get\":\r\n\t true,\"call\":\"*\"}\r\n\t "), successResponse, successResponse},
+		{true, nil, methodCallAccess, []byte(`{"result":{"foo":"bar"},"error":{"code":"system.custom","message":"Custom"}}`), "system.custom"},
+		{false, nil, methodCallAccess, []byte(`{"result":{"foo":"bar"},"error":{"code":"system.custom","message":"Custom"}}`), "system.custom"},
+		// Invalid call error response
+		{true, nil, fullCallAccess, []byte(`{"error":[]}`), reserr.CodeInternalError},
+		{false, nil, fullCallAccess, []byte(`{"error":[]}`), reserr.CodeInternalError},
+		{true, nil, fullCallAccess, []byte(`{"error":{"message":"missing code"}}`), ""},
+		{false, nil, fullCallAccess, []byte(`{"error":{"message":"missing code"}}`), ""},
+		{true, nil, fullCallAccess, []byte(`{"error":{"code":12,"message":"integer code"}}`), reserr.CodeInternalError},
+		{false, nil, fullCallAccess, []byte(`{"error":{"code":12,"message":"integer code"}}`), reserr.CodeInternalError},
 	}
 
 	for i, l := range tbl {
@@ -87,6 +109,8 @@ func TestCallOnResource(t *testing.T) {
 						req.Timeout()
 					} else if err, ok := l.CallResponse.(*reserr.Error); ok {
 						req.RespondError(err)
+					} else if raw, ok := l.CallResponse.([]byte); ok {
+						req.RespondRaw(raw)
 					} else {
 						req.RespondSuccess(l.CallResponse)
 					}
@@ -101,6 +125,8 @@ func TestCallOnResource(t *testing.T) {
 					req.Timeout()
 				} else if err, ok := l.AccessResponse.(*reserr.Error); ok {
 					req.RespondError(err)
+				} else if raw, ok := l.AccessResponse.([]byte); ok {
+					req.RespondRaw(raw)
 				} else {
 					req.RespondSuccess(l.AccessResponse)
 				}
@@ -114,6 +140,8 @@ func TestCallOnResource(t *testing.T) {
 						req.Timeout()
 					} else if err, ok := l.CallResponse.(*reserr.Error); ok {
 						req.RespondError(err)
+					} else if raw, ok := l.CallResponse.([]byte); ok {
+						req.RespondRaw(raw)
 					} else {
 						req.RespondSuccess(l.CallResponse)
 					}

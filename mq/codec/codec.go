@@ -187,6 +187,8 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 			}
 			v.Type = ValueTypeDelete
 		}
+	case '[':
+		return errInvalidValue
 	default:
 		v.Type = ValueTypePrimitive
 	}
@@ -289,7 +291,7 @@ func DecodeEvent(payload []byte) (json.RawMessage, error) {
 
 	err := json.Unmarshal(payload, &ev)
 	if err != nil {
-		return nil, reserr.InternalError(err)
+		return nil, reserr.RESError(err)
 	}
 	return ev, nil
 }
@@ -298,7 +300,7 @@ func DecodeQueryEvent(payload []byte) (*QueryEvent, error) {
 	var qe QueryEvent
 	err := json.Unmarshal(payload, &qe)
 	if err != nil {
-		return nil, reserr.InternalError(err)
+		return nil, reserr.RESError(err)
 	}
 	return &qe, nil
 }
@@ -307,7 +309,7 @@ func DecodeEventQueryResponse(payload []byte) ([]*EventQueryEvent, error) {
 	var r EventQueryResponse
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
-		return nil, reserr.InternalError(err)
+		return nil, reserr.RESError(err)
 	}
 
 	if r.Error != nil {
@@ -371,7 +373,7 @@ func DecodeAccessResponse(payload []byte) (*AccessResult, error) {
 	var r AccessResponse
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
-		return nil, reserr.InternalError(err)
+		return nil, reserr.RESError(err)
 	}
 
 	if r.Error != nil {
@@ -389,21 +391,25 @@ func DecodeCallResponse(payload []byte) (json.RawMessage, error) {
 	var r Response
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
-		return nil, reserr.InternalError(err)
+		return nil, reserr.RESError(err)
 	}
 
-	if r.Error == nil {
-		return r.Result, nil
+	if r.Error != nil {
+		return nil, r.Error
 	}
 
-	return nil, r.Error
+	if r.Result == nil {
+		return nil, errMissingResult
+	}
+
+	return r.Result, nil
 }
 
 func DecodeNewResponse(payload []byte) (string, error) {
 	var r NewResponse
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
-		return "", reserr.InternalError(err)
+		return "", reserr.RESError(err)
 	}
 
 	if r.Error != nil {
@@ -425,7 +431,7 @@ func DecodeConnTokenEvent(payload []byte) (*ConnTokenEvent, error) {
 	var e ConnTokenEvent
 	err := json.Unmarshal(payload, &e)
 	if err != nil {
-		return nil, reserr.InternalError(err)
+		return nil, reserr.RESError(err)
 	}
 	return &e, nil
 }

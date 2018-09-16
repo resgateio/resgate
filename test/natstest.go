@@ -275,14 +275,17 @@ func (r *Request) getCallback() mq.Response {
 
 // Respond sends a low level response
 func (r *Request) Respond(data interface{}) {
-	cb := r.getCallback()
 	out, err := json.Marshal(data)
 	if err != nil {
 		panic("test: error marshalling response: " + err.Error())
 	}
+	r.RespondRaw(out)
+}
 
+// RespondRaw sends a raw byte response
+func (r *Request) RespondRaw(out []byte) {
 	r.c.Tracef("==> %s: %s", r.Subject, out)
-	cb("__RESPONSE_SUBJECT__", out, nil)
+	r.getCallback()("__RESPONSE_SUBJECT__", out, nil)
 }
 
 // SendError sends an error response
