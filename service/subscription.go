@@ -14,8 +14,8 @@ import (
 type subscriptionState byte
 
 type ConnSubscriber interface {
-	Log(v ...interface{})
 	Logf(format string, v ...interface{})
+	Debugf(format string, v ...interface{})
 	CID() string
 	Token() json.RawMessage
 	Subscribe(rid string, direct bool, path []string) (*Subscription, error)
@@ -355,9 +355,7 @@ func (s *Subscription) subscribeRef(v codec.Value) bool {
 	if _, err := s.addReference(v.RID); err != nil {
 		// In case of subscribe error,
 		// we unsubscribe to all and exit with error
-		if debug {
-			s.c.Logf("Failed to subscribe to %s. Aborting subscribeRef", v.RID)
-		}
+		s.c.Debugf("Failed to subscribe to %s. Aborting subscribeRef", v.RID)
 		for _, ref := range s.refs {
 			s.c.Unsubscribe(ref.sub, false, 1, true)
 		}
@@ -485,9 +483,7 @@ func (s *Subscription) processEvent(event *resourceCache.ResourceEvent) {
 	case resourceCache.TypeModel:
 		s.processModelEvent(event)
 	default:
-		if debug {
-			s.c.Logf("Subscription %s: Unknown resource type: %d", s.rid, s.resourceSub.GetResourceType())
-		}
+		s.c.Debugf("Subscription %s: Unknown resource type: %d", s.rid, s.resourceSub.GetResourceType())
 	}
 }
 
@@ -502,9 +498,7 @@ func (s *Subscription) processCollectionEvent(event *resourceCache.ResourceEvent
 			rid := v.RID
 			sub, err := s.addReference(rid)
 			if err != nil {
-				if debug {
-					s.c.Logf("Subscription %s: Error subscribing to resource %s: %s", s.rid, v.RID, err)
-				}
+				s.c.Debugf("Subscription %s: Error subscribing to resource %s: %s", s.rid, v.RID, err)
 				// TODO send error value
 				return
 			}
@@ -560,9 +554,7 @@ func (s *Subscription) processModelEvent(event *resourceCache.ResourceEvent) {
 			if v.Type == codec.ValueTypeResource {
 				sub, err := s.addReference(v.RID)
 				if err != nil {
-					if debug {
-						s.c.Logf("Subscription %s: Error subscribing to resource %s: %s", s.rid, v.RID, err)
-					}
+					s.c.Debugf("Subscription %s: Error subscribing to resource %s: %s", s.rid, v.RID, err)
 					// TODO handle error properly
 					return
 				}

@@ -3,9 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 
@@ -25,7 +23,7 @@ type wsConn struct {
 	request   *http.Request
 	token     json.RawMessage
 	serv      *Service
-	logger    *log.Logger
+	logPrefix string
 	subs      map[string]*Subscription
 	disposing bool
 	mqSub     mq.Unsubscriber
@@ -60,7 +58,7 @@ func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request) *wsConn {
 		queue:   make([]func(), 0, wsConnWorkerQueueSize),
 		work:    make(chan struct{}, 1),
 	}
-	conn.logger = log.New(os.Stdout, conn.String()+" ", s.logFlags)
+	conn.logPrefix = conn.String() + " "
 
 	s.conns[conn.cid] = conn
 	s.wg.Add(1)
@@ -87,9 +85,7 @@ func (c *wsConn) HTTPRequest() *http.Request {
 }
 
 func (c *wsConn) listen() {
-	if debug {
-		c.Log("Connected")
-	}
+	c.Tracef("Connected")
 
 	var in []byte
 	var err error
@@ -100,9 +96,7 @@ func (c *wsConn) listen() {
 			break
 		}
 
-		if debug {
-			c.Logf("--> %s", in)
-		}
+		c.Tracef("--> %s", in)
 		in := in
 		c.Enqueue(func() {
 			rpc.HandleRequest(in, c)
@@ -110,9 +104,7 @@ func (c *wsConn) listen() {
 	}
 
 	c.Dispose()
-	if debug {
-		c.Logf("Disconnected: %s", err)
-	}
+	c.Tracef("Disconnected: %s", err)
 }
 
 // dispose closes the wsConn worker and disposes all subscription.
@@ -156,22 +148,34 @@ func (c *wsConn) String() string {
 	return fmt.Sprintf("[%s]", c.cid)
 }
 
-// Log writes a log message
-func (c *wsConn) Log(v ...interface{}) {
-	c.logger.Print(v...)
-}
-
 // Logf writes a formatted log message
 func (c *wsConn) Logf(format string, v ...interface{}) {
-	c.logger.Printf(format, v...)
+	if c.serv.logger == nil {
+		return
+	}
+	c.serv.logger.Logf(c.logPrefix, format, v...)
+}
+
+// Debugf writes a formatted log message
+func (c *wsConn) Debugf(format string, v ...interface{}) {
+	if c.serv.logger == nil {
+		return
+	}
+	c.serv.logger.Debugf(c.logPrefix, format, v...)
+}
+
+// Tracef writes a formatted trace message
+func (c *wsConn) Tracef(format string, v ...interface{}) {
+	if c.serv.logger == nil {
+		return
+	}
+	c.serv.logger.Tracef(c.logPrefix, format, v...)
 }
 
 // Disconnect closes the websocket connection.
 func (c *wsConn) Disconnect(reason string) {
 	if c.ws != nil {
-		if debug {
-			c.Logf("Disconnecting - %s", reason)
-		}
+		c.Debugf("Disconnecting - %s", reason)
 		c.ws.Close()
 	}
 }
@@ -202,9 +206,7 @@ func (c *wsConn) enqueue(f func()) {
 
 func (c *wsConn) Send(data []byte) {
 	if c.ws != nil {
-		if debug {
-			c.Logf("<-- %s", data)
-		}
+		c.Tracef("<-- %s", data)
 		c.ws.WriteMessage(websocket.TextMessage, data)
 	}
 }
@@ -328,14 +330,32 @@ func (c *wsConn) NewResource(rid string, params interface{}, cb func(result *rpc
 				return
 			}
 
-			sub.OnLoaded(func(sub *Subscription) {
-				// Respond even if subscription contains errors,
-				// as the call to 'new' atleast succeeded.
-				cb(&rpc.NewResult{
-					RID:       sub.RID(),
-					Resources: sub.GetRPCResources(),
-				}, nil)
-				sub.ReleaseRPCResources()
+			sub.CanGet(func(err error) {
+				if err != nil {
+					// Respond with success even if the client is not allowed to get
+					// the resource it just created, as the call to 'new'
+					// atleast succeeded. But the resource is the access error.
+					cb(&rpc.NewResult{
+						RID: sub.RID(),
+						Resources: &rpc.Resources{
+							Errors: map[string]*reserr.Error{
+								sub.RID(): reserr.RESError(err),
+							},
+						},
+					}, nil)
+					c.Unsubscribe(sub, true, 1, true)
+					return
+				}
+
+				sub.OnLoaded(func(sub *Subscription) {
+					// Respond with success even if subscription contains errors,
+					// as the call to 'new' atleast succeeded.
+					cb(&rpc.NewResult{
+						RID:       sub.RID(),
+						Resources: sub.GetRPCResources(),
+					}, nil)
+					sub.ReleaseRPCResources()
+				})
 			})
 		})
 	})
@@ -454,9 +474,7 @@ func (c *wsConn) UnsubscribeByRID(rid string) bool {
 func (c *wsConn) addCount(s *Subscription, direct bool) error {
 	if direct {
 		if s.direct >= subscriptionCountLimit {
-			if debug {
-				c.Logf("Subscription %s: Subscription limit exceeded (%d)", s.RID(), s.direct)
-			}
+			c.Debugf("Subscription %s: Subscription limit exceeded (%d)", s.RID(), s.direct)
 			return errSubscriptionLimitExceeded
 		}
 
@@ -532,9 +550,7 @@ func (c *wsConn) subscribeConn() {
 		c.Enqueue(func() {
 			idx := len(c.cid) + 6 // Length of "conn." + "."
 			if idx >= len(subj) {
-				if debug {
-					c.Logf("Error processing conn event %s: malformed event subject", subj)
-				}
+				c.Debugf("Error processing conn event %s: malformed event subject", subj)
 				return
 			}
 
@@ -563,9 +579,7 @@ func (c *wsConn) unsubscribeConn() {
 func (c *wsConn) handleConnToken(payload []byte) {
 	te, err := codec.DecodeConnTokenEvent(payload)
 	if err != nil {
-		if debug {
-			c.Logf("Error processing conn event: malformed event payload: %s", err)
-		}
+		c.Debugf("Error processing conn event: malformed event payload: %s", err)
 		return
 	}
 

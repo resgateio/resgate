@@ -108,6 +108,7 @@ func (e *EventSubscription) addSubscriber(sub Subscriber) {
 		// In that case the subscriber will be handled
 		// on the response for that request
 		case stateRequested:
+			return
 
 		// An error occured during request
 		case stateError:

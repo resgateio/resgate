@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"unicode/utf8"
 
 	"github.com/jirenius/resgate/reserr"
 )
@@ -143,6 +144,11 @@ type ValueObject struct {
 	Action *string `json:"action"`
 }
 
+var DeleteValue = Value{
+	RawMessage: json.RawMessage(`{"action":"delete"}`),
+	Type:       ValueTypeDelete,
+}
+
 func (v *Value) UnmarshalJSON(data []byte) error {
 	err := v.RawMessage.UnmarshalJSON(data)
 	if err != nil {
@@ -175,6 +181,9 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 			}
 			v.Type = ValueTypeResource
 			v.RID = *mvo.RID
+			if !IsValidRID(v.RID) {
+				return errInvalidValue
+			}
 		} else {
 			// Must be an action of type actionDelete
 			if mvo.Action == nil || *mvo.Action != actionDelete {
@@ -182,6 +191,8 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 			}
 			v.Type = ValueTypeDelete
 		}
+	case '[':
+		return errInvalidValue
 	default:
 		v.Type = ValueTypePrimitive
 	}
@@ -284,7 +295,7 @@ func DecodeEvent(payload []byte) (json.RawMessage, error) {
 
 	err := json.Unmarshal(payload, &ev)
 	if err != nil {
-		return nil, reserr.InternalError(err)
+		return nil, reserr.RESError(err)
 	}
 	return ev, nil
 }
@@ -293,7 +304,7 @@ func DecodeQueryEvent(payload []byte) (*QueryEvent, error) {
 	var qe QueryEvent
 	err := json.Unmarshal(payload, &qe)
 	if err != nil {
-		return nil, reserr.InternalError(err)
+		return nil, reserr.RESError(err)
 	}
 	return &qe, nil
 }
@@ -302,7 +313,7 @@ func DecodeEventQueryResponse(payload []byte) ([]*EventQueryEvent, error) {
 	var r EventQueryResponse
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
-		return nil, reserr.InternalError(err)
+		return nil, reserr.RESError(err)
 	}
 
 	if r.Error != nil {
@@ -366,7 +377,7 @@ func DecodeAccessResponse(payload []byte) (*AccessResult, error) {
 	var r AccessResponse
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
-		return nil, reserr.InternalError(err)
+		return nil, reserr.RESError(err)
 	}
 
 	if r.Error != nil {
@@ -384,32 +395,36 @@ func DecodeCallResponse(payload []byte) (json.RawMessage, error) {
 	var r Response
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
-		return nil, reserr.InternalError(err)
+		return nil, reserr.RESError(err)
 	}
 
-	if r.Error == nil {
-		return r.Result, nil
+	if r.Error != nil {
+		return nil, r.Error
 	}
 
-	return nil, r.Error
+	if r.Result == nil {
+		return nil, errMissingResult
+	}
+
+	return r.Result, nil
 }
 
 func DecodeNewResponse(payload []byte) (string, error) {
 	var r NewResponse
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
-		return "", reserr.InternalError(err)
+		return "", reserr.RESError(err)
 	}
 
 	if r.Error != nil {
-		return "", err
+		return "", r.Error
 	}
 
 	if r.Result == nil {
 		return "", errMissingResult
 	}
 
-	if r.Result.RID == "" {
+	if !IsValidRID(r.Result.RID) {
 		return "", errInvalidResponse
 	}
 
@@ -420,7 +435,7 @@ func DecodeConnTokenEvent(payload []byte) (*ConnTokenEvent, error) {
 	var e ConnTokenEvent
 	err := json.Unmarshal(payload, &e)
 	if err != nil {
-		return nil, reserr.InternalError(err)
+		return nil, reserr.RESError(err)
 	}
 	return &e, nil
 }
@@ -437,4 +452,39 @@ func DecodeSystemReset(data json.RawMessage) (SystemReset, error) {
 	}
 
 	return r, nil
+}
+
+// IsValidRID returns true if the RID is valid, otherwise false
+func IsValidRID(rid string) bool {
+	start := true
+	for i, r := range rid {
+		switch r {
+		case '?':
+			if i == 0 {
+				return false
+			}
+			return true
+		case '\t':
+			fallthrough
+		case '\n':
+			fallthrough
+		case '\r':
+			fallthrough
+		case ' ':
+			fallthrough
+		case '/':
+			fallthrough
+		case utf8.RuneError:
+			return false
+		case '.':
+			if start {
+				return false
+			}
+			start = true
+		default:
+			start = false
+		}
+	}
+
+	return !start
 }

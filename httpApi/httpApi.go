@@ -39,11 +39,16 @@ func (r *Resource) MarshalJSON() ([]byte, error) {
 // The prefix is the beginning of the path which is not part of the
 // resource ID, and it should both start and end with /. Eg. "/api/"
 func PathToRID(path, query, prefix string) (string, error) {
-	if len(path) == 0 {
+	if len(path) == len(prefix) || !strings.HasPrefix(path, prefix) {
 		return "", errInvalidPath
 	}
 
-	path = strings.TrimPrefix(path, prefix)
+	path = path[len(prefix):]
+
+	// Dot separator not allowed in path
+	if strings.ContainsRune(path, '.') {
+		return "", errInvalidPath
+	}
 
 	if path[0] == '/' {
 		path = path[1:]
@@ -69,11 +74,16 @@ func PathToRID(path, query, prefix string) (string, error) {
 // The prefix is the beginning of the path which is not part of the
 // resource ID, and it should both start and end with /. Eg. "/api/"
 func PathToRIDAction(path, query, prefix string) (string, string, error) {
-	if len(path) == 0 {
+	if len(path) == len(prefix) || !strings.HasPrefix(path, prefix) {
 		return "", "", errInvalidPath
 	}
 
-	path = strings.TrimPrefix(path, prefix)
+	path = path[len(prefix):]
+
+	// Dot separator not allowed in path
+	if strings.ContainsRune(path, '.') {
+		return "", "", errInvalidPath
+	}
 
 	if path[0] == '/' {
 		path = path[1:]
@@ -93,7 +103,7 @@ func PathToRIDAction(path, query, prefix string) (string, string, error) {
 
 	rid := strings.Join(parts[:len(parts)-1], ".")
 	if query != "" {
-		rid += query
+		rid += "?" + query
 	}
 
 	return rid, parts[len(parts)-1], nil

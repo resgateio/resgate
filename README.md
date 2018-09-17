@@ -7,7 +7,7 @@ Used for building *scaleable*, *resilient*, *extensible*, and *secure* client we
 Simple, stateless, and scalable like REST, but updated in real-time.
 
 ![Book Collection Animation](docs/img/book-collection-anim.gif)  
-*Book Collection Example from the [go-res project](https://github.com/jirenius/go-res)*.
+*Screen capture from the [Book Collection Example](examples/book-collection/)*.
 
 ## Features
 
@@ -24,7 +24,7 @@ Multiple gateways may be connecteded to the same messaging system to handle larg
 The system can recover from lost connections, service failures, or gateway failures. The client will be updated as soon as the system is back online.
 
 **Access control**  
-Resource access can be handled using access tokens. Tokens may at any time be revoked or replaces. If a token is revoked/replaced, all subscriptions will be paused for reauthorization with the new token, and resources which no longer are authorized will be unsubscribed without delay.
+Resource access can be handled using access tokens. Tokens may at any time be revoked or replaced. If a token is revoked/replaced, all subscriptions will be paused for reauthorization with the new token, and resources which no longer are authorized will be unsubscribed without delay.
 
 **Secure**  
 The client uses WebSockets as transport layer, allowing for TLS/SSL encryption. Access tokens for access control are stored on the gateway and not in the client, protecting against token theft.
@@ -33,19 +33,19 @@ The client uses WebSockets as transport layer, allowing for TLS/SSL encryption. 
 Services can be added or removed to the API without any disruption or configuration changes. Simply just connect/disconnect the service to the messaging system.
 
 **Caching**  
-All resources are cachable by the gateways, taking load off the services. The gateway keeps its cache up-to-date using the events emitted from the services.
+All resources are cachable by the gateway, taking load off the services. The gateway keeps its cache up-to-date using the events emitted from the services.
 
 **Resource queries**  
-The protocol supports resource queries where partial or filtered resources are requested, such as for searches, filters, or pagination. Just like any other resource, query resources are also live.
+The protocol supports resource queries where partial or filtered resources are requested, such as for searches, filters, or pagination. Just like any other resource, query resources are also updated in realtime.
 
 **Web resources**  
 All resources may be accessed using ordinary web (http) requests, in a RESTful manner. The same goes for all resource method calls.
 
 **Language agnostic**  
-Services may be written in any language [supported by the messaging system](https://nats.io/download/). 
+Services may be written in any language [supported by the messaging system](https://nats.io/download/).
 
 **Simple**  
-The protocol is designed to be simple. Simple to create services.
+The protocol uses simple JSON messages and is easy to implement.
 
 ## Quickstart
 
