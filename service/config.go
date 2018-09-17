@@ -16,6 +16,8 @@ type Config struct {
 	TLSCert string `json:"certFile"`
 	TLSKey  string `json:"keyFile"`
 
+	NoHTTP bool // Disable start of the HTTP server. Used for testing
+
 	scheme           string
 	wsScheme         string
 	portString       string

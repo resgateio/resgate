@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/jirenius/resgate/mq/codec"
 	"github.com/jirenius/resgate/reserr"
 )
 
@@ -106,6 +107,11 @@ func HandleRequest(data []byte, req Requester) error {
 		}
 		method = rid[idx+1:]
 		rid = rid[:idx]
+	}
+
+	if !codec.IsValidRID(rid) {
+		req.Send(r.ErrorResponse(reserr.ErrMethodNotFound))
+		return nil
 	}
 
 	switch action {

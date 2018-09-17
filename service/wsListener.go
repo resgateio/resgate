@@ -23,18 +23,22 @@ func (s *Service) initWsListener() {
 	s.mux.HandleFunc(s.cfg.WSPath, s.wsHandler)
 }
 
+// GetWSHandlerFunc returns the websocket http.Handler
+// Used for testing purposes
+func (s *Service) GetWSHandlerFunc() http.Handler {
+	return http.HandlerFunc(s.wsHandler)
+}
+
 func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 	// Only allow exact matching path
 	if r.URL.Path != s.cfg.WSPath {
-		http.NotFound(w, r)
+		s.httpHandler(w, r)
 		return
 	}
 	// Upgrade to gorilla websocket
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		if debug {
-			s.Logf("Failed to upgrade connection from %s: %s", r.RemoteAddr, err.Error())
-		}
+		s.Debugf("Failed to upgrade connection from %s: %s", r.RemoteAddr, err.Error())
 		return
 	}
 
@@ -53,7 +57,7 @@ func (s *Service) stopWsListener() {
 		s.mu.Unlock()
 		return
 	}
-	s.Log("Disconnecting all ws connections...")
+	s.Logf("Disconnecting all ws connections...")
 	// Disconnecting all ws connections
 	for _, conn := range s.conns {
 		conn.Disconnect("Server is shutting down")
@@ -69,7 +73,7 @@ func (s *Service) stopWsListener() {
 
 	select {
 	case <-done:
-		s.Log("All ws connections gracefully closed")
+		s.Logf("All ws connections gracefully closed")
 	case <-time.After(wsDisconnectTimeout):
 		// Time out
 

@@ -324,15 +324,16 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (n
 		for sub := range rs.subs {
 			nrs.subs[sub] = struct{}{}
 		}
-
 	} else {
 		nrs = rs
 	}
 
-	// Clone subscribers to slice
-	sublist = make([]Subscriber, len(nrs.subs))
+	// Clone subscribers to slice from original resourceSubscription
+	// as it is only those subscribers that has not yet been Loaded.
+	// In nrs, there might be subscribers already Loaded.
+	sublist = make([]Subscriber, len(rs.subs))
 	i := 0
-	for sub := range nrs.subs {
+	for sub := range rs.subs {
 		sublist[i] = sub
 		i++
 	}
@@ -420,8 +421,16 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 func (rs *ResourceSubscription) processResetModel(props map[string]codec.Value) {
 	// Update cached model properties
 	vals := rs.model.Values
+
+	for k := range vals {
+		if _, ok := props[k]; !ok {
+			props[k] = codec.DeleteValue
+		}
+	}
+
 	for k, v := range props {
-		if v.Equal(vals[k]) {
+		ov, ok := vals[k]
+		if ok && v.Equal(ov) {
 			delete(props, k)
 		}
 	}
