@@ -47,14 +47,6 @@ func NewService(mq mq.Client, cfg Config) *Service {
 	return s
 }
 
-var debug = false
-
-// SetDebug enables debug logging
-func SetDebug(enabled bool) {
-	debug = enabled
-	resourceCache.SetDebug(enabled)
-}
-
 func (s *Service) SetLogger(l logger.Logger) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -64,6 +56,7 @@ func (s *Service) SetLogger(l logger.Logger) {
 	}
 
 	s.logger = l
+	s.cache.SetLogger(l)
 }
 
 // Logf writes a formatted log message

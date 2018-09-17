@@ -207,10 +207,14 @@ func (c *NATSTestClient) event(ns string, event string, payload interface{}) {
 		panic("test: no subscription for " + ns)
 	}
 
-	data, err := json.Marshal(payload)
-	if err != nil {
-		c.mu.Unlock()
-		panic("test: error marshalling event: " + err.Error())
+	var data []byte
+	var err error
+	if data, ok = payload.([]byte); !ok {
+		data, err = json.Marshal(payload)
+		if err != nil {
+			c.mu.Unlock()
+			panic("test: error marshalling event: " + err.Error())
+		}
 	}
 
 	c.mu.Unlock()

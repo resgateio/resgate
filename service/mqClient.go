@@ -8,13 +8,14 @@ import (
 
 const mqWorkers = 10
 
-func (s *Service) initMQClient() {}
+func (s *Service) initMQClient() {
+	s.cache = resourceCache.NewCache(s.mq, mqWorkers, s.logger)
+}
 
 // startMQClients creates a connection to the message queue.
 // Service.mu is held when called
 func (s *Service) startMQClient() error {
 	s.Logf("Connecting to message queue")
-	s.cache = resourceCache.NewCache(s.mq, mqWorkers, s.logFlags)
 	if err := s.mq.Connect(); err != nil {
 		return err
 	}

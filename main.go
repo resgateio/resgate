@@ -169,7 +169,6 @@ func main() {
 	cfg.Init(fs, os.Args[1:])
 
 	l := logger.NewStdLogger(cfg.Debug, cfg.Debug)
-	service.SetDebug(cfg.Debug)
 	serv := service.NewService(&nats.Client{
 		URL:            cfg.NatsURL,
 		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Second,

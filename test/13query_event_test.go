@@ -179,6 +179,56 @@ func TestModelQueryChangeEventOnMultipleQueries(t *testing.T) {
 	})
 }
 
+// Test query event on non-query model subscription
+func TestModelQueryChangeEventOnNonQuerySubscription(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Subscribe with different queries to the same model
+		subscribeToTestModel(t, s, c)
+
+		// Send query event
+		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+		// Get query requests for the two model queries
+		c.AssertNoNATSRequest(t, "test.model")
+	})
+}
+
+// Test invalid query event on non-query model subscription
+// These should eventually result in an error being sent to NATS.
+func TestInvalidModelQueryEvent(t *testing.T) {
+	tbl := []struct {
+		QueryEvent []byte // Raw query event payload
+	}{
+		{nil},
+		{[]byte(`{}`)},
+		{[]byte(`{"subject":BROKEN}`)},
+		{[]byte(`{"subject":42}`)},
+		{[]byte(`{"subject":""}`)},
+	}
+
+	for i, l := range tbl {
+		runTest(t, func(s *Session) {
+			panicked := true
+			defer func() {
+				if panicked {
+					t.Logf("Error in test %d", i)
+				}
+			}()
+
+			c := s.Connect()
+			subscribeToTestQueryModel(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+
+			// Send query event
+			s.ResourceEvent("test.model", "query", l.QueryEvent)
+
+			// Assert no request is sent to NATS
+			c.AssertNoNATSRequest(t, "test.model")
+
+			panicked = false
+		})
+	}
+}
+
 // Test collection query event
 func TestCollectionQueryEvent(t *testing.T) {
 	runTest(t, func(s *Session) {

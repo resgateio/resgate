@@ -2,20 +2,22 @@ package resourceCache
 
 import (
 	"encoding/json"
-	"log"
-	"os"
+	"errors"
 	"sync"
 	"time"
 
+	"github.com/jirenius/resgate/logger"
 	"github.com/jirenius/resgate/mq"
 	"github.com/jirenius/resgate/mq/codec"
 	"github.com/jirenius/timerqueue"
 )
 
 type Cache struct {
-	mq     mq.Client
-	logger *log.Logger
+	mq      mq.Client
+	logger  logger.Logger
+	workers int
 
+	started    bool
 	eventSubs  map[string]*EventSubscription
 	inCh       chan *EventSubscription
 	unsubQueue *timerqueue.Queue
@@ -43,34 +45,35 @@ type ResourceEvent struct {
 
 const unsubscribeDelay = time.Second * 5
 
-var debug = false
-
-// SetDebug enables debug logging
-func SetDebug(enabled bool) {
-	debug = enabled
+// NewCache creates a new Cache instance
+func NewCache(mq mq.Client, workers int, l logger.Logger) *Cache {
+	return &Cache{
+		mq:      mq,
+		logger:  l,
+		workers: workers,
+	}
 }
 
-func NewCache(mq mq.Client, workers int, logFlags int) *Cache {
-	c := &Cache{
-		mq:        mq,
-		logger:    log.New(os.Stdout, "[Cache] ", logFlags),
-		eventSubs: make(map[string]*EventSubscription),
-		inCh:      make(chan *EventSubscription, 100),
-	}
-
-	c.unsubQueue = timerqueue.New(c.mqUnsubscribe, unsubscribeDelay)
-
-	for workers > 0 {
-		go c.startWorker()
-		workers--
-	}
-
-	return c
+// SetLogger sets the logger
+func (c *Cache) SetLogger(l logger.Logger) {
+	c.logger = l
 }
 
 // Start will initialize the cache, subscribing to global events
 // It is assumed mq.Connect has already been called
 func (c *Cache) Start() error {
+	if c.started {
+		return errors.New("cache: already started")
+	}
+	inCh := make(chan *EventSubscription, 100)
+	c.eventSubs = make(map[string]*EventSubscription)
+	c.unsubQueue = timerqueue.New(c.mqUnsubscribe, unsubscribeDelay)
+	c.inCh = inCh
+
+	for i := 0; i < c.workers; i++ {
+		go c.startWorker(inCh)
+	}
+
 	resetSub, err := c.mq.Subscribe("system", func(subj string, payload []byte, _ error) {
 		ev := subj[7:]
 		switch ev {
@@ -79,22 +82,38 @@ func (c *Cache) Start() error {
 		}
 	})
 	if err != nil {
+		c.Stop()
 		return err
 	}
 
 	c.resetSub = resetSub
+	c.started = true
 	return nil
-}
-
-// Log writes a log message
-func (c *Cache) Log(v ...interface{}) {
-	c.logger.Print(v...)
 }
 
 // Logf writes a formatted log message
 func (c *Cache) Logf(format string, v ...interface{}) {
-	c.logger.Printf(format, v...)
+	if c.logger == nil {
+		return
+	}
+	c.logger.Logf("[Cache] ", format, v...)
 }
+
+// // Debugf writes a formatted log message
+// func (c *Cache) Debugf(format string, v ...interface{}) {
+// 	if c.logger == nil {
+// 		return
+// 	}
+// 	c.logger.Debugf("[Cache] ", format, v...)
+// }
+
+// // Tracef writes a formatted trace message
+// func (c *Cache) Tracef(format string, v ...interface{}) {
+// 	if c.logger == nil {
+// 		return
+// 	}
+// 	c.logger.Tracef("[Cache] ", format, v...)
+// }
 
 // Subscribe fetches a resource from the cache, and if it is
 // not cached, starts subscribing to the resource and sends a get request
@@ -209,13 +228,20 @@ func (c *Cache) getSubscription(name string, subscribe bool) (*EventSubscription
 	return eventSub, nil
 }
 
+// Stop closes the worker channel, stops all the workers,  and clears
+// the unsubscribe queue
 func (c *Cache) Stop() {
+	if !c.started {
+		return
+	}
 	close(c.inCh)
 	c.unsubQueue.Clear()
+	c.resetSub = nil
+	c.started = false
 }
 
-func (c *Cache) startWorker() {
-	for eventSub := range c.inCh {
+func (c *Cache) startWorker(ch chan *EventSubscription) {
+	for eventSub := range ch {
 		eventSub.processQueue()
 	}
 }
