@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/jirenius/resgate/httpApi"
+	"github.com/jirenius/resgate/httpapi"
 	"github.com/jirenius/resgate/mq/codec"
+	"github.com/jirenius/resgate/rescache"
 	"github.com/jirenius/resgate/reserr"
-	"github.com/jirenius/resgate/resourceCache"
 	"github.com/jirenius/resgate/rpc"
 )
 
@@ -20,7 +20,7 @@ type ConnSubscriber interface {
 	Token() json.RawMessage
 	Subscribe(rid string, direct bool, path []string) (*Subscription, error)
 	Unsubscribe(sub *Subscription, direct bool, count int, tryDelete bool)
-	Access(sub *Subscription, callback func(*resourceCache.Access))
+	Access(sub *Subscription, callback func(*rescache.Access))
 	Send(data []byte)
 	Enqueue(f func()) bool
 	ExpandCID(string) string
@@ -36,16 +36,16 @@ type Subscription struct {
 	state           subscriptionState
 	loadedCallbacks []func(*Subscription)
 	path            []string
-	resourceSub     *resourceCache.ResourceSubscription
-	typ             resourceCache.ResourceType
-	model           *resourceCache.Model
-	collection      *resourceCache.Collection
+	resourceSub     *rescache.ResourceSubscription
+	typ             rescache.ResourceType
+	model           *rescache.Model
+	collection      *rescache.Collection
 	refs            map[string]*reference
 	err             error
 	resourceCount   int
 	isQueueing      bool
-	eventQueue      []*resourceCache.ResourceEvent
-	access          *resourceCache.Access
+	eventQueue      []*rescache.ResourceEvent
+	access          *rescache.Access
 	accessCallbacks []func()
 	accessCalled    bool
 
@@ -115,7 +115,7 @@ func (s *Subscription) Token() json.RawMessage {
 	return s.c.Token()
 }
 
-func (s *Subscription) ResourceType() resourceCache.ResourceType {
+func (s *Subscription) ResourceType() rescache.ResourceType {
 	return s.typ
 }
 
@@ -123,7 +123,7 @@ func (s *Subscription) CID() string {
 	return s.c.CID()
 }
 
-func (s *Subscription) Loaded(resourceSub *resourceCache.ResourceSubscription, err error) {
+func (s *Subscription) Loaded(resourceSub *rescache.ResourceSubscription, err error) {
 	if !s.c.Enqueue(func() {
 		if err != nil {
 			s.err = err
@@ -139,9 +139,9 @@ func (s *Subscription) Loaded(resourceSub *resourceCache.ResourceSubscription, e
 		s.resourceSub = resourceSub
 		s.typ = resourceSub.GetResourceType()
 		switch s.typ {
-		case resourceCache.TypeCollection:
+		case rescache.TypeCollection:
 			s.setCollection()
-		case resourceCache.TypeModel:
+		case rescache.TypeModel:
 			s.setModel()
 		default:
 			s.state = stateReady
@@ -185,27 +185,27 @@ func (s *Subscription) GetRPCResources() *rpc.Resources {
 	return r
 }
 
-// GetHTTPResource returns an empty interface of either a httpApi.Model or a httpApi.Collection object.
+// GetHTTPResource returns an empty interface of either a httpapi.Model or a httpapi.Collection object.
 // It will lock the subscription and queue any events until ReleaseRPCResources is called.
-func (s *Subscription) GetHTTPResource(apiPath string, path []string) *httpApi.Resource {
+func (s *Subscription) GetHTTPResource(apiPath string, path []string) *httpapi.Resource {
 	if s.state == stateDisposed {
-		return &httpApi.Resource{APIPath: apiPath, RID: s.rid, Error: errDisposedSubscription}
+		return &httpapi.Resource{APIPath: apiPath, RID: s.rid, Error: errDisposedSubscription}
 	}
 
 	// Check for cyclic reference
 	if pathContains(path, s.rid) {
-		return &httpApi.Resource{APIPath: apiPath, RID: s.rid}
+		return &httpapi.Resource{APIPath: apiPath, RID: s.rid}
 	}
 	path = append(path, s.rid)
 
 	if s.err != nil {
-		return &httpApi.Resource{APIPath: apiPath, RID: s.rid, Error: s.err}
+		return &httpapi.Resource{APIPath: apiPath, RID: s.rid, Error: s.err}
 	}
 
-	var resource *httpApi.Resource
+	var resource *httpapi.Resource
 
 	switch s.typ {
-	case resourceCache.TypeCollection:
+	case rescache.TypeCollection:
 		vals := s.collection.Values
 		c := make([]interface{}, len(vals))
 		for i, v := range vals {
@@ -216,9 +216,9 @@ func (s *Subscription) GetHTTPResource(apiPath string, path []string) *httpApi.R
 				c[i] = v.RawMessage
 			}
 		}
-		resource = &httpApi.Resource{APIPath: apiPath, RID: s.rid, Collection: c}
+		resource = &httpapi.Resource{APIPath: apiPath, RID: s.rid, Collection: c}
 
-	case resourceCache.TypeModel:
+	case rescache.TypeModel:
 		vals := s.model.Values
 		m := make(map[string]interface{}, len(vals))
 		for k, v := range vals {
@@ -229,7 +229,7 @@ func (s *Subscription) GetHTTPResource(apiPath string, path []string) *httpApi.R
 				m[k] = v.RawMessage
 			}
 		}
-		resource = &httpApi.Resource{APIPath: apiPath, RID: s.rid, Model: m}
+		resource = &httpapi.Resource{APIPath: apiPath, RID: s.rid, Model: m}
 	}
 
 	return resource
@@ -290,14 +290,14 @@ func (s *Subscription) populateResources(r *rpc.Resources) {
 	}
 
 	switch s.typ {
-	case resourceCache.TypeCollection:
+	case rescache.TypeCollection:
 		// Create Collections map if needed
 		if r.Collections == nil {
 			r.Collections = make(map[string]interface{})
 		}
 		r.Collections[s.rid] = s.collection
 
-	case resourceCache.TypeModel:
+	case rescache.TypeModel:
 		// Create Models map if needed
 		if r.Models == nil {
 			r.Models = make(map[string]interface{})
@@ -455,7 +455,7 @@ func (s *Subscription) refLoaded(sub *Subscription) {
 	}
 }
 
-func (s *Subscription) Event(event *resourceCache.ResourceEvent) {
+func (s *Subscription) Event(event *rescache.ResourceEvent) {
 	s.c.Enqueue(func() {
 		// Discard any event prior to resourceSubscription being loaded or disposed
 		if s.resourceSub == nil {
@@ -471,23 +471,23 @@ func (s *Subscription) Event(event *resourceCache.ResourceEvent) {
 	})
 }
 
-func (s *Subscription) processEvent(event *resourceCache.ResourceEvent) {
+func (s *Subscription) processEvent(event *rescache.ResourceEvent) {
 	if event.Event == "reaccess" {
 		s.handleReaccess()
 		return
 	}
 
 	switch s.resourceSub.GetResourceType() {
-	case resourceCache.TypeCollection:
+	case rescache.TypeCollection:
 		s.processCollectionEvent(event)
-	case resourceCache.TypeModel:
+	case rescache.TypeModel:
 		s.processModelEvent(event)
 	default:
 		s.c.Debugf("Subscription %s: Unknown resource type: %d", s.rid, s.resourceSub.GetResourceType())
 	}
 }
 
-func (s *Subscription) processCollectionEvent(event *resourceCache.ResourceEvent) {
+func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 	switch event.Event {
 	case "add":
 		v := event.Value
@@ -536,14 +536,14 @@ func (s *Subscription) processCollectionEvent(event *resourceCache.ResourceEvent
 		if v.Type == codec.ValueTypeResource {
 			s.removeReference(v.RID)
 		}
-		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Data))
+		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Payload))
 
 	default:
-		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Data))
+		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Payload))
 	}
 }
 
-func (s *Subscription) processModelEvent(event *resourceCache.ResourceEvent) {
+func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 	switch event.Event {
 	case "change":
 		ch := event.Changed
@@ -577,7 +577,7 @@ func (s *Subscription) processModelEvent(event *resourceCache.ResourceEvent) {
 
 		// Quick exit if there are no new unsent subscriptions
 		if subs == nil {
-			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Data}))
+			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Payload}))
 			return
 		}
 
@@ -600,7 +600,7 @@ func (s *Subscription) processModelEvent(event *resourceCache.ResourceEvent) {
 				for _, sub := range subs {
 					sub.populateResources(r)
 				}
-				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Data, Resources: r}))
+				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Payload, Resources: r}))
 				for _, sub := range subs {
 					sub.ReleaseRPCResources()
 				}
@@ -610,7 +610,7 @@ func (s *Subscription) processModelEvent(event *resourceCache.ResourceEvent) {
 		}
 
 	default:
-		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Data))
+		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Payload))
 	}
 }
 
@@ -681,7 +681,7 @@ func (s *Subscription) reaccess() {
 		s.queueEvents()
 	}
 
-	event := &resourceCache.ResourceEvent{Event: "reaccess"}
+	event := &rescache.ResourceEvent{Event: "reaccess"}
 
 	if s.isQueueing {
 		s.eventQueue = append(s.eventQueue, event)
@@ -714,7 +714,7 @@ func (s *Subscription) loadAccess(cb func()) {
 
 	s.accessCalled = true
 
-	s.c.Access(s, func(access *resourceCache.Access) {
+	s.c.Access(s, func(access *rescache.Access) {
 		s.c.Enqueue(func() {
 			if s.state == stateDisposed {
 				return

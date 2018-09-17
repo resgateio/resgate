@@ -1,4 +1,4 @@
-package resourceCache
+package rescache
 
 import (
 	"encoding/json"
@@ -143,7 +143,7 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 		return false
 	}
 
-	props, err := codec.DecodeChangeEventData(r.Data)
+	props, err := codec.DecodeChangeEvent(r.Payload)
 	if err != nil {
 		rs.e.cache.Logf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
 	}
@@ -176,7 +176,7 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 		return false
 	}
 
-	params, err := codec.DecodeAddEventData(r.Data)
+	params, err := codec.DecodeAddEvent(r.Payload)
 	if err != nil {
 		rs.e.cache.Logf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
 		return false
@@ -211,7 +211,7 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 		return false
 	}
 
-	params, err := codec.DecodeRemoveEventData(r.Data)
+	params, err := codec.DecodeRemoveEvent(r.Payload)
 	if err != nil {
 		rs.e.cache.Logf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
 		return false
@@ -442,8 +442,8 @@ func (rs *ResourceSubscription) processResetModel(props map[string]codec.Value) 
 	data, _ := json.Marshal(props)
 
 	r := &ResourceEvent{
-		Event: "change",
-		Data:  json.RawMessage(data),
+		Event:   "change",
+		Payload: json.RawMessage(data),
 	}
 
 	rs.handleEvent(r)
@@ -541,7 +541,7 @@ Loop:
 			idx--
 			steps = append(steps, &ResourceEvent{
 				Event: "remove",
-				Data: codec.EncodeRemoveEventData(&codec.RemoveEventData{
+				Payload: codec.EncodeRemoveEvent(&codec.RemoveEvent{
 					Idx: idx,
 				}),
 			})
@@ -558,7 +558,7 @@ Loop:
 		add := adds[i]
 		steps = append(steps, &ResourceEvent{
 			Event: "add",
-			Data: codec.EncodeAddEventData(&codec.AddEventData{
+			Payload: codec.EncodeAddEvent(&codec.AddEvent{
 				Value: bb[add[0]],
 				Idx:   add[1] - r + add[2] + l - i,
 			}),

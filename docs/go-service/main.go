@@ -16,20 +16,24 @@ import (
 	"github.com/nats-io/go-nats"
 )
 
+// Request represent a RES request
 type Request struct {
 	Params json.RawMessage `json:"params"`
 	CID    string          `json:"cid"`
 	Token  json.RawMessage `json:"token"`
 }
 
+// Response represents a response to a RES request
 type Response struct {
 	Result interface{} `json:"result"`
 }
 
+// ModelResponse represents the model response to a RES get request
 type ModelResponse struct {
 	Model interface{} `json:"model"`
 }
 
+// Model represents the custom model
 type Model struct {
 	Message string `json:"message"`
 }

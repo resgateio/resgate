@@ -6,12 +6,14 @@ import (
 	"os"
 )
 
+// Logger is used to write log messages
 type Logger interface {
 	Logf(prefix string, format string, v ...interface{})
 	Debugf(prefix string, format string, v ...interface{})
 	Tracef(prefix string, format string, v ...interface{})
 }
 
+// StdLogger writes log messages to os.Stderr
 type StdLogger struct {
 	log   *log.Logger
 	debug bool

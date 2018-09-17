@@ -7,7 +7,7 @@ import (
 
 	"github.com/jirenius/resgate/logger"
 	"github.com/jirenius/resgate/mq"
-	"github.com/jirenius/resgate/resourceCache"
+	"github.com/jirenius/resgate/rescache"
 )
 
 // Service is a RES gateway implementation
@@ -20,7 +20,7 @@ type Service struct {
 	logFlags int
 
 	mq    mq.Client
-	cache *resourceCache.Cache
+	cache *rescache.Cache
 
 	// httpServer
 	mux *http.ServeMux

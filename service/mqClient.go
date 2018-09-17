@@ -3,13 +3,13 @@ package service
 import (
 	"errors"
 
-	"github.com/jirenius/resgate/resourceCache"
+	"github.com/jirenius/resgate/rescache"
 )
 
 const mqWorkers = 10
 
 func (s *Service) initMQClient() {
-	s.cache = resourceCache.NewCache(s.mq, mqWorkers, s.logger)
+	s.cache = rescache.NewCache(s.mq, mqWorkers, s.logger)
 }
 
 // startMQClients creates a connection to the message queue.
@@ -34,9 +34,9 @@ func (s *Service) stopMQClient() {
 		s.Logf("Closing the message queue client connection...")
 		s.mq.Close()
 	}
-	s.Logf("Stopping resourceCache workers...")
+	s.Logf("Stopping rescache workers...")
 	s.cache.Stop()
-	s.Logf("ResourceCache stopped")
+	s.Logf("rescache stopped")
 }
 
 func (s *Service) handleClosedMQ(err error) {

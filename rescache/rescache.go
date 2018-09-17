@@ -1,4 +1,4 @@
-package resourceCache
+package rescache
 
 import (
 	"encoding/json"
@@ -12,6 +12,7 @@ import (
 	"github.com/jirenius/timerqueue"
 )
 
+// Cache is an in memory resource cache.
 type Cache struct {
 	mq      mq.Client
 	logger  logger.Logger
@@ -25,6 +26,7 @@ type Cache struct {
 	mu         sync.Mutex
 }
 
+// Subscriber interface represents a subscription made on a client connection
 type Subscriber interface {
 	CID() string
 	Loaded(resourceSub *ResourceSubscription, err error)
@@ -34,9 +36,10 @@ type Subscriber interface {
 	Reaccess()
 }
 
+// ResourceEvent represents an event on a resource
 type ResourceEvent struct {
 	Event     string
-	Data      json.RawMessage
+	Payload   json.RawMessage
 	Idx       int
 	Value     codec.Value
 	Changed   map[string]codec.Value

@@ -1,4 +1,4 @@
-package httpApi
+package httpapi
 
 import (
 	"encoding/json"

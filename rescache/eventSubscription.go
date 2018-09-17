@@ -1,4 +1,4 @@
-package resourceCache
+package rescache
 
 import (
 	"sync"
@@ -7,8 +7,17 @@ import (
 	"github.com/jirenius/resgate/mq/codec"
 )
 
-type responseType byte
+// ResourceType is an enum representing a resource type
 type ResourceType byte
+
+// Resource types
+const (
+	TypeCollection ResourceType = ResourceType(stateCollection)
+	TypeModel      ResourceType = ResourceType(stateModel)
+	TypeError      ResourceType = ResourceType(stateError)
+)
+
+type responseType byte
 
 const (
 	respEvent responseType = iota
@@ -17,12 +26,7 @@ const (
 	respCached
 )
 
-const (
-	TypeCollection ResourceType = ResourceType(stateCollection)
-	TypeModel      ResourceType = ResourceType(stateModel)
-	TypeError      ResourceType = ResourceType(stateError)
-)
-
+// EventSubscription represents a subscription for events on a specific resource
 type EventSubscription struct {
 	// Immutable
 	ResourceName string
@@ -126,6 +130,9 @@ func (e *EventSubscription) addSubscriber(sub Subscriber) {
 	})
 }
 
+// Enqueue passes the callback function to be executed by one of the worker goroutines.
+// If a worker is already executing a callback on the EventSubscription, the callback
+// will be queued on the EventSubscription, and executed in order.
 func (e *EventSubscription) Enqueue(f func()) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -246,7 +253,7 @@ func (e *EventSubscription) enqueueEvent(subj string, payload []byte) {
 				return
 			}
 
-			e.base.handleEvent(&ResourceEvent{Event: event, Data: ev})
+			e.base.handleEvent(&ResourceEvent{Event: event, Payload: ev})
 		}
 	})
 }
@@ -287,7 +294,7 @@ func (e *EventSubscription) handleQueryEvent(subj string, payload []byte) {
 				}
 
 				for _, ev := range events {
-					rs.handleEvent(&ResourceEvent{Event: ev.Event, Data: ev.Data})
+					rs.handleEvent(&ResourceEvent{Event: ev.Event, Payload: ev.Data})
 				}
 			})
 		})

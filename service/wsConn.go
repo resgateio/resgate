@@ -8,11 +8,11 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/jirenius/resgate/httpApi"
+	"github.com/jirenius/resgate/httpapi"
 	"github.com/jirenius/resgate/mq"
 	"github.com/jirenius/resgate/mq/codec"
+	"github.com/jirenius/resgate/rescache"
 	"github.com/jirenius/resgate/reserr"
-	"github.com/jirenius/resgate/resourceCache"
 	"github.com/jirenius/resgate/rpc"
 	"github.com/rs/xid"
 )
@@ -269,7 +269,7 @@ func (c *wsConn) outputHTTPResource(prefix string, sub *Subscription, cb func(da
 
 	r := sub.GetHTTPResource(prefix, make([]string, 0, 32))
 
-	// Select which part of the httpApi.Resource
+	// Select which part of the httpapi.Resource
 	// that is to be sent in the response.
 	var data interface{}
 	switch {
@@ -367,7 +367,7 @@ func (c *wsConn) NewHTTPResource(rid, prefix string, params interface{}, cb func
 			if err != nil {
 				cb("", err)
 			} else {
-				cb(httpApi.RIDToPath(newRID, prefix), nil)
+				cb(httpapi.RIDToPath(newRID, prefix), nil)
 			}
 		})
 	})
@@ -517,7 +517,7 @@ func (c *wsConn) setToken(token json.RawMessage) {
 	}
 }
 
-func (c *wsConn) Access(s *Subscription, cb func(*resourceCache.Access)) {
+func (c *wsConn) Access(s *Subscription, cb func(*rescache.Access)) {
 	c.serv.cache.Access(s, c.token, cb)
 }
 
