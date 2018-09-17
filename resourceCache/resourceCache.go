@@ -99,22 +99,6 @@ func (c *Cache) Logf(format string, v ...interface{}) {
 	c.logger.Logf("[Cache] ", format, v...)
 }
 
-// // Debugf writes a formatted log message
-// func (c *Cache) Debugf(format string, v ...interface{}) {
-// 	if c.logger == nil {
-// 		return
-// 	}
-// 	c.logger.Debugf("[Cache] ", format, v...)
-// }
-
-// // Tracef writes a formatted trace message
-// func (c *Cache) Tracef(format string, v ...interface{}) {
-// 	if c.logger == nil {
-// 		return
-// 	}
-// 	c.logger.Tracef("[Cache] ", format, v...)
-// }
-
 // Subscribe fetches a resource from the cache, and if it is
 // not cached, starts subscribing to the resource and sends a get request
 func (c *Cache) Subscribe(sub Subscriber) {
