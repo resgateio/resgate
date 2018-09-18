@@ -114,7 +114,7 @@ func (e *EventSubscription) addSubscriber(sub Subscriber) {
 		case stateRequested:
 			return
 
-		// An error occured during request
+		// An error occurred during request
 		case stateError:
 			e.count--
 			e.mu.Unlock()

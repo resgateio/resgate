@@ -132,7 +132,7 @@ func (s *Subscription) CID() string {
 }
 
 // Loaded is called by rescache when the subscribed resource has been loaded.
-// If the resource was successfully loaded, err will be nil. If an error occured
+// If the resource was successfully loaded, err will be nil. If an error occurred
 // when loading the resource, resourceSub will be nil, and err will be the error.
 func (s *Subscription) Loaded(resourceSub *rescache.ResourceSubscription, err error) {
 	if !s.c.Enqueue(func() {
@@ -170,7 +170,7 @@ func (s *Subscription) IsSent() bool {
 	return s.state == stateSent
 }
 
-// Error returns any error that occured when loading the subscribed resource.
+// Error returns any error that occurred when loading the subscribed resource.
 func (s *Subscription) Error() error {
 	if s.state == stateDisposed {
 		return errDisposedSubscription

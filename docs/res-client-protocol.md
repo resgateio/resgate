@@ -320,7 +320,7 @@ RES protocol does not guarantee that all events sent by the service will reach t
 An event object has the following members:
 
 **event**  
-Identiying which resource the event occured on, and the type of event.  
+Identiying which resource the event occurred on, and the type of event.  
 It has the following structure:
 
 `<resourceID>.<eventName>`
