@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/jirenius/resgate/mq"
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/mq"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 // Test responses to client auth requests
@@ -44,10 +44,9 @@ func TestAuthOnResource(t *testing.T) {
 			}()
 
 			c := s.Connect()
-			var creq *ClientRequest
 
 			// Send client call request
-			creq = c.Request("auth.test.model.method", l.Params)
+			creq := c.Request("auth.test.model.method", l.Params)
 
 			// Get call request
 			req := s.GetRequest(t)

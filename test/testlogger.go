@@ -8,10 +8,8 @@ import (
 
 // TestLogger implements logger.Logger, and writes log data to a buffer.
 type TestLogger struct {
-	log   *log.Logger
-	b     *bytes.Buffer
-	debug bool
-	trace bool
+	log *log.Logger
+	b   *bytes.Buffer
 }
 
 // NewTestLogger returns a new logger that writes to a buffer

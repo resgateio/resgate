@@ -2,23 +2,21 @@ package test
 
 import (
 	"bytes"
-	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/jirenius/resgate/service"
+	"github.com/jirenius/resgate/server"
 	"github.com/posener/wstest"
 )
 
 const timeoutSeconds = 1
 
-// Session represents a test session with a service
+// Session represents a test session with a resgate server
 type Session struct {
 	*NATSTestClient
-	s     *service.Service
+	s     *server.Service
 	conns map[*Conn]struct{}
 	l     *TestLogger
 }
@@ -27,7 +25,7 @@ func setup() *Session {
 	l := NewTestLogger()
 
 	c := NewNATSTestClient(l)
-	serv := service.NewService(c, TestConfig())
+	serv := server.NewService(c, TestConfig())
 	serv.SetLogger(l)
 
 	s := &Session{
@@ -57,8 +55,7 @@ func (s *Session) Connect() *Conn {
 
 // HTTPRequest sends a request over HTTP
 func (s *Session) HTTPRequest(method, url string, body []byte) *HTTPRequest {
-	var r io.Reader
-	r = bytes.NewReader(body)
+	r := bytes.NewReader(body)
 
 	req, err := http.NewRequest(method, url, r)
 	if err != nil {
@@ -98,26 +95,12 @@ func teardown(s *Session) {
 	}
 }
 
-// TestConfig returns a default service configuration used for testing
-func TestConfig() service.Config {
-	var cfg service.Config
+// TestConfig returns a default server configuration used for testing
+func TestConfig() server.Config {
+	var cfg server.Config
 	cfg.SetDefault()
 	cfg.NoHTTP = true
 	return cfg
-}
-
-func concatJSON(raws ...[]byte) json.RawMessage {
-	l := 0
-	for _, raw := range raws {
-		l += len(raw)
-	}
-
-	out := make([]byte, 0, l)
-	for _, raw := range raws {
-		out = append(out, raw...)
-	}
-
-	return out
 }
 
 func runTest(t *testing.T, cb func(s *Session)) {

@@ -1,0 +1,18 @@
+language: go
+go:
+- 1.9.x
+- 1.10.x
+- 1.11
+install:
+- go get -u honnef.co/go/tools/cmd/megacheck
+- go get -u github.com/client9/misspell/cmd/misspell
+before_script:
+- PACKAGES=$(go list ./...)
+- go get -d ./...
+- go build 
+- $(exit $(go fmt $PACKAGES | wc -l))
+- misspell -error -locale US .
+- megacheck $PACKAGES
+script:
+- go test -i $PACKAGES
+- go test -race $PACKAGES

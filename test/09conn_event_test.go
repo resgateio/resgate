@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 // Test connection event

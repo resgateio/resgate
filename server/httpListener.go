@@ -1,4 +1,4 @@
-package service
+package server
 
 import (
 	"bytes"
@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jirenius/resgate/httpapi"
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/httpapi"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 var nullBytes = []byte("null")

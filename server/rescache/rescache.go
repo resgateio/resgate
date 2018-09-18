@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/jirenius/resgate/logger"
-	"github.com/jirenius/resgate/mq"
-	"github.com/jirenius/resgate/mq/codec"
+	"github.com/jirenius/resgate/server/codec"
+	"github.com/jirenius/resgate/server/mq"
 	"github.com/jirenius/timerqueue"
 )
 

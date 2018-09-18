@@ -1,9 +1,9 @@
-package service
+package server
 
 import (
 	"errors"
 
-	"github.com/jirenius/resgate/rescache"
+	"github.com/jirenius/resgate/server/rescache"
 )
 
 const mqWorkers = 10

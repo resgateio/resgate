@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 // Test getting a primitive model with a HTTP GET request

@@ -1,4 +1,4 @@
-package service
+package server
 
 import (
 	"errors"
@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/jirenius/resgate/logger"
-	"github.com/jirenius/resgate/mq"
-	"github.com/jirenius/resgate/rescache"
+	"github.com/jirenius/resgate/server/mq"
+	"github.com/jirenius/resgate/server/rescache"
 )
 
 // Service is a RES gateway implementation
@@ -17,7 +17,6 @@ type Service struct {
 	mu       sync.Mutex
 	stopping bool
 	stop     chan error
-	logFlags int
 
 	mq    mq.Client
 	cache *rescache.Cache
@@ -27,7 +26,6 @@ type Service struct {
 	h   *http.Server
 
 	// wsListener/wsConn
-	seq   uint64             // Sequential counter for wsConn Ids
 	conns map[string]*wsConn // Connections by wsConn Id's
 	wg    sync.WaitGroup     // Wait for all connections to be disconnected
 }

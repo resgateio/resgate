@@ -1,6 +1,6 @@
 package mq
 
-import "github.com/jirenius/resgate/reserr"
+import "github.com/jirenius/resgate/server/reserr"
 
 // Response sends a response to the messaging system
 type Response func(subj string, payload []byte, err error)
