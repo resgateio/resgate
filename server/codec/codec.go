@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"unicode/utf8"
 
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 var (

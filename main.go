@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/jirenius/resgate/logger"
-	"github.com/jirenius/resgate/mq/nats"
-	"github.com/jirenius/resgate/service"
+	"github.com/jirenius/resgate/nats"
+	"github.com/jirenius/resgate/server"
 )
 
 var stopTimeout = 10 * time.Second
@@ -41,7 +41,7 @@ type Config struct {
 	NatsURL        string `json:"natsUrl"`
 	RequestTimeout int    `json:"requestTimeout"`
 	Debug          bool   `json:"debug,omitempty"`
-	service.Config
+	server.Config
 }
 
 // SetDefault sets the default values
@@ -169,7 +169,7 @@ func main() {
 	cfg.Init(fs, os.Args[1:])
 
 	l := logger.NewStdLogger(cfg.Debug, cfg.Debug)
-	serv := service.NewService(&nats.Client{
+	serv := server.NewService(&nats.Client{
 		URL:            cfg.NatsURL,
 		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Second,
 		Logger:         l,

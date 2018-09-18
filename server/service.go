@@ -1,4 +1,4 @@
-package service
+package server
 
 import (
 	"errors"
@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/jirenius/resgate/logger"
-	"github.com/jirenius/resgate/mq"
-	"github.com/jirenius/resgate/rescache"
+	"github.com/jirenius/resgate/server/mq"
+	"github.com/jirenius/resgate/server/rescache"
 )
 
 // Service is a RES gateway implementation

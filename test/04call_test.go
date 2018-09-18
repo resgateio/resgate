@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/jirenius/resgate/mq"
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/mq"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 // Test responses to client call requests

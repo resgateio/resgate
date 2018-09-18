@@ -1,14 +1,14 @@
-package service
+package server
 
 import (
 	"encoding/json"
 	"strings"
 
-	"github.com/jirenius/resgate/httpapi"
-	"github.com/jirenius/resgate/mq/codec"
-	"github.com/jirenius/resgate/rescache"
-	"github.com/jirenius/resgate/reserr"
-	"github.com/jirenius/resgate/rpc"
+	"github.com/jirenius/resgate/server/codec"
+	"github.com/jirenius/resgate/server/httpapi"
+	"github.com/jirenius/resgate/server/rescache"
+	"github.com/jirenius/resgate/server/reserr"
+	"github.com/jirenius/resgate/server/rpc"
 )
 
 type subscriptionState byte

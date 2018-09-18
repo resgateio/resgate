@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/jirenius/resgate/mq/codec"
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/codec"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 // Requester has the methods required to perform a rpc request

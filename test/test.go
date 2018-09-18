@@ -9,16 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jirenius/resgate/service"
+	"github.com/jirenius/resgate/server"
 	"github.com/posener/wstest"
 )
 
 const timeoutSeconds = 1
 
-// Session represents a test session with a service
+// Session represents a test session with a resgate server
 type Session struct {
 	*NATSTestClient
-	s     *service.Service
+	s     *server.Service
 	conns map[*Conn]struct{}
 	l     *TestLogger
 }
@@ -27,7 +27,7 @@ func setup() *Session {
 	l := NewTestLogger()
 
 	c := NewNATSTestClient(l)
-	serv := service.NewService(c, TestConfig())
+	serv := server.NewService(c, TestConfig())
 	serv.SetLogger(l)
 
 	s := &Session{
@@ -98,9 +98,9 @@ func teardown(s *Session) {
 	}
 }
 
-// TestConfig returns a default service configuration used for testing
-func TestConfig() service.Config {
-	var cfg service.Config
+// TestConfig returns a default server configuration used for testing
+func TestConfig() server.Config {
+	var cfg server.Config
 	cfg.SetDefault()
 	cfg.NoHTTP = true
 	return cfg

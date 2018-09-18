@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 // Conn represents a client websocket connection

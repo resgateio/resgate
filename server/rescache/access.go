@@ -1,8 +1,8 @@
 package rescache
 
 import (
-	"github.com/jirenius/resgate/mq/codec"
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/codec"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 // Access represents a RES-service access response
