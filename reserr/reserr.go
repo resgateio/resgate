@@ -1,6 +1,6 @@
 package reserr
 
-// Error represents an RES error
+// Error represents a RES error
 type Error struct {
 	Code    string      `json:"code"`
 	Message string      `json:"message"`
@@ -11,7 +11,7 @@ func (e *Error) Error() string {
 	return e.Message
 }
 
-// Error converts an error to an *Error. If it isn't of type *Error already, it will become a system.internalError.
+// RESError converts an error to an *Error. If it isn't of type *Error already, it will become a system.internalError.
 func RESError(err error) *Error {
 	rerr, ok := err.(*Error)
 	if !ok {
@@ -25,6 +25,7 @@ func InternalError(err error) *Error {
 	return &Error{Code: CodeInternalError, Message: "Internal error: " + err.Error()}
 }
 
+// Pre-defined RES error codes
 const (
 	CodeAccessDenied     = "system.accessDenied"
 	CodeInternalError    = "system.internalError"
@@ -37,6 +38,9 @@ const (
 	CodeMethodNotAllowed = "system.methodNotAllowed"
 )
 
+// Pre-defined RES errors
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#pre-defined-errors
+// https://github.com/jirenius/resgate/blob/master/docs/res-client-protocol.md#pre-defined-errors
 var (
 	ErrAccessDenied   = &Error{Code: CodeAccessDenied, Message: "Access denied"}
 	ErrDisposing      = &Error{Code: CodeInternalError, Message: "Internal error: disposing connection"}

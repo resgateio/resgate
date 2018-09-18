@@ -1,5 +1,8 @@
 # Resgate - A Realtime + REST API gateway
 
+[![License][License-Image]][License-Url]
+[![ReportCard][ReportCard-Image]][ReportCard-Url]
+
 A [Go](http://golang.org) project implementing a Realtime API gateway for the [RES protocol](docs/res-protocol.md) with [NATS server](https://nats.io/about/) as messaging system.
 
 Used for building *scaleable*, *resilient*, *extensible*, and *secure* client web APIs based on *simple*, *stateless* micro-services serving *realtime* resources to web applications.
@@ -185,3 +188,8 @@ The RES protocol and resgate is still under development, and is currently at a s
 While it may be used in non-critical environments, it is not yet recommended to use the gateway for any critical systems. Any feedback on the protocol and its implementation is highly appreciated!
 
 If you find any issues with the protocol or the gateway, feel free to [report them](https://github.com/jirenius/resgate/issues/new) as an Issue.
+
+[License-Url]: http://opensource.org/licenses/MIT
+[License-Image]: https://img.shields.io/badge/License-MIT-blue.svg
+[ReportCard-Url]: http://goreportcard.com/report/jirenius/resgate
+[ReportCard-Image]: http://goreportcard.com/badge/github.com/jirenius/resgate

@@ -21,6 +21,8 @@ const (
 	actionDelete = "delete"
 )
 
+// Request represents a RES-service request
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#requests
 type Request struct {
 	Params interface{} `json:"params,omitempty"`
 	Token  interface{} `json:"token,omitempty"`
@@ -28,6 +30,47 @@ type Request struct {
 	CID    string      `json:"cid"`
 }
 
+// Response represents a RES-service response
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#response
+type Response struct {
+	Result json.RawMessage `json:"result"`
+	Error  *reserr.Error   `json:"error"`
+}
+
+// AccessResponse represents the response of a RES-service access request
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#access-request
+type AccessResponse struct {
+	Result *AccessResult `json:"result"`
+	Error  *reserr.Error `json:"error"`
+}
+
+// AccessResult represents the response result of a RES-service access request
+type AccessResult struct {
+	Get  bool   `json:"get"`
+	Call string `json:"call"`
+}
+
+// GetRequest represents a RES-service get request
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#get-request
+type GetRequest struct {
+	Query string `json:"query,omitempty"`
+}
+
+// GetResponse represents the response of a RES-service get request
+type GetResponse struct {
+	Result *GetResult    `json:"result"`
+	Error  *reserr.Error `json:"error"`
+}
+
+// GetResult represent the response result of a RES-service get request
+type GetResult struct {
+	Model      map[string]Value `json:"model"`
+	Collection []Value          `json:"collection"`
+	Query      string           `json:"query"`
+}
+
+// AuthRequest represents a RES-service auth request
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#auth-request
 type AuthRequest struct {
 	Request
 	Header     http.Header `json:"header,omitempty"`
@@ -36,96 +79,92 @@ type AuthRequest struct {
 	URI        string      `json:"uri,omitempty"`
 }
 
-type GetRequest struct {
-	Query string `json:"query,omitempty"`
-}
-
-type EventQueryRequest struct {
-	Query string `json:"query"`
-}
-
-type EventQueryResult struct {
-	Events []*EventQueryEvent `json:"events"`
-}
-
-type EventQueryResponse struct {
-	Result *EventQueryResult `json:"result"`
-	Error  *reserr.Error     `json:"error"`
-}
-
-type EventQueryEvent struct {
-	Event string          `json:"event"`
-	Data  json.RawMessage `json:"data"`
-}
-
-type GetResult struct {
-	Model      map[string]Value `json:"model"`
-	Collection []Value          `json:"collection"`
-	Query      string           `json:"query"`
-}
-
-type GetResponse struct {
-	Result *GetResult    `json:"result"`
-	Error  *reserr.Error `json:"error"`
-}
-
-type AccessResult struct {
-	Get  bool   `json:"get"`
-	Call string `json:"call"`
-}
-
-type AccessResponse struct {
-	Result *AccessResult `json:"result"`
-	Error  *reserr.Error `json:"error"`
-}
-
-type Response struct {
-	Result json.RawMessage `json:"result"`
-	Error  *reserr.Error   `json:"error"`
-}
-
+// NewResponse represents the response of a RES-service new call request
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#new-call-request
 type NewResponse struct {
 	Result *NewResult    `json:"result"`
 	Error  *reserr.Error `json:"error"`
 }
 
+// NewResult represents the response result of a RES-service new call request
 type NewResult struct {
 	RID string `json:"rid"`
 }
 
+// QueryEvent represents a RES-service query event
 type QueryEvent struct {
 	Subject string `json:"subject"`
 }
 
+// EventQueryRequest represents a RES-service query request
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#query-request
+type EventQueryRequest struct {
+	Query string `json:"query"`
+}
+
+// EventQueryResponse represent the response of a RES-service query request
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#query-event
+type EventQueryResponse struct {
+	Result *EventQueryResult `json:"result"`
+	Error  *reserr.Error     `json:"error"`
+}
+
+// EventQueryResult represent the response's result part of a RES-service
+// query request
+type EventQueryResult struct {
+	Events []*EventQueryEvent `json:"events"`
+}
+
+// EventQueryEvent represents an event in the response of a RES-server query request
+type EventQueryEvent struct {
+	Event string          `json:"event"`
+	Data  json.RawMessage `json:"data"`
+}
+
+// ConnTokenEvent represents a RES-server connection token event
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#connection-token-event
 type ConnTokenEvent struct {
 	Token json.RawMessage `json:"token"`
 }
 
-type AddEventData struct {
+// AddEvent represent a RES-server collection add event
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#collection-add-event
+type AddEvent struct {
 	Idx   int   `json:"idx"`
 	Value Value `json:"value"`
 }
 
-type RemoveEventData struct {
+// RemoveEvent represent a RES-server collection remove event
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#collection-remove-event
+type RemoveEvent struct {
 	Idx int `json:"idx"`
 }
 
+// SystemReset represents a RES-server system reset event
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#system-reset-event
 type SystemReset struct {
 	Resources []string `json:"resources"`
 	Access    []string `json:"access"`
 }
 
+// Requester is the connection making the request
 type Requester interface {
+	// CID returns the connection of the requester
 	CID() string
 }
 
+// AuthRequester is the connection making the auth request
 type AuthRequester interface {
+	// CID returns the connection of the requester
 	CID() string
+	// HTTPRequest returns the http.Request from requesters (upgraded) HTTP connection
 	HTTPRequest() *http.Request
 }
 
+// ValueType is an enum reprenting the value type
 type ValueType byte
 
+// Value type constants
 const (
 	ValueTypeNone ValueType = iota
 	ValueTypePrimitive
@@ -133,22 +172,27 @@ const (
 	ValueTypeDelete
 )
 
+// Value represents a RES value
+// https://github.com/jirenius/resgate/blob/master/docs/res-protocol.md#values
 type Value struct {
 	json.RawMessage
 	Type ValueType
 	RID  string
 }
 
+// ValueObject represents a resource reference or an action
 type ValueObject struct {
 	RID    *string `json:"rid"`
 	Action *string `json:"action"`
 }
 
+// DeleteValue is a predeclared delete action value
 var DeleteValue = Value{
 	RawMessage: json.RawMessage(`{"action":"delete"}`),
 	Type:       ValueTypeDelete,
 }
 
+// UnmarshalJSON sets *v to the RES value represented by the JSON encoded data
 func (v *Value) UnmarshalJSON(data []byte) error {
 	err := v.RawMessage.UnmarshalJSON(data)
 	if err != nil {
@@ -200,6 +244,7 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Equal reports whether v and w is equal in type and value
 func (v Value) Equal(w Value) bool {
 	if v.Type != w.Type {
 		return false
@@ -215,16 +260,13 @@ func (v Value) Equal(w Value) bool {
 	return true
 }
 
+// CreateRequest creates a JSON encoded RES-service request
 func CreateRequest(params interface{}, r Requester, query string, token interface{}) []byte {
 	out, _ := json.Marshal(Request{Params: params, Token: token, Query: query, CID: r.CID()})
 	return out
 }
 
-func CreateEventQueryRequest(query string) []byte {
-	out, _ := json.Marshal(EventQueryRequest{Query: query})
-	return out
-}
-
+// CreateGetRequest creates a JSON encoded RES-service get request
 func CreateGetRequest(query string) []byte {
 	if query == "" {
 		return noQueryGetRequest
@@ -233,6 +275,7 @@ func CreateGetRequest(query string) []byte {
 	return out
 }
 
+// CreateAuthRequest creates a JSON encoded RES-service auth request
 func CreateAuthRequest(params interface{}, r AuthRequester, query string, token interface{}) []byte {
 	hr := r.HTTPRequest()
 	out, _ := json.Marshal(AuthRequest{
@@ -245,6 +288,7 @@ func CreateAuthRequest(params interface{}, r AuthRequester, query string, token 
 	return out
 }
 
+// DecodeGetResponse decodes a JSON encoded RES-service get response
 func DecodeGetResponse(payload []byte) (*GetResult, error) {
 	var r GetResponse
 	err := json.Unmarshal(payload, &r)
@@ -287,6 +331,7 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 	return r.Result, nil
 }
 
+// DecodeEvent decodes a JSON encoded RES-service event
 func DecodeEvent(payload []byte) (json.RawMessage, error) {
 	var ev json.RawMessage
 	if payload == nil || len(payload) == 0 {
@@ -300,6 +345,7 @@ func DecodeEvent(payload []byte) (json.RawMessage, error) {
 	return ev, nil
 }
 
+// DecodeQueryEvent decodes a JSON encoded query event
 func DecodeQueryEvent(payload []byte) (*QueryEvent, error) {
 	var qe QueryEvent
 	err := json.Unmarshal(payload, &qe)
@@ -309,6 +355,13 @@ func DecodeQueryEvent(payload []byte) (*QueryEvent, error) {
 	return &qe, nil
 }
 
+// CreateEventQueryRequest creates a JSON encoded RES-service event query request
+func CreateEventQueryRequest(query string) []byte {
+	out, _ := json.Marshal(EventQueryRequest{Query: query})
+	return out
+}
+
+// DecodeEventQueryResponse decodes a JSON encoded RES-service event query response
 func DecodeEventQueryResponse(payload []byte) ([]*EventQueryEvent, error) {
 	var r EventQueryResponse
 	err := json.Unmarshal(payload, &r)
@@ -327,7 +380,8 @@ func DecodeEventQueryResponse(payload []byte) ([]*EventQueryEvent, error) {
 	return r.Result.Events, nil
 }
 
-func DecodeChangeEventData(data json.RawMessage) (map[string]Value, error) {
+// DecodeChangeEvent decodes a JSON encoded RES-service model change event
+func DecodeChangeEvent(data json.RawMessage) (map[string]Value, error) {
 	var r map[string]Value
 	err := json.Unmarshal(data, &r)
 	if err != nil {
@@ -337,8 +391,15 @@ func DecodeChangeEventData(data json.RawMessage) (map[string]Value, error) {
 	return r, nil
 }
 
-func DecodeAddEventData(data json.RawMessage) (*AddEventData, error) {
-	var d AddEventData
+// EncodeAddEvent creates a JSON encoded RES-service collection add event
+func EncodeAddEvent(d *AddEvent) json.RawMessage {
+	data, _ := json.Marshal(d)
+	return json.RawMessage(data)
+}
+
+// DecodeAddEvent decodes a JSON encoded RES-service collection add event
+func DecodeAddEvent(data json.RawMessage) (*AddEvent, error) {
+	var d AddEvent
 	err := json.Unmarshal(data, &d)
 	if err != nil {
 		return nil, err
@@ -353,18 +414,15 @@ func DecodeAddEventData(data json.RawMessage) (*AddEventData, error) {
 	return &d, nil
 }
 
-func EncodeRemoveEventData(d *RemoveEventData) json.RawMessage {
+// EncodeRemoveEvent creates a JSON encoded RES-service collection remove event
+func EncodeRemoveEvent(d *RemoveEvent) json.RawMessage {
 	data, _ := json.Marshal(d)
 	return json.RawMessage(data)
 }
 
-func EncodeAddEventData(d *AddEventData) json.RawMessage {
-	data, _ := json.Marshal(d)
-	return json.RawMessage(data)
-}
-
-func DecodeRemoveEventData(data json.RawMessage) (*RemoveEventData, error) {
-	var d RemoveEventData
+// DecodeRemoveEvent decodes a JSON encoded RES-service collection remove event
+func DecodeRemoveEvent(data json.RawMessage) (*RemoveEvent, error) {
+	var d RemoveEvent
 	err := json.Unmarshal(data, &d)
 	if err != nil {
 		return nil, err
@@ -373,6 +431,7 @@ func DecodeRemoveEventData(data json.RawMessage) (*RemoveEventData, error) {
 	return &d, nil
 }
 
+// DecodeAccessResponse decodes a JSON encoded RES-service access response
 func DecodeAccessResponse(payload []byte) (*AccessResult, error) {
 	var r AccessResponse
 	err := json.Unmarshal(payload, &r)
@@ -391,6 +450,7 @@ func DecodeAccessResponse(payload []byte) (*AccessResult, error) {
 	return r.Result, nil
 }
 
+// DecodeCallResponse decodes a JSON encoded RES-service call response
 func DecodeCallResponse(payload []byte) (json.RawMessage, error) {
 	var r Response
 	err := json.Unmarshal(payload, &r)
@@ -409,6 +469,7 @@ func DecodeCallResponse(payload []byte) (json.RawMessage, error) {
 	return r.Result, nil
 }
 
+// DecodeNewResponse decodes a JSON encoded RES-service new call response
 func DecodeNewResponse(payload []byte) (string, error) {
 	var r NewResponse
 	err := json.Unmarshal(payload, &r)
@@ -431,6 +492,7 @@ func DecodeNewResponse(payload []byte) (string, error) {
 	return r.Result.RID, nil
 }
 
+// DecodeConnTokenEvent decodes a JSON encoded RES-service connection token event
 func DecodeConnTokenEvent(payload []byte) (*ConnTokenEvent, error) {
 	var e ConnTokenEvent
 	err := json.Unmarshal(payload, &e)
@@ -440,6 +502,7 @@ func DecodeConnTokenEvent(payload []byte) (*ConnTokenEvent, error) {
 	return &e, nil
 }
 
+// DecodeSystemReset decodes a JSON encoded RES-service system reset event
 func DecodeSystemReset(data json.RawMessage) (SystemReset, error) {
 	var r SystemReset
 	if len(data) == 0 {

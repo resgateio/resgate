@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jirenius/resgate/httpApi"
+	"github.com/jirenius/resgate/httpapi"
 	"github.com/jirenius/resgate/reserr"
 )
 
@@ -27,7 +27,7 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 
-		rid, err := httpApi.PathToRID(path, r.URL.RawQuery, s.cfg.APIPath)
+		rid, err := httpapi.PathToRID(path, r.URL.RawQuery, s.cfg.APIPath)
 		if err != nil {
 			httpError(w, reserr.ErrNotFound)
 			return
@@ -38,7 +38,7 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 		})
 
 	case "POST":
-		rid, action, err := httpApi.PathToRIDAction(path, r.URL.RawQuery, s.cfg.APIPath)
+		rid, action, err := httpapi.PathToRIDAction(path, r.URL.RawQuery, s.cfg.APIPath)
 		if err != nil {
 			httpError(w, reserr.ErrNotFound)
 			return

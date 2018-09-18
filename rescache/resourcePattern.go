@@ -1,5 +1,6 @@
-package resourceCache
+package rescache
 
+// ResourcePattern represents a parsed resource pattern.
 type ResourcePattern struct {
 	pattern string
 	hasWild bool
@@ -64,10 +65,12 @@ func ParseResourcePattern(pattern string) ResourcePattern {
 	return p
 }
 
+// IsValid reports whether the resource pattern is valid
 func (p ResourcePattern) IsValid() bool {
 	return len(p.pattern) > 0
 }
 
+// Match reports whether a resource name, s, matches the resource pattern
 func (p ResourcePattern) Match(s string) bool {
 	if len(p.pattern) == 0 {
 		return false
