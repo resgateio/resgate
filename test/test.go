@@ -2,8 +2,6 @@ package test
 
 import (
 	"bytes"
-	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -57,8 +55,7 @@ func (s *Session) Connect() *Conn {
 
 // HTTPRequest sends a request over HTTP
 func (s *Session) HTTPRequest(method, url string, body []byte) *HTTPRequest {
-	var r io.Reader
-	r = bytes.NewReader(body)
+	r := bytes.NewReader(body)
 
 	req, err := http.NewRequest(method, url, r)
 	if err != nil {
@@ -104,20 +101,6 @@ func TestConfig() server.Config {
 	cfg.SetDefault()
 	cfg.NoHTTP = true
 	return cfg
-}
-
-func concatJSON(raws ...[]byte) json.RawMessage {
-	l := 0
-	for _, raw := range raws {
-		l += len(raw)
-	}
-
-	out := make([]byte, 0, l)
-	for _, raw := range raws {
-		out = append(out, raw...)
-	}
-
-	return out
 }
 
 func runTest(t *testing.T, cb func(s *Session)) {

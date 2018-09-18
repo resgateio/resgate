@@ -43,11 +43,6 @@ type NATSTestClient struct {
 // ParallelRequests holds multiple requests in undetermined order
 type ParallelRequests []*Request
 
-type responseCont struct {
-	isReq bool
-	f     mq.Response
-}
-
 // NewNATSTestClient creates a new NATSTestClient instance
 func NewNATSTestClient(l logger.Logger) *NATSTestClient {
 	return &NATSTestClient{l: l}
@@ -103,7 +98,6 @@ func (c *NATSTestClient) Close() {
 	}
 	close(c.reqs)
 	c.connected = false
-	return
 }
 
 // SendRequest sends an asynchronous request on a subject, expecting the Response
@@ -115,7 +109,7 @@ func (c *NATSTestClient) SendRequest(subj string, payload []byte, cb mq.Response
 	var p interface{}
 	err := json.Unmarshal(payload, &p)
 	if err != nil {
-		panic("test: error unmarshalling request payload: " + err.Error())
+		panic("test: error unmarshaling request payload: " + err.Error())
 	}
 
 	r := &Request{
@@ -148,7 +142,7 @@ func (c *NATSTestClient) Subscribe(namespace string, cb mq.Response) (mq.Unsubsc
 
 // SetClosedHandler sets the handler when the connection is closed
 func (c *NATSTestClient) SetClosedHandler(_ func(error)) {
-	return
+	// Does nothing
 }
 
 // HasSubscriptions asserts that there is a subscription for the given resource IDs
@@ -214,7 +208,7 @@ func (c *NATSTestClient) event(ns string, event string, payload interface{}) {
 		data, err = json.Marshal(payload)
 		if err != nil {
 			c.mu.Unlock()
-			panic("test: error marshalling event: " + err.Error())
+			panic("test: error marshaling event: " + err.Error())
 		}
 	}
 
@@ -285,7 +279,7 @@ func (r *Request) getCallback() mq.Response {
 func (r *Request) Respond(data interface{}) {
 	out, err := json.Marshal(data)
 	if err != nil {
-		panic("test: error marshalling response: " + err.Error())
+		panic("test: error marshaling response: " + err.Error())
 	}
 	r.RespondRaw(out)
 }
@@ -346,13 +340,13 @@ func (r *Request) AssertPayload(t *testing.T, payload interface{}) *Request {
 	var err error
 	pj, err := json.Marshal(payload)
 	if err != nil {
-		panic("test: error marshalling assertion payload: " + err.Error())
+		panic("test: error marshaling assertion payload: " + err.Error())
 	}
 
 	var p interface{}
 	err = json.Unmarshal(pj, &p)
 	if err != nil {
-		panic("test: error unmarshalling assertion payload: " + err.Error())
+		panic("test: error unmarshaling assertion payload: " + err.Error())
 	}
 
 	if !reflect.DeepEqual(p, r.Payload) {
@@ -369,18 +363,18 @@ func (r *Request) AssertPathPayload(t *testing.T, path string, payload interface
 	var err error
 	pj, err := json.Marshal(payload)
 	if err != nil {
-		panic("test: error marshalling assertion path payload: " + err.Error())
+		panic("test: error marshaling assertion path payload: " + err.Error())
 	}
 	var p interface{}
 	err = json.Unmarshal(pj, &p)
 	if err != nil {
-		panic("test: error unmarshalling assertion path payload: " + err.Error())
+		panic("test: error unmarshaling assertion path payload: " + err.Error())
 	}
 
 	if !reflect.DeepEqual(p, pp) {
 		ppj, err := json.Marshal(pp)
 		if err != nil {
-			panic("test: error marshalling request path payload: " + err.Error())
+			panic("test: error marshaling request path payload: " + err.Error())
 		}
 
 		t.Fatalf("expected request payload of path %#v to be:\n%s\nbut got:\n%s", path, pj, ppj)

@@ -82,8 +82,7 @@ type NewResult struct {
 }
 
 var (
-	errMissingID      = errors.New("Request is missing id property")
-	errNotImplemented = errors.New("Not implemented")
+	errMissingID = errors.New("Request is missing id property")
 )
 
 // HandleRequest unmarshals a request byte array and dispatches the request to the requester

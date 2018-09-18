@@ -17,15 +17,6 @@ const (
 	TypeError      ResourceType = ResourceType(stateError)
 )
 
-type responseType byte
-
-const (
-	respEvent responseType = iota
-	respGet
-	respCall
-	respCached
-)
-
 // EventSubscription represents a subscription for events on a specific resource
 type EventSubscription struct {
 	// Immutable
@@ -43,19 +34,6 @@ type EventSubscription struct {
 	count int64
 	queue []func()
 	locks []func()
-}
-
-type response struct {
-	rtype   responseType
-	subject string
-	payload []byte
-	err     error
-	sub     Subscriber
-}
-
-type queueEvent struct {
-	subj    string
-	payload []byte
 }
 
 func (e *EventSubscription) getResourceSubscription(q string) (rs *ResourceSubscription) {

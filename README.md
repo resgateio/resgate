@@ -5,7 +5,7 @@
 
 A [Go](http://golang.org) project implementing a Realtime API gateway for the [RES protocol](docs/res-protocol.md) with [NATS server](https://nats.io/about/) as messaging system.
 
-Used for building *scaleable*, *resilient*, *extensible*, and *secure* client web APIs based on *simple*, *stateless* micro-services serving *realtime* resources to web applications.
+Used for building *scalable*, *resilient*, *extensible*, and *secure* client web APIs based on *simple*, *stateless* micro-services serving *realtime* resources to web applications.
 
 Simple, stateless, and scalable like REST, but updated in real-time.
 
@@ -79,7 +79,7 @@ npm install
 npm run start
 ```
 
-Open your favourite browser and go to:
+Open your favorite browser and go to:
 ```
 http://localhost:8000/
 ```

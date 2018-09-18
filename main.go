@@ -180,10 +180,9 @@ func main() {
 		printAndDie(err.Error(), false)
 	}
 
-	stop := make(chan os.Signal)
+	stop := make(chan os.Signal, 1)
 	signal.Notify(stop,
 		os.Interrupt,
-		os.Kill,
 		syscall.SIGHUP,
 		syscall.SIGTERM,
 		syscall.SIGQUIT)

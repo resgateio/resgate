@@ -11,7 +11,7 @@ type Access struct {
 	Error error
 }
 
-// CanGet reports wheter get access is granted.
+// CanGet reports whether get access is granted.
 // Returns nil if get access is granted, otherwise an error.
 func (a *Access) CanGet() error {
 	if a.Error != nil {
@@ -25,7 +25,7 @@ func (a *Access) CanGet() error {
 	return reserr.ErrAccessDenied
 }
 
-// CanCall reports wheter call access for a given action is granted.
+// CanCall reports whether call access for a given action is granted.
 // Returns nil if get access is granted, otherwise an error.
 func (a *Access) CanCall(action string) error {
 	if a.Error != nil {

@@ -34,7 +34,6 @@ type wsConn struct {
 	mu sync.Mutex
 }
 
-const wsConnChannelSize = 32
 const wsConnWorkerQueueSize = 256
 const cidPlaceholder = "{cid}"
 

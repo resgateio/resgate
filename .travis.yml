@@ -15,3 +15,4 @@ before_script:
 - megacheck $PACKAGES
 script:
 - go test -i $PACKAGES
+- go test -v -race $PACKAGES

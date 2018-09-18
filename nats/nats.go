@@ -16,7 +16,7 @@ const (
 	natsChannelSize = 256
 )
 
-var logPrefix = "[NATS] "
+const logPrefix = "[NATS] "
 
 // Client holds a client connection to a nats server.
 type Client struct {
@@ -49,7 +49,7 @@ func (c *Client) Logf(format string, v ...interface{}) {
 	if c.Logger == nil {
 		return
 	}
-	c.Logger.Logf("[NATS] ", format, v...)
+	c.Logger.Logf(logPrefix, format, v...)
 }
 
 // Debugf writes a formatted debug message
@@ -57,7 +57,7 @@ func (c *Client) Debugf(format string, v ...interface{}) {
 	if c.Logger == nil {
 		return
 	}
-	c.Logger.Debugf("[NATS] ", format, v...)
+	c.Logger.Debugf(logPrefix, format, v...)
 }
 
 // Tracef writes a formatted trace message
@@ -65,7 +65,7 @@ func (c *Client) Tracef(format string, v ...interface{}) {
 	if c.Logger == nil {
 		return
 	}
-	c.Logger.Tracef("[NATS] ", format, v...)
+	c.Logger.Tracef(logPrefix, format, v...)
 }
 
 // Connect creates a connection to the nats server.

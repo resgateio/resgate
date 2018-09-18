@@ -62,8 +62,7 @@ type reference struct {
 }
 
 const (
-	stateCreated subscriptionState = iota
-	stateCollecting
+	stateCollecting subscriptionState = iota + 1
 	stateReady
 	stateToSend
 	stateSent

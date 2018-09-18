@@ -90,7 +90,7 @@ func (c *Conn) Request(method string, params interface{}) *ClientRequest {
 		Params: params,
 	})
 	if err != nil {
-		panic("test: error marshalling client request: " + err.Error())
+		panic("test: error marshaling client request: " + err.Error())
 	}
 
 	req := &ClientRequest{
@@ -107,7 +107,7 @@ func (c *Conn) Request(method string, params interface{}) *ClientRequest {
 
 // Disconnect closes the connection to the gateway
 func (c *Conn) Disconnect() {
-	c.Disconnect()
+	c.ws.Close()
 }
 
 // GetEvent gets a pending event that is sent to the client.
@@ -184,7 +184,7 @@ func (c *Conn) listen() {
 		cr := clientResponse{}
 		err := json.Unmarshal(in, &cr)
 		if err != nil {
-			panic("test: error unmarshalling client response: " + err.Error())
+			panic("test: error unmarshaling client response: " + err.Error())
 		}
 
 		c.mu.Lock()
@@ -242,19 +242,19 @@ func (cr *ClientResponse) AssertResult(t *testing.T, result interface{}) *Client
 	var err error
 	rj, err := json.Marshal(result)
 	if err != nil {
-		panic("test: error marshalling assertion result: " + err.Error())
+		panic("test: error marshaling assertion result: " + err.Error())
 	}
 
 	var r interface{}
 	err = json.Unmarshal(rj, &r)
 	if err != nil {
-		panic("test: error unmarshalling assertion result: " + err.Error())
+		panic("test: error unmarshaling assertion result: " + err.Error())
 	}
 
 	if !reflect.DeepEqual(r, cr.Result) {
 		crj, err := json.Marshal(cr.Result)
 		if err != nil {
-			panic("test: error marshalling response result: " + err.Error())
+			panic("test: error marshaling response result: " + err.Error())
 		}
 		t.Fatalf("expected response result to be:\n%s\nbut got:\n%s", rj, crj)
 	}
@@ -268,7 +268,7 @@ func (cr *ClientResponse) AssertError(t *testing.T, err *reserr.Error) *ClientRe
 		var err error
 		rj, err := json.Marshal(cr.Result)
 		if err != nil {
-			panic("test: error marshalling response result: " + err.Error())
+			panic("test: error marshaling response result: " + err.Error())
 		}
 		t.Fatalf("expected error response, but got result:\n%s", rj)
 	}
@@ -276,11 +276,11 @@ func (cr *ClientResponse) AssertError(t *testing.T, err *reserr.Error) *ClientRe
 	if !reflect.DeepEqual(err, cr.Error) {
 		ej, err := json.Marshal(err)
 		if err != nil {
-			panic("test: error marshalling assertion error: " + err.Error())
+			panic("test: error marshaling assertion error: " + err.Error())
 		}
 		cej, err := json.Marshal(cr.Error)
 		if err != nil {
-			panic("test: error marshalling response error: " + err.Error())
+			panic("test: error marshaling response error: " + err.Error())
 		}
 		t.Fatalf("expected response result to be:\n%s\nbut got:\n%s", ej, cej)
 	}
@@ -294,7 +294,7 @@ func (cr *ClientResponse) AssertErrorCode(t *testing.T, code string) *ClientResp
 		var err error
 		rj, err := json.Marshal(cr.Result)
 		if err != nil {
-			panic("test: error marshalling response result: " + err.Error())
+			panic("test: error marshaling response result: " + err.Error())
 		}
 		t.Fatalf("expected error response, but got result:\n%s", rj)
 	}
@@ -337,19 +337,19 @@ func (ev *ClientEvent) AssertData(t *testing.T, data interface{}) *ClientEvent {
 	var err error
 	dj, err := json.Marshal(data)
 	if err != nil {
-		panic("test: error marshalling assertion data: " + err.Error())
+		panic("test: error marshaling assertion data: " + err.Error())
 	}
 
 	var p interface{}
 	err = json.Unmarshal(dj, &p)
 	if err != nil {
-		panic("test: error unmarshalling assertion data: " + err.Error())
+		panic("test: error unmarshaling assertion data: " + err.Error())
 	}
 
 	if !reflect.DeepEqual(p, ev.Data) {
 		evdj, err := json.Marshal(ev.Data)
 		if err != nil {
-			panic("test: error marshalling event data: " + err.Error())
+			panic("test: error marshaling event data: " + err.Error())
 		}
 		t.Fatalf("expected event data to be:\n%s\nbut got:\n%s", dj, evdj)
 	}

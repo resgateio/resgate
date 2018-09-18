@@ -19,7 +19,6 @@ type Config struct {
 	NoHTTP bool // Disable start of the HTTP server. Used for testing
 
 	scheme           string
-	wsScheme         string
 	portString       string
 	headerAuthRID    string
 	headerAuthAction string

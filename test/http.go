@@ -77,12 +77,12 @@ func (hr *HTTPResponse) AssertBody(t *testing.T, body interface{}) *HTTPResponse
 	if body != nil {
 		bj, err = json.Marshal(body)
 		if err != nil {
-			panic("test: error marshalling assertion body: " + err.Error())
+			panic("test: error marshaling assertion body: " + err.Error())
 		}
 
 		err = json.Unmarshal(bj, &ab)
 		if err != nil {
-			panic("test: error unmarshalling assertion body: " + err.Error())
+			panic("test: error unmarshaling assertion body: " + err.Error())
 		}
 	}
 

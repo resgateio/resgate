@@ -82,10 +82,9 @@ func TestNewOnResource(t *testing.T) {
 			}()
 
 			c := s.Connect()
-			var creq *ClientRequest
 
 			// Send client new request
-			creq = c.Request("new.test.collection", l.Params)
+			creq := c.Request("new.test.collection", l.Params)
 
 			req := s.GetRequest(t)
 			req.AssertSubject(t, "access.test.collection")
@@ -116,9 +115,8 @@ func TestNewOnResource(t *testing.T) {
 			if l.GetResponse != noRequest {
 				mreqs := s.GetParallelRequests(t, 2)
 
-				var req *Request
 				// Send get response
-				req = mreqs.GetRequest(t, "get.test.model")
+				req := mreqs.GetRequest(t, "get.test.model")
 				if l.GetResponse == requestTimeout {
 					req.Timeout()
 				} else if err, ok := l.GetResponse.(*reserr.Error); ok {

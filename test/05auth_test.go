@@ -44,10 +44,9 @@ func TestAuthOnResource(t *testing.T) {
 			}()
 
 			c := s.Connect()
-			var creq *ClientRequest
 
 			// Send client call request
-			creq = c.Request("auth.test.model.method", l.Params)
+			creq := c.Request("auth.test.model.method", l.Params)
 
 			// Get call request
 			req := s.GetRequest(t)
