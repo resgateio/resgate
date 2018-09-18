@@ -47,7 +47,7 @@ resgate->-req: Return serv.resourceA or error
 -->
 
 ### Notes
-* Any *service resource event*, except `reaccess` events, recieve prior to the *Service get response* will be discarded.
+* Any *service resource event*, except `reaccess` events, receive prior to the *Service get response* will be discarded.
 * `reaccess` events will be handled after the cache request is completed
 
 ## Client subscribe

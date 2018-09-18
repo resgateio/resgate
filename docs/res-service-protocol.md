@@ -106,7 +106,7 @@ Code                    | Message            | Meaning
 
 ## Pre-response
 
-When a service recieves a request, and before a response is sent, the service may send a pre-response. A service should only send a pre-response when the time it takes to handle the request might exceed the default timeout limit of the requester.  
+When a service receives a request, and before a response is sent, the service may send a pre-response. A service should only send a pre-response when the time it takes to handle the request might exceed the default timeout limit of the requester.  
 The pre-response is a UTF-8 encoded key:"value" string without any leading white space.  
 It should contain the following key:
 
@@ -402,7 +402,7 @@ MUST be a number that is zero or greater and less than the length of the collect
 **Subject**  
 `event.<resourceName>.reaccess`
 
-Reaccess events are sent when a resource's access permissions has changed. It will invalidate any previous access response recieved for the resource.  
+Reaccess events are sent when a resource's access permissions has changed. It will invalidate any previous access response received for the resource.  
 The event has no payload.
 
 ## Custom event
@@ -425,7 +425,7 @@ Connection events are sent for specific [connection ID's (cid)](#res-protocol.md
 `conn.<cid>.token`
 
 Sets the connection's access token, discarding any previously set token.  
-A change of token will invalidate any previous access response recieved using the old token.  
+A change of token will invalidate any previous access response received using the old token.  
 The event payload has the following parameter:
 
 **token**  
@@ -495,7 +495,7 @@ Query requests are sent in response to a [query event](#query-event). The servic
 The request payload has the following parameters:
 
 **query**  
-Normalized query recieved in the response to the get request for the query resource.  
+Normalized query received in the response to the get request for the query resource.  
 MUST be a string.
 
 ### Result

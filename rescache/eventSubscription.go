@@ -309,7 +309,7 @@ func (e *EventSubscription) mqUnsubscribe() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	// Have we just recieved a subscription?
+	// Have we just received a subscription?
 	// In that case we abort
 	if e.count > 0 {
 		return false
