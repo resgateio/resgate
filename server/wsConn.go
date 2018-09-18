@@ -1,4 +1,4 @@
-package service
+package server
 
 import (
 	"encoding/json"
@@ -8,12 +8,12 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/jirenius/resgate/httpapi"
-	"github.com/jirenius/resgate/mq"
-	"github.com/jirenius/resgate/mq/codec"
-	"github.com/jirenius/resgate/rescache"
-	"github.com/jirenius/resgate/reserr"
-	"github.com/jirenius/resgate/rpc"
+	"github.com/jirenius/resgate/server/codec"
+	"github.com/jirenius/resgate/server/httpapi"
+	"github.com/jirenius/resgate/server/mq"
+	"github.com/jirenius/resgate/server/rescache"
+	"github.com/jirenius/resgate/server/reserr"
+	"github.com/jirenius/resgate/server/rpc"
 	"github.com/rs/xid"
 )
 
@@ -34,7 +34,6 @@ type wsConn struct {
 	mu sync.Mutex
 }
 
-const wsConnChannelSize = 32
 const wsConnWorkerQueueSize = 256
 const cidPlaceholder = "{cid}"
 

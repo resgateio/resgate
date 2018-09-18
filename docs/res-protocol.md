@@ -16,7 +16,7 @@
 
 # Introduction
 
-RES (REsource Subscription) is a protocol for creating scaleable client-server Push APIs consisting of resources served from stateless services connected by a messaging system. Clients subscribe to resources, and call upon their methods, through an API agnostic gateway acting as a bridge between the services and clients.
+RES (REsource Subscription) is a protocol for creating scalable client-server Push APIs consisting of resources served from stateless services connected by a messaging system. Clients subscribe to resources, and call upon their methods, through an API agnostic gateway acting as a bridge between the services and clients.
 
 It is designed for creating modular cloud based applications where new services and functionality can be added without causing disruption to a running production environment.
 

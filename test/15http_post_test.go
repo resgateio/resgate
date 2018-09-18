@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/jirenius/resgate/mq"
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/mq"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 // Test response to a HTTP POST request to a primitive query model method

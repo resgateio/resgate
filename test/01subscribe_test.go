@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jirenius/resgate/mq"
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/mq"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 // Test that the server starts and stops the server without error

@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 // Test responses to invalid client requests

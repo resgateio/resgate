@@ -2,10 +2,11 @@
 
 [![License][License-Image]][License-Url]
 [![ReportCard][ReportCard-Image]][ReportCard-Url]
+[![Build Status][Build-Status-Image]][Build-Status-Url]
 
 A [Go](http://golang.org) project implementing a Realtime API gateway for the [RES protocol](docs/res-protocol.md) with [NATS server](https://nats.io/about/) as messaging system.
 
-Used for building *scaleable*, *resilient*, *extensible*, and *secure* client web APIs based on *simple*, *stateless* micro-services serving *realtime* resources to web applications.
+Used for building *scalable*, *resilient*, *extensible*, and *secure* client web APIs based on *simple*, *stateless* micro-services serving *realtime* resources to web applications.
 
 Simple, stateless, and scalable like REST, but updated in real-time.
 
@@ -79,7 +80,7 @@ npm install
 npm run start
 ```
 
-Open your favourite browser and go to:
+Open your favorite browser and go to:
 ```
 http://localhost:8000/
 ```
@@ -193,3 +194,5 @@ If you find any issues with the protocol or the gateway, feel free to [report th
 [License-Image]: https://img.shields.io/badge/License-MIT-blue.svg
 [ReportCard-Url]: http://goreportcard.com/report/jirenius/resgate
 [ReportCard-Image]: http://goreportcard.com/badge/github.com/jirenius/resgate
+[Build-Status-Url]: https://travis-ci.org/jirenius/resgate
+[Build-Status-Image]: https://travis-ci.org/jirenius/resgate.svg?branch=master

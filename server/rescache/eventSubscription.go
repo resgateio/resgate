@@ -3,8 +3,8 @@ package rescache
 import (
 	"sync"
 
-	"github.com/jirenius/resgate/mq"
-	"github.com/jirenius/resgate/mq/codec"
+	"github.com/jirenius/resgate/server/codec"
+	"github.com/jirenius/resgate/server/mq"
 )
 
 // ResourceType is an enum representing a resource type
@@ -15,15 +15,6 @@ const (
 	TypeCollection ResourceType = ResourceType(stateCollection)
 	TypeModel      ResourceType = ResourceType(stateModel)
 	TypeError      ResourceType = ResourceType(stateError)
-)
-
-type responseType byte
-
-const (
-	respEvent responseType = iota
-	respGet
-	respCall
-	respCached
 )
 
 // EventSubscription represents a subscription for events on a specific resource
@@ -43,19 +34,6 @@ type EventSubscription struct {
 	count int64
 	queue []func()
 	locks []func()
-}
-
-type response struct {
-	rtype   responseType
-	subject string
-	payload []byte
-	err     error
-	sub     Subscriber
-}
-
-type queueEvent struct {
-	subj    string
-	payload []byte
 }
 
 func (e *EventSubscription) getResourceSubscription(q string) (rs *ResourceSubscription) {
@@ -309,7 +287,7 @@ func (e *EventSubscription) mqUnsubscribe() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	// Have we just recieved a subscription?
+	// Have we just received a subscription?
 	// In that case we abort
 	if e.count > 0 {
 		return false

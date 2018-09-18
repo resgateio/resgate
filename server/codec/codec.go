@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"unicode/utf8"
 
-	"github.com/jirenius/resgate/reserr"
+	"github.com/jirenius/resgate/server/reserr"
 )
 
 var (
@@ -334,7 +334,7 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 // DecodeEvent decodes a JSON encoded RES-service event
 func DecodeEvent(payload []byte) (json.RawMessage, error) {
 	var ev json.RawMessage
-	if payload == nil || len(payload) == 0 {
+	if len(payload) == 0 {
 		return ev, nil
 	}
 
