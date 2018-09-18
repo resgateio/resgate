@@ -8,11 +8,12 @@ install:
 - go get -u github.com/client9/misspell/cmd/misspell
 before_script:
 - PACKAGES=$(go list ./...)
-- go build
+- go get -d
+- go build 
 - $(exit $(go fmt $PACKAGES | wc -l))
 - go vet $PACKAGES
 - misspell -error -locale US .
 - megacheck $PACKAGES
 script:
 - go test -i $PACKAGES
-- go test -v -race $PACKAGES
+- go test -race $PACKAGES
