@@ -164,11 +164,12 @@ type AuthRequester interface {
 // ValueType is an enum reprenting the value type
 type ValueType byte
 
+// Value type constants
 const (
-	ValueTypeNone      ValueType = iota // No value type
-	ValueTypePrimitive                  // Primitive value (string, number, boolean, or null)
-	ValueTypeResource                   // Resource reference value
-	ValueTypeDelete                     // Delete action
+	ValueTypeNone ValueType = iota
+	ValueTypePrimitive
+	ValueTypeResource
+	ValueTypeDelete
 )
 
 // Value represents a RES value
