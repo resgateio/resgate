@@ -20,20 +20,22 @@ type Requester interface {
 	NewResource(rid string, params interface{}, callback func(data *NewResult, err error))
 }
 
-// Request represent a JSON-RPC request
+// Request represent a RES-client request
+// https://github.com/jirenius/resgate/blob/master/docs/res-client-protocol.md#requests
 type Request struct {
 	Method string          `json:"method"`
 	Params json.RawMessage `json:"params"`
 	ID     *uint64         `json:"id"`
 }
 
-// Response represents a JSON-RPC response
+// Response represents a RES-client response
 type Response struct {
 	Result interface{} `json:"result,omitempty"`
 	ID     *uint64     `json:"id"`
 }
 
-// Event represent a JSON-RPC event
+// Event represent a RES-client event object
+// https://github.com/jirenius/resgate/blob/master/docs/res-client-protocol.md#event-object
 type Event struct {
 	Event string      `json:"event"`
 	Data  interface{} `json:"data,omitempty"`
@@ -45,28 +47,35 @@ type ErrorResponse struct {
 	ID    *uint64       `json:"id"`
 }
 
-// Resource holds a resource information to be sent to the client
+// Resources holds a resource information to be sent to the client
 type Resources struct {
 	Models      map[string]interface{}   `json:"models,omitempty"`
 	Collections map[string]interface{}   `json:"collections,omitempty"`
 	Errors      map[string]*reserr.Error `json:"errors,omitempty"`
 }
 
+// AddEvent represents a RES-client collection add event
+// https://github.com/jirenius/resgate/blob/master/docs/res-client-protocol.md#collection-add-event
 type AddEvent struct {
 	Idx   int         `json:"idx"`
 	Value interface{} `json:"value"`
 	*Resources
 }
 
+// ChangeEvent represents a RES-client model change event
+// https://github.com/jirenius/resgate/blob/master/docs/res-client-protocol.md#model-change-event
 type ChangeEvent struct {
 	Values interface{} `json:"values"`
 	*Resources
 }
 
+// UnsubscribeEvent represents a RES-client unsubscribe event
+// https://github.com/jirenius/resgate/blob/master/docs/res-client-protocol.md#unsubscribe-event
 type UnsubscribeEvent struct {
 	Reason *reserr.Error `json:"reason"`
 }
 
+// NewResult represents a RES-client result to a new request
 type NewResult struct {
 	RID string `json:"rid"`
 	*Resources

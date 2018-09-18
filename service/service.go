@@ -7,7 +7,7 @@ import (
 
 	"github.com/jirenius/resgate/logger"
 	"github.com/jirenius/resgate/mq"
-	"github.com/jirenius/resgate/resourceCache"
+	"github.com/jirenius/resgate/rescache"
 )
 
 // Service is a RES gateway implementation
@@ -20,7 +20,7 @@ type Service struct {
 	logFlags int
 
 	mq    mq.Client
-	cache *resourceCache.Cache
+	cache *rescache.Cache
 
 	// httpServer
 	mux *http.ServeMux
@@ -47,6 +47,7 @@ func NewService(mq mq.Client, cfg Config) *Service {
 	return s
 }
 
+// SetLogger sets the logger
 func (s *Service) SetLogger(l logger.Logger) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

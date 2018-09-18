@@ -6,6 +6,7 @@ import (
 	"log"
 )
 
+// TestLogger implements logger.Logger, and writes log data to a buffer.
 type TestLogger struct {
 	log   *log.Logger
 	b     *bytes.Buffer
@@ -13,7 +14,7 @@ type TestLogger struct {
 	trace bool
 }
 
-// NewStdLogger returns a new logger that writes to os.Stderr
+// NewTestLogger returns a new logger that writes to a buffer
 func NewTestLogger() *TestLogger {
 	b := &bytes.Buffer{}
 	return &TestLogger{

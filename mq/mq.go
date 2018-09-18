@@ -2,12 +2,16 @@ package mq
 
 import "github.com/jirenius/resgate/reserr"
 
+// Response sends a response to the messaging system
 type Response func(subj string, payload []byte, err error)
 
+// Unsubscriber is the interface that wraps the basic Unsubscribe method
 type Unsubscriber interface {
+	// Unsubscribe cancels the subscription
 	Unsubscribe() error
 }
 
+// Client is an interface that represents a client to a messaging system.
 type Client interface {
 	// Connect establishes a connection to the MQ
 	Connect() error
@@ -30,6 +34,6 @@ type Client interface {
 	SetClosedHandler(cb func(error))
 }
 
-var (
-	ErrRequestTimeout = reserr.ErrTimeout
-)
+// ErrRequestTimeout is the error the client should pass to the Response
+// when a call to SendRequest times out
+var ErrRequestTimeout = reserr.ErrTimeout

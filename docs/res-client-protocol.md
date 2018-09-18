@@ -25,6 +25,7 @@
   * [Collection add event](#collection-add-event)
   * [Collection remove event](#collection-remove-event)
   * [Custom event](#custom-event)
+  * [Unsubscribe event](#unsubscribe-event)
 
 # Introduction
 
@@ -319,7 +320,7 @@ RES protocol does not guarantee that all events sent by the service will reach t
 An event object has the following members:
 
 **event**  
-Identiying which resource the event occured on, and the type of event.  
+Identiying which resource the event occurred on, and the type of event.  
 It has the following structure:
 
 `<resourceID>.<eventName>`
@@ -449,7 +450,7 @@ Zero-based index number of the value being removed.
 
 ## Custom event
 
-Custom events are defined by the services, and may have any event name except `change`, `add`, `remove`, and `reaccess`.  
+Custom events are defined by the services, and may have any event name except `change`, `add`, `remove`, `unsubscribe` and `reaccess`.  
 Custom events MUST NOT be used to change the state of the resource.
 
 **event**  
@@ -457,3 +458,34 @@ Custom events MUST NOT be used to change the state of the resource.
 
 **data**  
 Payload is defined by the service.
+
+## Unsubscribe event
+
+Unsubscribe events are sent by the gateway when subcription access to a resource is revoked. Any [direct subscription](#direct-subscription) to the resource are removed.  
+
+The resource may still have [indirect](#indirect-subscription) subscriptions, in which case the resource is still considered subscribed. Otherwise, the resource is no longer considered subscribed.
+
+**event**  
+`<resourceID>.unsubscribe`
+
+**data**  
+[Unsubscribe event object](#unsubscribe-event-object).
+
+### Unsubscribe event object
+The unsubscribe event object has the following parameter:
+
+**reason**  
+[Error object](#error-object) describing the reason for the event.
+
+### Example
+```
+{
+  "event": "messageService.messages.unsubscribe",
+  "data": {
+    "reason": {
+      "code": "system.accessDenied",
+      "message": "Access denied"
+    }
+  }
+}
+```

@@ -15,12 +15,15 @@ import (
 	"github.com/jirenius/resgate/reserr"
 )
 
+// HTTPRequest represents a HTTP requests made to the gateway
 type HTTPRequest struct {
 	ch  chan *HTTPResponse
 	req *http.Request
 	rr  *httptest.ResponseRecorder
 }
 
+// HTTPResponse represents a response received from a HTTP request
+// made to the gateway
 type HTTPResponse struct {
 	*httptest.ResponseRecorder
 }
