@@ -19,11 +19,14 @@ const (
 
 var errQueryResourceOnNonQueryRequest = errors.New("Query resource on non-query request")
 
+// Model represents a RES model
+// https://github.com/jirenius/resgate/blob/master/docs/res-protocol.md#models
 type Model struct {
 	Values map[string]codec.Value
 	data   []byte
 }
 
+// MarshalJSON creates a JSON encoded representation of the model
 func (m *Model) MarshalJSON() ([]byte, error) {
 	if m.data == nil {
 		data, err := json.Marshal(m.Values)
@@ -35,11 +38,14 @@ func (m *Model) MarshalJSON() ([]byte, error) {
 	return m.data, nil
 }
 
+// Collection represents a RES collection
+// https://github.com/jirenius/resgate/blob/master/docs/res-protocol.md#collections
 type Collection struct {
 	Values []codec.Value
 	data   []byte
 }
 
+// MarshalJSON creates a JSON encoded representation of the collection
 func (c *Collection) MarshalJSON() ([]byte, error) {
 	if c.data == nil {
 		data, err := json.Marshal(c.Values)
@@ -51,6 +57,7 @@ func (c *Collection) MarshalJSON() ([]byte, error) {
 	return c.data, nil
 }
 
+// ResourceSubscription represents a client subscription for a resource or query resource
 type ResourceSubscription struct {
 	e         *EventSubscription
 	query     string
@@ -72,16 +79,14 @@ func newResourceSubscription(e *EventSubscription, query string) *ResourceSubscr
 	}
 }
 
-func (rs *ResourceSubscription) GetResourceSubscription() *ResourceSubscription {
-	return rs
-}
-
+// GetResourceType returns the resource type of the resource subscription
 func (rs *ResourceSubscription) GetResourceType() ResourceType {
 	rs.e.mu.Lock()
 	defer rs.e.mu.Unlock()
 	return ResourceType(rs.state)
 }
 
+// GetError returns the subscription error, or nil if there is no error
 func (rs *ResourceSubscription) GetError() error {
 	rs.e.mu.Lock()
 	defer rs.e.mu.Unlock()
@@ -107,6 +112,21 @@ func (rs *ResourceSubscription) GetModel() *Model {
 // Release releases the lock obtained by calling GetCollection or GetModel
 func (rs *ResourceSubscription) Release() {
 	rs.e.mu.Unlock()
+}
+
+// Unsubscribe cancels the client subscriber's subscription
+func (rs *ResourceSubscription) Unsubscribe(sub Subscriber) {
+	rs.e.Enqueue(func() {
+		if sub != nil {
+			delete(rs.subs, sub)
+		}
+
+		if rs.query != "" && len(rs.subs) == 0 {
+			rs.unregister()
+		}
+
+		rs.e.removeCount(1)
+	})
 }
 
 func (rs *ResourceSubscription) handleEvent(r *ResourceEvent) {
@@ -355,20 +375,6 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (n
 		nrs.state = stateCollection
 	}
 	return
-}
-
-func (rs *ResourceSubscription) Unsubscribe(sub Subscriber) {
-	rs.e.Enqueue(func() {
-		if sub != nil {
-			delete(rs.subs, sub)
-		}
-
-		if rs.query != "" && len(rs.subs) == 0 {
-			rs.unregister()
-		}
-
-		rs.e.removeCount(1)
-	})
 }
 
 func (rs *ResourceSubscription) handleResetResource() {

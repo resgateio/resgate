@@ -48,6 +48,7 @@ type responseCont struct {
 	f     mq.Response
 }
 
+// NewNATSTestClient creates a new NATSTestClient instance
 func NewNATSTestClient(l logger.Logger) *NATSTestClient {
 	return &NATSTestClient{l: l}
 }
@@ -150,8 +151,8 @@ func (c *NATSTestClient) SetClosedHandler(_ func(error)) {
 	return
 }
 
-// HasSubscription asserts that there is a subscription for the given resource IDs
-func (c *NATSTestClient) HasSubcriptions(t *testing.T, rids ...string) {
+// HasSubscriptions asserts that there is a subscription for the given resource IDs
+func (c *NATSTestClient) HasSubscriptions(t *testing.T, rids ...string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -241,6 +242,9 @@ func (s *Subscription) Unsubscribe() error {
 	return nil
 }
 
+// GetRequest gets a pending request that is sent to NATS.
+// If no request is received within a set amount of time,
+// it will log it as a fatal error.
 func (c *NATSTestClient) GetRequest(t *testing.T) *Request {
 	select {
 	case r := <-c.reqs:
@@ -384,7 +388,7 @@ func (r *Request) AssertPathPayload(t *testing.T, path string, payload interface
 	return r
 }
 
-// AssertPathPayload asserts that a the request payload at a given dot-separated
+// AssertPathType asserts that a the request payload at a given dot-separated
 // path in a nested object has the same type as typ.
 func (r *Request) AssertPathType(t *testing.T, path string, typ interface{}) *Request {
 	pp := r.PathPayload(t, path)

@@ -15,6 +15,7 @@ import (
 
 const timeoutSeconds = 1
 
+// Session represents a test session with a service
 type Session struct {
 	*NATSTestClient
 	s     *service.Service
@@ -43,6 +44,7 @@ func setup() *Session {
 	return s
 }
 
+// Connect makes a new mock client websocket connection
 func (s *Session) Connect() *Conn {
 	d := wstest.NewDialer(s.s.GetWSHandlerFunc())
 	c, _, err := d.Dial("ws://example.org/", nil)
@@ -96,6 +98,7 @@ func teardown(s *Session) {
 	}
 }
 
+// TestConfig returns a default service configuration used for testing
 func TestConfig() service.Config {
 	var cfg service.Config
 	cfg.SetDefault()

@@ -13,6 +13,7 @@ import (
 
 type subscriptionState byte
 
+// ConnSubscriber represents a client connection making the subscription
 type ConnSubscriber interface {
 	Logf(format string, v ...interface{})
 	Debugf(format string, v ...interface{})
@@ -26,6 +27,7 @@ type ConnSubscriber interface {
 	ExpandCID(string) string
 }
 
+// Subscription represents a resource subscription made by a client connection
 type Subscription struct {
 	rid           string
 	resourceName  string
@@ -99,30 +101,39 @@ func NewSubscription(c ConnSubscriber, rid string, path []string) *Subscription 
 	return sub
 }
 
+// RID returns the subscription's resource ID
 func (s *Subscription) RID() string {
 	return s.rid
 }
 
+// ResourceName returns the resource name part of the subscription's resource ID
 func (s *Subscription) ResourceName() string {
 	return s.resourceName
 }
 
+// ResourceQuery returns the query part of the subscription's resource ID
 func (s *Subscription) ResourceQuery() string {
 	return s.resourceQuery
 }
 
+// Token returns the access token held by the subscription's client connection
 func (s *Subscription) Token() json.RawMessage {
 	return s.c.Token()
 }
 
+// ResourceType returns the resource type of the subscribed resource
 func (s *Subscription) ResourceType() rescache.ResourceType {
 	return s.typ
 }
 
+// CID returns the unique connection ID of the client connection
 func (s *Subscription) CID() string {
 	return s.c.CID()
 }
 
+// Loaded is called by rescache when the subscribed resource has been loaded.
+// If the resource was successfully loaded, err will be nil. If an error occured
+// when loading the resource, resourceSub will be nil, and err will be the error.
 func (s *Subscription) Loaded(resourceSub *rescache.ResourceSubscription, err error) {
 	if !s.c.Enqueue(func() {
 		if err != nil {
@@ -154,10 +165,12 @@ func (s *Subscription) Loaded(resourceSub *rescache.ResourceSubscription, err er
 	}
 }
 
+// IsSent reports whether the subscribed resource has been sent to the client.
 func (s *Subscription) IsSent() bool {
 	return s.state == stateSent
 }
 
+// Error returns any error that occured when loading the subscribed resource.
 func (s *Subscription) Error() error {
 	if s.state == stateDisposed {
 		return errDisposedSubscription
@@ -166,6 +179,9 @@ func (s *Subscription) Error() error {
 	return s.err
 }
 
+// OnLoaded gets a callback that should be called once the subscribed resource
+// has been loaded from the rescache. If the resource is already loaded,
+// the callback will directly be queued onto the connections worker goroutine.
 func (s *Subscription) OnLoaded(cb func(*Subscription)) {
 	if s.loadedCallbacks != nil {
 		s.loadedCallbacks = append(s.loadedCallbacks, cb)
@@ -177,7 +193,7 @@ func (s *Subscription) OnLoaded(cb func(*Subscription)) {
 	})
 }
 
-// GetRpcResource returns a rpc.Resources object.
+// GetRPCResources returns a rpc.Resources object.
 // It will lock the subscription and queue any events until ReleaseRPCResources is called.
 func (s *Subscription) GetRPCResources() *rpc.Resources {
 	r := &rpc.Resources{}
@@ -455,6 +471,7 @@ func (s *Subscription) refLoaded(sub *Subscription) {
 	}
 }
 
+// Event passes an event to the subscription to be processed.
 func (s *Subscription) Event(event *rescache.ResourceEvent) {
 	s.c.Enqueue(func() {
 		// Discard any event prior to resourceSubscription being loaded or disposed
@@ -732,6 +749,10 @@ func (s *Subscription) loadAccess(cb func()) {
 	})
 }
 
+// CanGet checks asynchronously if the client connection has access to get (read)
+// the resource. If access is denied, the callback will be called with an error
+// describing the reason. If access is granted, the callback will be called with
+// err being nil.
 func (s *Subscription) CanGet(cb func(err error)) {
 	if s.indirect > 0 {
 		cb(nil)
@@ -743,6 +764,10 @@ func (s *Subscription) CanGet(cb func(err error)) {
 	})
 }
 
+// CanCall checks asynchronously if the client connection has access to call
+// the actionn. If access is denied, the callback will be called with an error
+// describing the reason. If access is granted, the callback will be called with
+// err being nil.
 func (s *Subscription) CanCall(action string, cb func(err error)) {
 	s.loadAccess(func() {
 		cb(s.access.CanCall(action))

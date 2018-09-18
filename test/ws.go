@@ -14,6 +14,7 @@ import (
 	"github.com/jirenius/resgate/reserr"
 )
 
+// Conn represents a client websocket connection
 type Conn struct {
 	s    *Session
 	d    *websocket.Dialer
@@ -37,8 +38,9 @@ type clientResponse struct {
 	Data   interface{}   `json:"data"`
 }
 
-var clientRequestID uint64 = 0
+var clientRequestID uint64
 
+// ClientRequest represents a RES-client request
 type ClientRequest struct {
 	Method string
 	Params interface{}
@@ -46,11 +48,13 @@ type ClientRequest struct {
 	ch     chan *ClientResponse
 }
 
+// ClientResponse represents a response to a RES-client request
 type ClientResponse struct {
 	Result interface{}
 	Error  *reserr.Error
 }
 
+// ClientEvent represents a RES-client event sent to the client
 type ClientEvent struct {
 	Event string
 	Data  interface{}
@@ -59,6 +63,7 @@ type ClientEvent struct {
 // ParallelEvents holds multiple events in undetermined order
 type ParallelEvents []*ClientEvent
 
+// NewConn creates a new Conn instance
 func NewConn(s *Session, d *websocket.Dialer, ws *websocket.Conn) *Conn {
 	c := &Conn{
 		s:    s,
@@ -71,6 +76,8 @@ func NewConn(s *Session, d *websocket.Dialer, ws *websocket.Conn) *Conn {
 	return c
 }
 
+// Request sends a properly formatted request to the gateway
+// using the method and parameters provided.
 func (c *Conn) Request(method string, params interface{}) *ClientRequest {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -98,10 +105,14 @@ func (c *Conn) Request(method string, params interface{}) *ClientRequest {
 	return req
 }
 
+// Disconnect closes the connection to the gateway
 func (c *Conn) Disconnect() {
 	c.Disconnect()
 }
 
+// GetEvent gets a pending event that is sent to the client.
+// If no event is received within a set amount of time,
+// it will log it as a fatal error.
 func (c *Conn) GetEvent(t *testing.T) *ClientEvent {
 	select {
 	case ev := <-c.evs:
