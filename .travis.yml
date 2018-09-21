@@ -4,15 +4,16 @@ go:
 - 1.10.x
 - 1.11
 install:
-- go get -u honnef.co/go/tools/cmd/megacheck
-- go get -u github.com/client9/misspell/cmd/misspell
+- go get github.com/mattn/goveralls
+- go get honnef.co/go/tools/cmd/megacheck
+- go get github.com/client9/misspell/cmd/misspell
 before_script:
 - PACKAGES=$(go list ./...)
 - go get -d ./...
-- go build 
+- go build
 - $(exit $(go fmt $PACKAGES | wc -l))
 - misspell -error -locale US .
 - megacheck $PACKAGES
 script:
 - go test -i $PACKAGES
-- go test -race $PACKAGES
+- if [[ "$TRAVIS_GO_VERSION" == 1.11 ]]; then ./scripts/cover.sh TRAVIS; else go test -v -race $PACKAGES; fi
