@@ -3,6 +3,7 @@
 [![License][License-Image]][License-Url]
 [![ReportCard][ReportCard-Image]][ReportCard-Url]
 [![Build Status][Build-Status-Image]][Build-Status-Url]
+[![Coverage Status][Coverage-Status-Image]][Coverage-Status-Url]
 
 A [Go](http://golang.org) project implementing a Realtime API gateway for the [RES protocol](docs/res-protocol.md) with [NATS server](https://nats.io/about/) as messaging system.
 
@@ -196,3 +197,5 @@ If you find any issues with the protocol or the gateway, feel free to [report th
 [ReportCard-Image]: http://goreportcard.com/badge/github.com/jirenius/resgate
 [Build-Status-Url]: https://travis-ci.org/jirenius/resgate
 [Build-Status-Image]: https://travis-ci.org/jirenius/resgate.svg?branch=master
+[Coverage-Status-Url]: https://coveralls.io/github/jirenius/resgate?branch=master
+[Coverage-Status-Image]: https://coveralls.io/repos/github/jirenius/resgate/badge.svg?branch=master
