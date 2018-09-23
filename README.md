@@ -54,9 +54,16 @@ The protocol uses simple JSON messages and is easy to implement.
 
 ## Quickstart
 
-If you just want to see what Resgate can do, and you have:
+### Download
+The recommended way to install Resgate and NATS Server is to download one of the pre-built binaries:
+* [Download](https://nats.io/download/nats-io/gnatsd/) and run NATS Server
+* [Download](https://github.com/jirenius/resgate/releases/latest) and run Resgate
+
+### Building
+
+If you wish to build your own binaries, first make sure you have:
 * [installed Go](https://golang.org/doc/install) and [set your `$GOPATH`](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable)
-* added `$GOPATH/bin` (where your binaries ends up) to your `PATH`
+* added `$GOPATH/bin` (where your binaries are stored) to your `PATH`
 * [installed node.js](https://nodejs.org/en/download/) (for the test app)
 
 Install and run [NATS server](https://nats.io/download/nats-io/gnatsd/) and Resgate:
@@ -68,6 +75,10 @@ gnatsd
 go get github.com/jirenius/resgate
 resgate
 ```
+
+### Examples
+
+The examples require that you have [installed node.js](https://nodejs.org/en/download/).
 
 Run one of the examples:
 * [Hello World example](examples/hello-world/)
@@ -105,7 +116,7 @@ For additional scaling and high availability, the setup may be replicated and di
 ## Services
 Because of the simplicity of the [RES-Service protocol](docs/res-service-protocol.md), a single-threaded service can be created without the need of a library, as with the [resgate-test-app](https://github.com/jirenius/resgate-test-app).
 
-For writing multi-threaded services in Go:
+For writing services in Go:
 
 * Go - https://github.com/jirenius/go-res
 
@@ -183,11 +194,9 @@ until ./resgate; do
 done
 ```
 
-## Contributing
+## Contribution
 
-The RES protocol and resgate is still under development, and is currently at a state where the protocol has settled, but the gateway has yet to be properly tested.
-
-While it may be used in non-critical environments, it is not yet recommended to use the gateway for any critical systems. Any feedback on the protocol and its implementation is highly appreciated!
+Any feedback on the protocol and its implementation is highly appreciated!
 
 If you find any issues with the protocol or the gateway, feel free to [report them](https://github.com/jirenius/resgate/issues/new) as an Issue.
 
