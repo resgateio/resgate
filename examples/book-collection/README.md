@@ -31,10 +31,10 @@ http://localhost:8082
 **Realtime updates**  
 Run the client in two separate tabs to observe realtime updates.
 
-**System reset**
+**System reset**  
 Run the client and make some changes. Restart the node.js server to observe resetting of resources in clients.
 
-**Resynchronization**
+**Resynchronization**  
 Run the client on two separate devices. Disconnect one device, then make changes with the other. Reconnect the first device to observe resynchronization.
 
 
