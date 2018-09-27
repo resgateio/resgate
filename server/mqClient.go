@@ -41,7 +41,7 @@ func (s *Service) stopMQClient() {
 
 func (s *Service) handleClosedMQ(err error) {
 	if err != nil {
-		s.Logf("Message queue connection closed: ", err)
+		s.Logf("Message queue connection closed: %s", err)
 	} else {
 		s.Logf("Message queue connection closed")
 	}

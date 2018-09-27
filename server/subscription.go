@@ -709,7 +709,7 @@ func (s *Subscription) reaccess() {
 
 func parseRID(rid string) (name string, query string) {
 	i := strings.IndexByte(rid, '?')
-	if i == -1 || i == len(rid)-1 {
+	if i == -1 {
 		return rid, ""
 	}
 

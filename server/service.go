@@ -46,7 +46,7 @@ func NewService(mq mq.Client, cfg Config) *Service {
 }
 
 // SetLogger sets the logger
-func (s *Service) SetLogger(l logger.Logger) {
+func (s *Service) SetLogger(l logger.Logger) *Service {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -56,6 +56,7 @@ func (s *Service) SetLogger(l logger.Logger) {
 
 	s.logger = l
 	s.cache.SetLogger(l)
+	return s
 }
 
 // Logf writes a formatted log message
