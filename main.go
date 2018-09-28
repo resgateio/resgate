@@ -86,7 +86,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout duration for NATS requests.")
 
 	if err := fs.Parse(args); err != nil {
-		printAndDie(err.Error(), false)
+		printAndDie(fmt.Sprintf("error parsing arguments: %s", err.Error()), true)
 	}
 
 	if port >= 1<<16 {
@@ -101,21 +101,21 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 		fin, err := ioutil.ReadFile(configFile)
 		if err != nil {
 			if !os.IsNotExist(err) {
-				return err
+				return fmt.Errorf("error loading config file: %s", err)
 			}
 
 			c.SetDefault()
 
 			fout, err := json.MarshalIndent(c, "", "\t")
 			if err != nil {
-				return err
+				return fmt.Errorf("error encoding config: %s", err)
 			}
 
 			ioutil.WriteFile(configFile, fout, os.FileMode(0664))
 		} else {
 			err = json.Unmarshal(fin, c)
 			if err != nil {
-				return err
+				return fmt.Errorf("error parsing config file: %s", err)
 			}
 
 			// Overwrite configFile options with command line options
@@ -166,7 +166,10 @@ func main() {
 
 	var cfg Config
 
-	cfg.Init(fs, os.Args[1:])
+	err := cfg.Init(fs, os.Args[1:])
+	if err != nil {
+		printAndDie(err.Error(), false)
+	}
 
 	l := logger.NewStdLogger(cfg.Debug, cfg.Debug)
 	serv := server.NewService(&nats.Client{

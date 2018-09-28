@@ -16,7 +16,7 @@ type Config struct {
 	TLSCert string `json:"certFile"`
 	TLSKey  string `json:"keyFile"`
 
-	NoHTTP bool // Disable start of the HTTP server. Used for testing
+	NoHTTP bool `json:"-"` // Disable start of the HTTP server. Used for testing
 
 	scheme           string
 	portString       string
@@ -66,7 +66,7 @@ func (c *Config) prepare() {
 			c.HeaderAuth = nil
 		}
 	}
-	if c.APIPath[len(c.APIPath)-1] != '/' {
+	if c.APIPath == "" || c.APIPath[len(c.APIPath)-1] != '/' {
 		c.APIPath = c.APIPath + "/"
 	}
 }
