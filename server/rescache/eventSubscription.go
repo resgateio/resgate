@@ -113,31 +113,38 @@ func (e *EventSubscription) addSubscriber(sub Subscriber) {
 // will be queued on the EventSubscription, and executed in order.
 func (e *EventSubscription) Enqueue(f func()) {
 	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	e.enqueue(f)
-}
-
-func (e *EventSubscription) enqueue(f func()) {
 	count := len(e.queue)
+	locks := e.locks
 	e.queue = append(e.queue, f)
+	e.mu.Unlock()
 
 	// If the queue is empty, there are no worker currently
 	// assigned to the event subscription, so we pass it to one.
 	// This only applies if no locks are active
-	if e.locks == nil && count == 0 {
+	if locks == nil && count == 0 {
 		e.cache.inCh <- e
 	}
 }
 
+// enqueueUnlock uses one of the locked callbacks. If the number of
+// locks reaches zero, callbacks passed to Enqueue will no longer
+// be queued.
 func (e *EventSubscription) enqueueUnlock(f func()) {
 	e.mu.Lock()
-	defer e.mu.Unlock()
-
 	count := len(e.locks)
 	e.locks = append(e.locks, f)
+	e.mu.Unlock()
+
 	if count == 0 {
 		e.cache.inCh <- e
+	}
+}
+
+// lockEvents will queue any callback that is passed to Enqueue until
+// enqueueUnlock has been called the same number of time as locks.
+func (e *EventSubscription) lockEvents(locks int) {
+	if locks > 0 {
+		e.locks = make([]func(), 0, locks)
 	}
 }
 
@@ -179,12 +186,6 @@ func (e *EventSubscription) processQueue() {
 		}
 	}
 	e.queue = e.queue[0:0]
-}
-
-func (e *EventSubscription) lockEvents(locks int) {
-	if locks > 0 {
-		e.locks = make([]func(), 0, locks)
-	}
 }
 
 // addCount increments the subscription count.
