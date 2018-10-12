@@ -64,13 +64,13 @@ type ClientEvent struct {
 type ParallelEvents []*ClientEvent
 
 // NewConn creates a new Conn instance
-func NewConn(s *Session, d *websocket.Dialer, ws *websocket.Conn) *Conn {
+func NewConn(s *Session, d *websocket.Dialer, ws *websocket.Conn, evs chan *ClientEvent) *Conn {
 	c := &Conn{
 		s:    s,
 		d:    d,
 		ws:   ws,
 		reqs: make(map[uint64]*ClientRequest),
-		evs:  make(chan *ClientEvent, 256),
+		evs:  evs,
 	}
 	go c.listen()
 	return c
@@ -327,7 +327,12 @@ func (ev *ClientEvent) Equals(t *testing.T, event string, data interface{}) *Cli
 // AssertEventName asserts that the event has the expected event name
 func (ev *ClientEvent) AssertEventName(t *testing.T, event string) *ClientEvent {
 	if ev.Event != event {
-		t.Fatalf("expected event to be %#v, but got %#v", event, ev.Event)
+		if t == nil {
+			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+			panic(fmt.Sprintf("expected event to be %#v, but got %#v", event, ev.Event))
+		} else {
+			t.Fatalf("expected event to be %#v, but got %#v", event, ev.Event)
+		}
 	}
 	return ev
 }
