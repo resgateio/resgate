@@ -83,6 +83,7 @@ The examples require that you have [installed node.js](https://nodejs.org/en/dow
 Run one of the examples:
 * [Hello World example](examples/hello-world/)
 * [Book Collection example](examples/book-collection/)
+* [JWT Authentication example](examples/jwt-authentication/)
 
 Or install and run [Resgate Test App](https://github.com/jirenius/resgate-test-app):
 ```bash
