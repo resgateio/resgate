@@ -42,15 +42,21 @@ func setup() *Session {
 	return s
 }
 
-// Connect makes a new mock client websocket connection
-func (s *Session) Connect() *Conn {
+// ConnectWithChannel makes a new mock client websocket connection
+// with a ClientEvent channel.
+func (s *Session) ConnectWithChannel(evs chan *ClientEvent) *Conn {
 	d := wstest.NewDialer(s.s.GetWSHandlerFunc())
 	c, _, err := d.Dial("ws://example.org/", nil)
 	if err != nil {
 		panic(err)
 	}
 
-	return NewConn(s, d, c)
+	return NewConn(s, d, c, evs)
+}
+
+// Connect makes a new mock client websocket connection
+func (s *Session) Connect() *Conn {
+	return s.ConnectWithChannel(make(chan *ClientEvent, 256))
 }
 
 // HTTPRequest sends a request over HTTP
