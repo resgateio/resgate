@@ -22,14 +22,14 @@ Usage: resgate [options]
 
 Server Options:
     -n, --nats <url>                 NATS Server URL (default: nats://127.0.0.1:4222)
-    -p, --port <port>                Use port for clients (default: 8080)
-    -w, --wspath <path>              Path to websocket (default: /ws)
-    -a, --apipath <path>             Path to webresources (default: /api/)
+    -p, --port <port>                HTTP port for client connections (default: 8080)
+    -w, --wspath <path>              WebSocket path for clients (default: /)
+    -a, --apipath <path>             Web resource path for clients (default: /api/)
     -r, --reqtimeout <seconds>       Timeout duration for NATS requests (default: 5)
     -u, --headauth <method>          Resource method for header authentication
-        --tls                        Enable TLS (default: false)
-        --tlscert <file>             Server certificate file
-        --tlskey <file>              Private key for server certificate
+        --tls                        Enable TLS for HTTP (default: false)
+        --tlscert <file>             HTTP server certificate file
+        --tlskey <file>              Private key for HTTP server certificate
     -c, --config <file>              Configuration file
 
 Common Options:
@@ -71,17 +71,17 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&configFile, "config", "", "Configuration file.")
 	fs.StringVar(&c.NatsURL, "n", "", "NATS Server URL.")
 	fs.StringVar(&c.NatsURL, "nats", "", "NATS Server URL.")
-	fs.UintVar(&port, "p", 0, "Use port for clients.")
-	fs.UintVar(&port, "port", 0, "Use port for clients.")
-	fs.StringVar(&c.WSPath, "w", "", "Path to websocket.")
-	fs.StringVar(&c.WSPath, "wspath", "", "Path to websocket.")
-	fs.StringVar(&c.APIPath, "a", "", "Path to webresources.")
-	fs.StringVar(&c.APIPath, "apipath", "", "Path to webresources.")
+	fs.UintVar(&port, "p", 0, "HTTP port for client connections.")
+	fs.UintVar(&port, "port", 0, "HTTP port for client connections.")
+	fs.StringVar(&c.WSPath, "w", "", "WebSocket path for clients.")
+	fs.StringVar(&c.WSPath, "wspath", "", "WebSocket path for clients.")
+	fs.StringVar(&c.APIPath, "a", "", "Web resource path for clients.")
+	fs.StringVar(&c.APIPath, "apipath", "", "Web resource path for clients.")
 	fs.StringVar(&headauth, "u", "", "Resource method for header authentication.")
 	fs.StringVar(&headauth, "headauth", "", "Resource method for header authentication.")
-	fs.BoolVar(&c.TLS, "tls", false, "Enable TLS.")
-	fs.StringVar(&c.TLSCert, "tlscert", "", "Server certificate file")
-	fs.StringVar(&c.TLSKey, "tlskey", "", "Private key for server certificate.")
+	fs.BoolVar(&c.TLS, "tls", false, "Enable TLS for HTTP.")
+	fs.StringVar(&c.TLSCert, "tlscert", "", "HTTP server certificate file.")
+	fs.StringVar(&c.TLSKey, "tlskey", "", "Private key for HTTP server certificate.")
 	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout duration for NATS requests.")
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout duration for NATS requests.")
 
