@@ -56,7 +56,7 @@ func PathToRID(path, query, prefix string) (string, error) {
 	parts := strings.Split(path, "/")
 	for i := len(parts) - 1; i >= 0; i-- {
 		part, err := url.PathUnescape(parts[i])
-		if err != nil {
+		if err != nil || part == "" {
 			return "", errInvalidPath
 		}
 		parts[i] = part
@@ -95,7 +95,7 @@ func PathToRIDAction(path, query, prefix string) (string, string, error) {
 
 	for i := len(parts) - 1; i >= 0; i-- {
 		part, err := url.PathUnescape(parts[i])
-		if err != nil {
+		if err != nil || part == "" {
 			return "", "", errInvalidPath
 		}
 		parts[i] = part

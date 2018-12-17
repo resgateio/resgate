@@ -217,6 +217,8 @@ func TestHTTPPostInvalidURLs(t *testing.T) {
 		{"/api/", http.StatusNotFound, reserr.ErrNotFound},
 		{"/api/action", http.StatusNotFound, reserr.ErrNotFound},
 		{"/api/test.model/action", http.StatusNotFound, reserr.ErrNotFound},
+		{"/api/test/model/action/", http.StatusMovedPermanently, nil},
+		{"/api/test//model/action", http.StatusMovedPermanently, nil},
 	}
 
 	for i, l := range tbl {
@@ -233,12 +235,14 @@ func TestHTTPPostInvalidURLs(t *testing.T) {
 				GetResponse(t).
 				AssertStatusCode(t, l.ExpectedCode)
 
-			if err, ok := l.Expected.(*reserr.Error); ok {
-				hresp.AssertError(t, err)
-			} else if code, ok := l.Expected.(string); ok {
-				hresp.AssertErrorCode(t, code)
-			} else {
-				hresp.AssertBody(t, l.Expected)
+			if l.Expected != nil {
+				if err, ok := l.Expected.(*reserr.Error); ok {
+					hresp.AssertError(t, err)
+				} else if code, ok := l.Expected.(string); ok {
+					hresp.AssertErrorCode(t, code)
+				} else {
+					hresp.AssertBody(t, l.Expected)
+				}
 			}
 
 			panicked = false

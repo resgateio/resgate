@@ -24,21 +24,34 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
 	}
 
+	apiPath := s.cfg.APIPath
+
 	switch r.Method {
 	case "GET":
+		// Redirect paths with trailing slash (unless it is only the APIPath)
+		if len(path) > len(apiPath) && path[len(path)-1] == '/' {
+			http.Redirect(w, r, path[:len(path)-1], http.StatusMovedPermanently)
+			return
+		}
 
-		rid, err := httpapi.PathToRID(path, r.URL.RawQuery, s.cfg.APIPath)
+		rid, err := httpapi.PathToRID(path, r.URL.RawQuery, apiPath)
 		if err != nil {
 			httpError(w, reserr.ErrNotFound)
 			return
 		}
 
 		s.temporaryConn(w, r, func(c *wsConn, cb func(interface{}, error)) {
-			c.GetHTTPResource(rid, s.cfg.APIPath, cb)
+			c.GetHTTPResource(rid, apiPath, cb)
 		})
 
 	case "POST":
-		rid, action, err := httpapi.PathToRIDAction(path, r.URL.RawQuery, s.cfg.APIPath)
+		// Redirect paths with trailing slash (unless it is only the APIPath)
+		if len(path) > len(apiPath) && path[len(path)-1] == '/' {
+			http.Redirect(w, r, path[:len(path)-1], http.StatusMovedPermanently)
+			return
+		}
+
+		rid, action, err := httpapi.PathToRIDAction(path, r.URL.RawQuery, apiPath)
 		if err != nil {
 			httpError(w, reserr.ErrNotFound)
 			return
