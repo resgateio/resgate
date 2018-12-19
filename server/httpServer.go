@@ -3,16 +3,11 @@ package server
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 )
 
-func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.mux.ServeHTTP(w, r)
-}
-
-func (s *Service) initHTTPServer() {
-	s.mux = http.NewServeMux()
-}
+func (s *Service) initHTTPServer() {}
 
 // startHTTPServer initializes the server and starts a goroutine with a http server
 // Service.mu is held when called
@@ -22,7 +17,7 @@ func (s *Service) startHTTPServer() {
 	}
 
 	s.Logf("Starting HTTP server")
-	h := &http.Server{Addr: s.cfg.portString, Handler: s.mux}
+	h := &http.Server{Addr: s.cfg.portString, Handler: s}
 	s.h = h
 
 	go func() {
@@ -63,5 +58,24 @@ func (s *Service) stopHTTPServer() {
 		s.Logf("HTTP server forcefully stopped after timeout")
 	} else {
 		s.Logf("HTTP server gracefully stopped")
+	}
+}
+
+func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.RequestURI == "*" {
+		if r.ProtoAtLeast(1, 1) {
+			w.Header().Set("Connection", "close")
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	switch {
+	case r.URL.Path == s.cfg.WSPath:
+		s.wsHandler(w, r)
+	case strings.HasPrefix(r.URL.Path, s.cfg.APIPath):
+		s.apiHandler(w, r)
+	default:
+		notFoundHandler(w, r)
 	}
 }

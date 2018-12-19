@@ -66,6 +66,9 @@ func (c *Config) prepare() {
 			c.HeaderAuth = nil
 		}
 	}
+	if c.WSPath == "" {
+		c.WSPath = "/"
+	}
 	if c.APIPath == "" || c.APIPath[len(c.APIPath)-1] != '/' {
 		c.APIPath = c.APIPath + "/"
 	}

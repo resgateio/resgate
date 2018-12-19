@@ -217,8 +217,8 @@ func TestHTTPPostInvalidURLs(t *testing.T) {
 		{"/api/", http.StatusNotFound, reserr.ErrNotFound},
 		{"/api/action", http.StatusNotFound, reserr.ErrNotFound},
 		{"/api/test.model/action", http.StatusNotFound, reserr.ErrNotFound},
-		{"/api/test/model/action/", http.StatusMovedPermanently, nil},
-		{"/api/test//model/action", http.StatusMovedPermanently, nil},
+		{"/api/test/model/action/", http.StatusNotFound, reserr.ErrNotFound},
+		{"/api/test//model/action", http.StatusNotFound, reserr.ErrNotFound},
 	}
 
 	for i, l := range tbl {
