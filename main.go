@@ -25,7 +25,7 @@ Server Options:
     -p, --port <port>                HTTP port for client connections (default: 8080)
     -w, --wspath <path>              WebSocket path for clients (default: /)
     -a, --apipath <path>             Web resource path for clients (default: /api/)
-    -r, --reqtimeout <seconds>       Timeout duration for NATS requests (default: 5)
+    -r, --reqtimeout <milliseconds>  Timeout duration for NATS requests (default: 3000)
     -u, --headauth <method>          Resource method for header authentication
         --tls                        Enable TLS for HTTP (default: false)
         --tlscert <file>             HTTP server certificate file
@@ -50,7 +50,7 @@ func (c *Config) SetDefault() {
 		c.NatsURL = "nats://127.0.0.1:4222"
 	}
 	if c.RequestTimeout == 0 {
-		c.RequestTimeout = 5
+		c.RequestTimeout = 3000
 	}
 	c.Config.SetDefault()
 }
@@ -82,8 +82,8 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.BoolVar(&c.TLS, "tls", false, "Enable TLS for HTTP.")
 	fs.StringVar(&c.TLSCert, "tlscert", "", "HTTP server certificate file.")
 	fs.StringVar(&c.TLSKey, "tlskey", "", "Private key for HTTP server certificate.")
-	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout duration for NATS requests.")
-	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout duration for NATS requests.")
+	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout in milliseconds for NATS requests.")
+	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
 
 	if err := fs.Parse(args); err != nil {
 		printAndDie(fmt.Sprintf("error parsing arguments: %s", err.Error()), true)
@@ -172,9 +172,14 @@ func main() {
 	}
 
 	l := logger.NewStdLogger(cfg.Debug, cfg.Debug)
+	// Remove below if clause after release of version >= 1.3.x
+	if cfg.RequestTimeout <= 10 {
+		l.Logf("[DEPRECATED] ", "Request timeout should be in milliseconds.\nChange your requestTimeout from %d to %d, and you won't be bothered anymore.", cfg.RequestTimeout, cfg.RequestTimeout*1000)
+		cfg.RequestTimeout *= 1000
+	}
 	serv := server.NewService(&nats.Client{
 		URL:            cfg.NatsURL,
-		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Second,
+		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Millisecond,
 		Logger:         l,
 	}, cfg.Config)
 	serv.SetLogger(l)
