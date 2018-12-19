@@ -56,7 +56,7 @@ Any request or event resulting in new subscriptions will contain a set of resour
 The set is grouped by type, `models`, `collections`, and `errors`. Each group is represented by a key/value object where the key is the [resource ID](res-protocol.md#resource-ids), and the value is the [model](res-protocol.md#models), [collection](res-protocol.md#collections), or [error](#error-object).
 
 **Example**
-```
+```json
 {
   "models": {
     "messageService.message.1": {
@@ -140,6 +140,7 @@ Code                    | Message            | Meaning
 `system.accessDenied`   | Access denied      | Access to a resource or method is denied
 `system.timeout`        | Request timeout    | Request timed out
 `system.noSubscription` | No subscription    | The resource has no direct subscription
+`system.invalidRequest` | Invalid request    | Invalid request
 
 
 # Requests
@@ -356,7 +357,7 @@ May be omitted if no new collections were subscribed.
 May be omitted if no subscribed resources encountered errors.
 
 ### Example
-```
+```json
 {
   "event": "myService.myModel.change",
   "data": {
@@ -368,7 +369,7 @@ May be omitted if no subscribed resources encountered errors.
 
 ### Delete action
 A delete action is a JSON object used when a property has been deleted from a model. It has the following signature:  
-```
+```json
 { "action": "delete" }
 ```
 
@@ -405,7 +406,7 @@ May be omitted if no new collections were subscribed.
 May be omitted if no subscribed resources encountered errors.
 
 ### Example
-```
+```json
 {
   "event": "userService.users.add",
   "data": {
@@ -439,7 +440,7 @@ The remove event object has the following parameter:
 Zero-based index number of the value being removed.
 
 ### Example
-```
+```json
 {
   "event": "userService.users.remove",
   "data": {
@@ -478,7 +479,7 @@ The unsubscribe event object has the following parameter:
 [Error object](#error-object) describing the reason for the event.
 
 ### Example
-```
+```json
 {
   "event": "messageService.messages.unsubscribe",
   "data": {

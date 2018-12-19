@@ -16,12 +16,13 @@ import (
 
 // Conn represents a client websocket connection
 type Conn struct {
-	s    *Session
-	d    *websocket.Dialer
-	ws   *websocket.Conn
-	reqs map[uint64]*ClientRequest
-	evs  chan *ClientEvent
-	mu   sync.Mutex
+	s       *Session
+	d       *websocket.Dialer
+	ws      *websocket.Conn
+	reqs    map[uint64]*ClientRequest
+	evs     chan *ClientEvent
+	mu      sync.Mutex
+	closeCh chan struct{}
 }
 
 type clientRequest struct {
@@ -64,13 +65,14 @@ type ClientEvent struct {
 type ParallelEvents []*ClientEvent
 
 // NewConn creates a new Conn instance
-func NewConn(s *Session, d *websocket.Dialer, ws *websocket.Conn) *Conn {
+func NewConn(s *Session, d *websocket.Dialer, ws *websocket.Conn, evs chan *ClientEvent) *Conn {
 	c := &Conn{
-		s:    s,
-		d:    d,
-		ws:   ws,
-		reqs: make(map[uint64]*ClientRequest),
-		evs:  make(chan *ClientEvent, 256),
+		s:       s,
+		d:       d,
+		ws:      ws,
+		reqs:    make(map[uint64]*ClientRequest),
+		evs:     evs,
+		closeCh: make(chan struct{}),
 	}
 	go c.listen()
 	return c
@@ -213,6 +215,7 @@ func (c *Conn) listen() {
 			}
 		}
 	}
+	close(c.closeCh)
 }
 
 // GetResponse awaits for a response and returns it.
@@ -327,7 +330,12 @@ func (ev *ClientEvent) Equals(t *testing.T, event string, data interface{}) *Cli
 // AssertEventName asserts that the event has the expected event name
 func (ev *ClientEvent) AssertEventName(t *testing.T, event string) *ClientEvent {
 	if ev.Event != event {
-		t.Fatalf("expected event to be %#v, but got %#v", event, ev.Event)
+		if t == nil {
+			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+			panic(fmt.Sprintf("expected event to be %#v, but got %#v", event, ev.Event))
+		} else {
+			t.Fatalf("expected event to be %#v, but got %#v", event, ev.Event)
+		}
 	}
 	return ev
 }
@@ -354,4 +362,13 @@ func (ev *ClientEvent) AssertData(t *testing.T, data interface{}) *ClientEvent {
 		t.Fatalf("expected event data to be:\n%s\nbut got:\n%s", dj, evdj)
 	}
 	return ev
+}
+
+// AssertClosed asserts that the connection is closed
+func (c *Conn) AssertClosed(t *testing.T) {
+	select {
+	case <-c.closeCh:
+	case <-time.After(timeoutSeconds * time.Second):
+		t.Fatal("expected the connection to be closed, but it was not")
+	}
 }

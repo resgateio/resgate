@@ -355,7 +355,7 @@ Unchanged properties SHOULD NOT be included.
 MUST NOT be sent on [collections](res-protocol.md#collections).
 
 **Example payload**
-```
+```json
   {
     "myProperty": "New value",
     "unusedProperty": { "action": "delete" }
@@ -364,7 +364,7 @@ MUST NOT be sent on [collections](res-protocol.md#collections).
 
 ### Delete action
 A delete action is a JSON object used when a property has been deleted from a model. It has the following signature:  
-```
+```json
 { "action": "delete" }
 ```
 

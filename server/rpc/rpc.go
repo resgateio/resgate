@@ -99,7 +99,7 @@ func HandleRequest(data []byte, req Requester) error {
 
 	idx := strings.IndexByte(r.Method, '.')
 	if idx < 0 {
-		req.Send(r.ErrorResponse(reserr.ErrMethodNotFound))
+		req.Send(r.ErrorResponse(reserr.ErrInvalidRequest))
 		return nil
 	}
 
@@ -110,15 +110,19 @@ func HandleRequest(data []byte, req Requester) error {
 	if action == "call" || action == "auth" {
 		idx = strings.LastIndexByte(rid, '.')
 		if idx < 0 {
-			req.Send(r.ErrorResponse(reserr.ErrMethodNotFound))
+			req.Send(r.ErrorResponse(reserr.ErrInvalidRequest))
 			return nil
 		}
 		method = rid[idx+1:]
+		if !codec.IsValidRID(method, false) {
+			req.Send(r.ErrorResponse(reserr.ErrInvalidRequest))
+			return nil
+		}
 		rid = rid[:idx]
 	}
 
-	if !codec.IsValidRID(rid) {
-		req.Send(r.ErrorResponse(reserr.ErrMethodNotFound))
+	if !codec.IsValidRID(rid, true) {
+		req.Send(r.ErrorResponse(reserr.ErrInvalidRequest))
 		return nil
 	}
 
@@ -175,7 +179,7 @@ func HandleRequest(data []byte, req Requester) error {
 		})
 
 	default:
-		req.Send(r.ErrorResponse(reserr.ErrMethodNotFound))
+		req.Send(r.ErrorResponse(reserr.ErrInvalidRequest))
 	}
 
 	return nil

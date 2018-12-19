@@ -7,40 +7,60 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jirenius/resgate/server/codec"
 	"github.com/jirenius/resgate/server/httpapi"
 	"github.com/jirenius/resgate/server/reserr"
 )
 
 var nullBytes = []byte("null")
+var notFoundBytes []byte
 
-func (s *Service) initHTTPListener() {
-	s.conns = make(map[string]*wsConn)
-	s.mux.HandleFunc(s.cfg.APIPath, s.httpHandler)
+func init() {
+	out, err := json.Marshal(reserr.ErrNotFound)
+	if err != nil {
+		panic(err)
+	}
+	notFoundBytes = out
 }
 
-func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Service) initAPIHandler() {}
+
+func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.RawPath
 	if path == "" {
 		path = r.URL.Path
 	}
 
+	apiPath := s.cfg.APIPath
+
 	switch r.Method {
 	case "GET":
+		// Redirect paths with trailing slash (unless it is only the APIPath)
+		if len(path) > len(apiPath) && path[len(path)-1] == '/' {
+			notFoundHandler(w, r)
+			return
+		}
 
-		rid, err := httpapi.PathToRID(path, r.URL.RawQuery, s.cfg.APIPath)
-		if err != nil {
-			httpError(w, reserr.ErrNotFound)
+		rid := httpapi.PathToRID(path, r.URL.RawQuery, apiPath)
+		if !codec.IsValidRID(rid, true) {
+			notFoundHandler(w, r)
 			return
 		}
 
 		s.temporaryConn(w, r, func(c *wsConn, cb func(interface{}, error)) {
-			c.GetHTTPResource(rid, s.cfg.APIPath, cb)
+			c.GetHTTPResource(rid, apiPath, cb)
 		})
 
 	case "POST":
-		rid, action, err := httpapi.PathToRIDAction(path, r.URL.RawQuery, s.cfg.APIPath)
-		if err != nil {
-			httpError(w, reserr.ErrNotFound)
+		// Redirect paths with trailing slash (unless it is only the APIPath)
+		if len(path) > len(apiPath) && path[len(path)-1] == '/' {
+			notFoundHandler(w, r)
+			return
+		}
+
+		rid, action := httpapi.PathToRIDAction(path, r.URL.RawQuery, apiPath)
+		if !codec.IsValidRID(rid, true) || !codec.IsValidRID(action, false) {
+			notFoundHandler(w, r)
 			return
 		}
 
@@ -80,11 +100,16 @@ func (s *Service) httpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func notFoundHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusNotFound)
+	w.Write(notFoundBytes)
+}
+
 func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func(interface{}, error))) {
 	c := s.newWSConn(nil, r)
 	if c == nil {
-		// [TODO] Send a more proper response
-		http.NotFound(w, r)
+		httpError(w, reserr.ErrServiceUnavailable)
 		return
 	}
 
@@ -147,6 +172,8 @@ func httpError(w http.ResponseWriter, err error) {
 		code = http.StatusMethodNotAllowed
 	case reserr.CodeInternalError:
 		code = http.StatusInternalServerError
+	case reserr.CodeServiceUnavailable:
+		code = http.StatusServiceUnavailable
 	default:
 		code = http.StatusBadRequest
 	}

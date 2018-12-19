@@ -57,11 +57,11 @@ May be omitted. If omitted, then the question mark separator MUST also be omitte
 A model is an unordered set of named properties and [values](#values) represented by a JSON object.
 
 **Example**
-```
+```json
 {
     "id": 42,
     "name": "Jane Doe",
-    "roles": { rid: "userService.user.42.roles" }
+    "roles": { "rid": "userService.user.42.roles" }
 }
 ```
 
@@ -70,7 +70,7 @@ A model is an unordered set of named properties and [values](#values) represente
 A collection is an ordered list of [values](#values) represented by a JSON array.
 
 **Example**
-```
+```json
 [ "admin", "tester", "developer" ]
 ```
 
@@ -85,7 +85,9 @@ Resource ID of the referenced resource.
 MUST be a valid [resource ID](#resource-ids).
 
 ### Example
-`{ "rid": "userService.user.42" }`
+```json
+{ "rid": "userService.user.42" }
+```
 
 ## Messaging system
 

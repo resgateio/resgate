@@ -83,6 +83,7 @@ The examples require that you have [installed node.js](https://nodejs.org/en/dow
 Run one of the examples:
 * [Hello World example](examples/hello-world/)
 * [Book Collection example](examples/book-collection/)
+* [JWT Authentication example](examples/jwt-authentication/)
 
 Or install and run [Resgate Test App](https://github.com/jirenius/resgate-test-app):
 ```bash
@@ -136,7 +137,7 @@ resgate [options]
 | `-p, --port <port>` | Use port for clients |
 | `-w, --wspath <path>` | Path to websocket |
 | `-a, --apipath <path>` | Path to webresources |
-| `-r, --reqtimeout <seconds>` | Timeout duration for NATS requests |
+| `-r, --reqtimeout <milliseconds>` | Timeout duration for NATS requests |
 | `-u, --headauth <method>` | Resource method for header authentication |
 | `    --tls` | Enable TLS |
 | `    --tlscert <file>` | Server certificate file |
@@ -154,8 +155,8 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
 {
 	// URL to the NATS server
 	"natsUrl": "nats://127.0.0.1:4222",
-	// Timeout in seconds for NATS requests
-	"requestTimeout": 5,
+	// Timeout in milliseconds for NATS requests
+	"requestTimeout": 3000,
 	// Port for the http server to listen on.
 	// If the port value is missing or 0, standard http(s) port is used.
 	"port": 8080,
