@@ -16,15 +16,6 @@ func TestConnectClient(t *testing.T) {
 	})
 }
 
-// Test that the client connection is closed after stopping the server
-func TestDisconnectClientAfterStopping(t *testing.T) {
-	var c *Conn
-	runTest(t, func(s *Session) {
-		c = s.Connect()
-	})
-	c.AssertClosed(t)
-}
-
 // Test that a client gets error connecting to a server that is stopped
 func TestNotConnectedClientWhenStopped(t *testing.T) {
 	var sess *Session
