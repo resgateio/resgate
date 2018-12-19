@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jirenius/resgate/server/codec"
 	"github.com/jirenius/resgate/server/httpapi"
 	"github.com/jirenius/resgate/server/reserr"
 )
@@ -41,7 +42,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		rid := httpapi.PathToRID(path, r.URL.RawQuery, apiPath)
-		if rid == "" {
+		if !codec.IsValidRID(rid, true) {
 			notFoundHandler(w, r)
 			return
 		}
@@ -58,7 +59,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		rid, action := httpapi.PathToRIDAction(path, r.URL.RawQuery, apiPath)
-		if rid == "" {
+		if !codec.IsValidRID(rid, true) || !codec.IsValidRID(action, false) {
 			notFoundHandler(w, r)
 			return
 		}

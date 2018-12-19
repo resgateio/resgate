@@ -34,6 +34,7 @@ const (
 	CodeNoSubscription = "system.noSubscription"
 	CodeNotFound       = "system.notFound"
 	CodeTimeout        = "system.timeout"
+	CodeInvalidRequest = "system.invalidRequest"
 	// HTTP only error codes
 	CodeBadRequest         = "system.badRequest"
 	CodeMethodNotAllowed   = "system.methodNotAllowed"
@@ -52,6 +53,7 @@ var (
 	ErrNoSubscription = &Error{Code: CodeNoSubscription, Message: "No subscription"}
 	ErrNotFound       = &Error{Code: CodeNotFound, Message: "Not found"}
 	ErrTimeout        = &Error{Code: CodeTimeout, Message: "Request timeout"}
+	ErrInvalidRequest = &Error{Code: CodeInvalidRequest, Message: "Invalid request"}
 	// HTTP only errors
 	ErrBadRequest         = &Error{Code: CodeBadRequest, Message: "Bad request"}
 	ErrMethodNotAllowed   = &Error{Code: CodeMethodNotAllowed, Message: "Method not allowed"}

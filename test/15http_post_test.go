@@ -219,6 +219,8 @@ func TestHTTPPostInvalidURLs(t *testing.T) {
 		{"/api/test.model/action", http.StatusNotFound, reserr.ErrNotFound},
 		{"/api/test/model/action/", http.StatusNotFound, reserr.ErrNotFound},
 		{"/api/test//model/action", http.StatusNotFound, reserr.ErrNotFound},
+		{"/api/test/model/äction", http.StatusNotFound, reserr.ErrNotFound},
+		{"/api/test/mådel/action", http.StatusNotFound, reserr.ErrNotFound},
 	}
 
 	for i, l := range tbl {
