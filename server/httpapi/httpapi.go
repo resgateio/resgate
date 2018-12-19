@@ -2,13 +2,8 @@ package httpapi
 
 import (
 	"encoding/json"
-	"errors"
 	"net/url"
 	"strings"
-)
-
-var (
-	errInvalidPath = errors.New("Invalid path")
 )
 
 // Resource holds a resource information to be sent to the client
