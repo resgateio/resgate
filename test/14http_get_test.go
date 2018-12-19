@@ -257,11 +257,12 @@ func TestHTTPGetInvalidURLs(t *testing.T) {
 		ExpectedCode int
 		Expected     interface{}
 	}{
-		// {"/wrong_prefix/test/model", http.StatusNotFound, reserr.ErrNotFound},
-		// {"/api/", http.StatusNotFound, reserr.ErrNotFound},
-		// {"/api/test.model", http.StatusNotFound, reserr.ErrNotFound},
+		{"/wrong_prefix/test/model", http.StatusNotFound, reserr.ErrNotFound},
+		{"/api/", http.StatusNotFound, reserr.ErrNotFound},
+		{"/api/test.model", http.StatusNotFound, reserr.ErrNotFound},
 		{"/api/test/model/", http.StatusNotFound, reserr.ErrNotFound},
 		{"/api/test//model", http.StatusNotFound, reserr.ErrNotFound},
+		{"/api/test/mådel/action", http.StatusNotFound, reserr.ErrNotFound},
 	}
 
 	for i, l := range tbl {

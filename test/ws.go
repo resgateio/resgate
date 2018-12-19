@@ -16,12 +16,13 @@ import (
 
 // Conn represents a client websocket connection
 type Conn struct {
-	s    *Session
-	d    *websocket.Dialer
-	ws   *websocket.Conn
-	reqs map[uint64]*ClientRequest
-	evs  chan *ClientEvent
-	mu   sync.Mutex
+	s       *Session
+	d       *websocket.Dialer
+	ws      *websocket.Conn
+	reqs    map[uint64]*ClientRequest
+	evs     chan *ClientEvent
+	mu      sync.Mutex
+	closeCh chan struct{}
 }
 
 type clientRequest struct {
@@ -66,11 +67,12 @@ type ParallelEvents []*ClientEvent
 // NewConn creates a new Conn instance
 func NewConn(s *Session, d *websocket.Dialer, ws *websocket.Conn, evs chan *ClientEvent) *Conn {
 	c := &Conn{
-		s:    s,
-		d:    d,
-		ws:   ws,
-		reqs: make(map[uint64]*ClientRequest),
-		evs:  evs,
+		s:       s,
+		d:       d,
+		ws:      ws,
+		reqs:    make(map[uint64]*ClientRequest),
+		evs:     evs,
+		closeCh: make(chan struct{}),
 	}
 	go c.listen()
 	return c
@@ -213,6 +215,7 @@ func (c *Conn) listen() {
 			}
 		}
 	}
+	close(c.closeCh)
 }
 
 // GetResponse awaits for a response and returns it.
@@ -359,4 +362,13 @@ func (ev *ClientEvent) AssertData(t *testing.T, data interface{}) *ClientEvent {
 		t.Fatalf("expected event data to be:\n%s\nbut got:\n%s", dj, evdj)
 	}
 	return ev
+}
+
+// AssertClosed asserts that the connection is closed
+func (c *Conn) AssertClosed(t *testing.T) {
+	select {
+	case <-c.closeCh:
+	case <-time.After(timeoutSeconds * time.Second):
+		t.Fatal("expected the connection to be closed, but it was not")
+	}
 }
