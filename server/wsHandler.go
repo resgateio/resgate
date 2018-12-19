@@ -18,9 +18,8 @@ var upgrader = websocket.Upgrader{
 
 var wsDisconnectTimeout = 3 * time.Second
 
-func (s *Service) initWsListener() {
+func (s *Service) initWSHandler() {
 	s.conns = make(map[string]*wsConn)
-	s.mux.HandleFunc(s.cfg.WSPath, s.wsHandler)
 }
 
 // GetWSHandlerFunc returns the websocket http.Handler
@@ -30,11 +29,6 @@ func (s *Service) GetWSHandlerFunc() http.Handler {
 }
 
 func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
-	// Only allow exact matching path
-	if r.URL.Path != s.cfg.WSPath {
-		s.httpHandler(w, r)
-		return
-	}
 	// Upgrade to gorilla websocket
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -49,8 +43,8 @@ func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 	conn.listen()
 }
 
-// stopWsListener disconnects all ws connections.
-func (s *Service) stopWsListener() {
+// stopWSHandler disconnects all ws connections.
+func (s *Service) stopWSHandler() {
 	s.mu.Lock()
 	// Quick exit if we have no connections
 	if len(s.conns) == 0 {

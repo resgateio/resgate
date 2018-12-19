@@ -2,13 +2,8 @@ package httpapi
 
 import (
 	"encoding/json"
-	"errors"
 	"net/url"
 	"strings"
-)
-
-var (
-	errInvalidPath = errors.New("Invalid path")
 )
 
 // Resource holds a resource information to be sent to the client
@@ -38,16 +33,16 @@ func (r *Resource) MarshalJSON() ([]byte, error) {
 // PathToRID parses a raw URL path and returns the resource ID.
 // The prefix is the beginning of the path which is not part of the
 // resource ID, and it should both start and end with /. Eg. "/api/"
-func PathToRID(path, query, prefix string) (string, error) {
+func PathToRID(path, query, prefix string) string {
 	if len(path) == len(prefix) || !strings.HasPrefix(path, prefix) {
-		return "", errInvalidPath
+		return ""
 	}
 
 	path = path[len(prefix):]
 
 	// Dot separator not allowed in path
 	if strings.ContainsRune(path, '.') {
-		return "", errInvalidPath
+		return ""
 	}
 
 	if path[0] == '/' {
@@ -56,8 +51,8 @@ func PathToRID(path, query, prefix string) (string, error) {
 	parts := strings.Split(path, "/")
 	for i := len(parts) - 1; i >= 0; i-- {
 		part, err := url.PathUnescape(parts[i])
-		if err != nil || part == "" {
-			return "", errInvalidPath
+		if err != nil {
+			return ""
 		}
 		parts[i] = part
 	}
@@ -67,22 +62,22 @@ func PathToRID(path, query, prefix string) (string, error) {
 		rid += "?" + query
 	}
 
-	return rid, nil
+	return rid
 }
 
 // PathToRIDAction parses a raw URL path and returns the resource ID and action.
 // The prefix is the beginning of the path which is not part of the
 // resource ID, and it should both start and end with /. Eg. "/api/"
-func PathToRIDAction(path, query, prefix string) (string, string, error) {
+func PathToRIDAction(path, query, prefix string) (string, string) {
 	if len(path) == len(prefix) || !strings.HasPrefix(path, prefix) {
-		return "", "", errInvalidPath
+		return "", ""
 	}
 
 	path = path[len(prefix):]
 
 	// Dot separator not allowed in path
 	if strings.ContainsRune(path, '.') {
-		return "", "", errInvalidPath
+		return "", ""
 	}
 
 	if path[0] == '/' {
@@ -90,13 +85,13 @@ func PathToRIDAction(path, query, prefix string) (string, string, error) {
 	}
 	parts := strings.Split(path, "/")
 	if len(parts) < 2 {
-		return "", "", errInvalidPath
+		return "", ""
 	}
 
 	for i := len(parts) - 1; i >= 0; i-- {
 		part, err := url.PathUnescape(parts[i])
-		if err != nil || part == "" {
-			return "", "", errInvalidPath
+		if err != nil {
+			return "", ""
 		}
 		parts[i] = part
 	}
@@ -106,7 +101,7 @@ func PathToRIDAction(path, query, prefix string) (string, string, error) {
 		rid += "?" + query
 	}
 
-	return rid, parts[len(parts)-1], nil
+	return rid, parts[len(parts)-1]
 }
 
 // RIDToPath converts a resource ID to a URL path string.

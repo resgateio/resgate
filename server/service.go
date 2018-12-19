@@ -22,8 +22,7 @@ type Service struct {
 	cache *rescache.Cache
 
 	// httpServer
-	mux *http.ServeMux
-	h   *http.Server
+	h *http.Server
 
 	// wsListener/wsConn
 	conns map[string]*wsConn // Connections by wsConn Id's
@@ -39,8 +38,8 @@ func NewService(mq mq.Client, cfg Config) *Service {
 
 	s.cfg.prepare()
 	s.initHTTPServer()
-	s.initWsListener()
-	s.initHTTPListener()
+	s.initWSHandler()
+	s.initAPIHandler()
 	s.initMQClient()
 	return s
 }
@@ -121,7 +120,7 @@ func (s *Service) Stop(err error) {
 
 	s.Logf("Stopping service...")
 
-	s.stopWsListener()
+	s.stopWSHandler()
 	s.stopHTTPServer()
 	s.stopMQClient()
 

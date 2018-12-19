@@ -140,6 +140,7 @@ Code                    | Message            | Meaning
 `system.accessDenied`   | Access denied      | Access to a resource or method is denied
 `system.timeout`        | Request timeout    | Request timed out
 `system.noSubscription` | No subscription    | The resource has no direct subscription
+`system.invalidRequest` | Invalid request    | Invalid request
 
 
 # Requests

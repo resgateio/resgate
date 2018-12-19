@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"unicode/utf8"
 
 	"github.com/jirenius/resgate/server/reserr"
 )
@@ -225,7 +224,7 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 			}
 			v.Type = ValueTypeResource
 			v.RID = *mvo.RID
-			if !IsValidRID(v.RID) {
+			if !IsValidRID(v.RID, true) {
 				return errInvalidValue
 			}
 		} else {
@@ -485,7 +484,7 @@ func DecodeNewResponse(payload []byte) (string, error) {
 		return "", errMissingResult
 	}
 
-	if !IsValidRID(r.Result.RID) {
+	if !IsValidRID(r.Result.RID, true) {
 		return "", errInvalidResponse
 	}
 
@@ -517,34 +516,24 @@ func DecodeSystemReset(data json.RawMessage) (SystemReset, error) {
 	return r, nil
 }
 
-// IsValidRID returns true if the RID is valid, otherwise false
-func IsValidRID(rid string) bool {
+// IsValidRID returns true if the RID is valid, otherwise false.
+// If allowQuery flag is false, encountering a question mark (?) will
+// cause IsValidRID to return false.
+func IsValidRID(rid string, allowQuery bool) bool {
 	start := true
 	for i, r := range rid {
-		switch r {
-		case '?':
-			if i == 0 {
-				return false
-			}
-			return true
-		case '\t':
-			fallthrough
-		case '\n':
-			fallthrough
-		case '\r':
-			fallthrough
-		case ' ':
-			fallthrough
-		case '/':
-			fallthrough
-		case utf8.RuneError:
+		if r == '?' {
+			return allowQuery && i != 0
+		}
+		if r < 33 || r > 126 {
 			return false
-		case '.':
+		}
+		if r == '.' {
 			if start {
 				return false
 			}
 			start = true
-		default:
+		} else {
 			start = false
 		}
 	}

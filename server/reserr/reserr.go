@@ -27,15 +27,18 @@ func InternalError(err error) *Error {
 
 // Pre-defined RES error codes
 const (
-	CodeAccessDenied     = "system.accessDenied"
-	CodeInternalError    = "system.internalError"
-	CodeInvalidParams    = "system.invalidParams"
-	CodeMethodNotFound   = "system.methodNotFound"
-	CodeNoSubscription   = "system.noSubscription"
-	CodeNotFound         = "system.notFound"
-	CodeTimeout          = "system.timeout"
-	CodeBadRequest       = "system.badRequest"
-	CodeMethodNotAllowed = "system.methodNotAllowed"
+	CodeAccessDenied   = "system.accessDenied"
+	CodeInternalError  = "system.internalError"
+	CodeInvalidParams  = "system.invalidParams"
+	CodeMethodNotFound = "system.methodNotFound"
+	CodeNoSubscription = "system.noSubscription"
+	CodeNotFound       = "system.notFound"
+	CodeTimeout        = "system.timeout"
+	CodeInvalidRequest = "system.invalidRequest"
+	// HTTP only error codes
+	CodeBadRequest         = "system.badRequest"
+	CodeMethodNotAllowed   = "system.methodNotAllowed"
+	CodeServiceUnavailable = "system.serviceUnavailable"
 )
 
 // Pre-defined RES errors
@@ -50,7 +53,9 @@ var (
 	ErrNoSubscription = &Error{Code: CodeNoSubscription, Message: "No subscription"}
 	ErrNotFound       = &Error{Code: CodeNotFound, Message: "Not found"}
 	ErrTimeout        = &Error{Code: CodeTimeout, Message: "Request timeout"}
+	ErrInvalidRequest = &Error{Code: CodeInvalidRequest, Message: "Invalid request"}
 	// HTTP only errors
-	ErrBadRequest       = &Error{Code: CodeBadRequest, Message: "Bad request"}
-	ErrMethodNotAllowed = &Error{Code: CodeMethodNotAllowed, Message: "Method not allowed"}
+	ErrBadRequest         = &Error{Code: CodeBadRequest, Message: "Bad request"}
+	ErrMethodNotAllowed   = &Error{Code: CodeMethodNotAllowed, Message: "Method not allowed"}
+	ErrServiceUnavailable = &Error{Code: CodeServiceUnavailable, Message: "Service unavailable"}
 )
