@@ -8,7 +8,7 @@
 	<body>
 		<h3>Resgate Hello World Example</h3>
 		<p>Try running it in two separate tabs!</p>
-		<p>The model can also be <a href="http://localhost:8080/api/exampleService/myModel">accessed via REST</a>.</p>
+		<p>The model can also be <a href="http://localhost:8080/api/example/mymodel">accessed via REST</a>.</p>
 		<div id="root"></div>
 		<script>
 			const ResClient = resclient.default;
@@ -17,7 +17,7 @@
 			let root = document.getElementById('root');
 
 			// Get the model from the service.
-			client.get('exampleService.myModel').then(model => {
+			client.get('example.mymodel').then(model => {
 				// Create an input element
 				let input = document.createElement('input');
 				input.value = model.message;

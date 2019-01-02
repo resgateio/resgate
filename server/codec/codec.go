@@ -525,7 +525,7 @@ func IsValidRID(rid string, allowQuery bool) bool {
 		if r == '?' {
 			return allowQuery && i != 0
 		}
-		if r < 33 || r > 126 {
+		if r < 33 || r > 126 || r == '*' || r == '>' {
 			return false
 		}
 		if r == '.' {

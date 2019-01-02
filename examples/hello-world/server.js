@@ -1,35 +1,35 @@
 // Connect to NATS server
 const nats = require('nats').connect("nats://localhost:4222");
 
-let myModel = { message: "Hello world" };
+let mymodel = { message: "Hello world" };
 
 // Get listener. Reply with the json encoded model
-nats.subscribe('get.exampleService.myModel', function(req, reply) {
-  nats.publish(reply, JSON.stringify({ result: { model: myModel }}));
+nats.subscribe('get.example.mymodel', function(req, reply) {
+  nats.publish(reply, JSON.stringify({ result: { model: mymodel }}));
 });
 
 // Access listener. Everyone gets read access and access to call the set-method
-nats.subscribe('access.exampleService.myModel', (req, reply) => {
+nats.subscribe('access.example.mymodel', (req, reply) => {
 	nats.publish(reply, JSON.stringify({ result: { get: true, call: "set" }}));
 });
 
-// Set listener for updating the myModel.message property
-nats.subscribe('call.exampleService.myModel.set', (req, reply) => {
+// Set listener for updating the mymodel.message property
+nats.subscribe('call.example.mymodel.set', (req, reply) => {
 	let r = JSON.parse(req);
 	let p = r.params || {};
 	// Check if the message property was changed
-	if (typeof p.message === 'string' && p.message !== myModel.message) {
-		myModel.message = p.message;
+	if (typeof p.message === 'string' && p.message !== mymodel.message) {
+		mymodel.message = p.message;
 		// The model is updated. Send a change event.
-		nats.publish('event.exampleService.myModel.change', JSON.stringify({ message: p.message }));
+		nats.publish('event.example.mymodel.change', JSON.stringify({ message: p.message }));
 	}
 	// Reply success by sending an empty result
 	nats.publish(reply, JSON.stringify({result: null}));
 });
 
 // System resets tells Resgate that the service has been (re)started.
-// Resgate will then update any cached resource from exampleService
-nats.publish('system.reset', JSON.stringify({ resources: [ 'exampleService.>' ]}));
+// Resgate will then update any cached resource from example
+nats.publish('system.reset', JSON.stringify({ resources: [ 'example.>' ]}));
 
 
 // Run a simple webserver to serve the client.

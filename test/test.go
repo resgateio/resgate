@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jirenius/resgate/logger"
 	"github.com/jirenius/resgate/server"
 	"github.com/posener/wstest"
 )
@@ -18,11 +19,11 @@ type Session struct {
 	*NATSTestClient
 	s     *server.Service
 	conns map[*Conn]struct{}
-	l     *TestLogger
+	l     *logger.MemLogger
 }
 
 func setup() *Session {
-	l := NewTestLogger()
+	l := logger.NewMemLogger(true, true)
 
 	c := NewNATSTestClient(l)
 	serv := server.NewService(c, TestConfig())
