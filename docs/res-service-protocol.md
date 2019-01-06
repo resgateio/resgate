@@ -411,7 +411,10 @@ The event has no payload.
 `event.<resourceName>.<eventName>`
 
 Custom events are used to send information that does not affect the state of the resource.  
-A custom event MUST NOT use a resource event name already defined by this document.  
+The event name is case-sensitive and MUST be a non-empty alphanumeric string with no embedded whitespace. It MUST NOT be any of the following reserved event names:  
+`change`, `delete`, `add`, `remove`, `patch`, `reaccess` or `unsubscribe`.
+
+
 Payload is defined by the service, and will be passed to the client without alteration.
 
 

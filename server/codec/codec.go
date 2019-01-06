@@ -521,9 +521,9 @@ func DecodeSystemReset(data json.RawMessage) (SystemReset, error) {
 // cause IsValidRID to return false.
 func IsValidRID(rid string, allowQuery bool) bool {
 	start := true
-	for i, r := range rid {
+	for _, r := range rid {
 		if r == '?' {
-			return allowQuery && i != 0
+			return allowQuery && !start
 		}
 		if r < 33 || r > 126 || r == '*' || r == '>' {
 			return false
