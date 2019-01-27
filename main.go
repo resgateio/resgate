@@ -30,6 +30,7 @@ Server Options:
         --tls                        Enable TLS for HTTP (default: false)
         --tlscert <file>             HTTP server certificate file
         --tlskey <file>              Private key for HTTP server certificate
+        --creds <file>               NATS User Credentials file
     -c, --config <file>              Configuration file
 
 Common Options:
@@ -38,9 +39,10 @@ Common Options:
 
 // Config holds server configuration
 type Config struct {
-	NatsURL        string `json:"natsUrl"`
-	RequestTimeout int    `json:"requestTimeout"`
-	Debug          bool   `json:"debug,omitempty"`
+	NatsURL        string  `json:"natsUrl"`
+	NatsCreds      *string `json:"natsCreds"`
+	RequestTimeout int     `json:"requestTimeout"`
+	Debug          bool    `json:"debug,omitempty"`
 	server.Config
 }
 
@@ -63,6 +65,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 		configFile string
 		port       uint
 		headauth   string
+		natsCreds  string
 	)
 
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
@@ -84,6 +87,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&c.TLSKey, "tlskey", "", "Private key for HTTP server certificate.")
 	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout in milliseconds for NATS requests.")
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
+	fs.StringVar(&natsCreds, "creds", "", "NATS User Credentials file.")
 
 	if err := fs.Parse(args); err != nil {
 		printAndDie(fmt.Sprintf("error parsing arguments: %s", err.Error()), true)
@@ -137,6 +141,12 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 			} else {
 				c.HeaderAuth = &headauth
 			}
+		case "natscreds":
+			if natsCreds == "" {
+				c.NatsCreds = nil
+			} else {
+				c.NatsCreds = &natsCreds
+			}
 		}
 	})
 
@@ -179,6 +189,7 @@ func main() {
 	}
 	serv := server.NewService(&nats.Client{
 		URL:            cfg.NatsURL,
+		Creds:          cfg.NatsCreds,
 		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Millisecond,
 		Logger:         l,
 	}, cfg.Config)
