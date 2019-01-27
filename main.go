@@ -32,6 +32,7 @@ Server Options:
         --tlscert <file>             HTTP server certificate file
         --tlskey <file>              Private key for HTTP server certificate
         --apiencoding <type>         Encoding for web resources: json, jsonflat (default: json)
+        --creds <file>               NATS User Credentials file
     -c, --config <file>              Configuration file
 
 Common Options:
@@ -42,9 +43,10 @@ Configuration Documentation:         https://resgate.io/docs/get-started/configu
 
 // Config holds server configuration
 type Config struct {
-	NatsURL        string `json:"natsUrl"`
-	RequestTimeout int    `json:"requestTimeout"`
-	Debug          bool   `json:"debug,omitempty"`
+	NatsURL        string  `json:"natsUrl"`
+	NatsCreds      *string `json:"natsCreds"`
+	RequestTimeout int     `json:"requestTimeout"`
+	Debug          bool    `json:"debug,omitempty"`
 	server.Config
 }
 
@@ -68,6 +70,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 		port       uint
 		headauth   string
 		addr       string
+		natsCreds  string
 	)
 
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
@@ -92,6 +95,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&c.APIEncoding, "apiencoding", "", "Encoding for web resources.")
 	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout in milliseconds for NATS requests.")
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
+	fs.StringVar(&natsCreds, "creds", "", "NATS User Credentials file.")
 	fs.BoolVar(&c.Debug, "debug", false, "Enable debugging.")
 
 	if err := fs.Parse(args); err != nil {
@@ -146,6 +150,12 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 			} else {
 				c.HeaderAuth = &headauth
 			}
+		case "natscreds":
+			if natsCreds == "" {
+				c.NatsCreds = nil
+			} else {
+				c.NatsCreds = &natsCreds
+			}
 		case "i":
 			fallthrough
 		case "addr":
@@ -192,6 +202,7 @@ func main() {
 	}
 	serv, err := server.NewService(&nats.Client{
 		URL:            cfg.NatsURL,
+		Creds:          cfg.NatsCreds,
 		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Millisecond,
 		Logger:         l,
 	}, cfg.Config)

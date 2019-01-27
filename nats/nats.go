@@ -22,6 +22,7 @@ const logPrefix = "[NATS] "
 type Client struct {
 	RequestTimeout time.Duration
 	URL            string
+	Creds          *string
 	Logger         logger.Logger
 
 	mq      *nats.Conn
@@ -75,8 +76,14 @@ func (c *Client) Connect() error {
 
 	c.Logf("Connecting to NATS at %s", c.URL)
 
+	// Create connection options
+	opts := []nats.Option{nats.NoReconnect()}
+	if c.Creds != nil {
+		opts = append(opts, nats.UserCredentials(*c.Creds))
+	}
+
 	// No reconnects as all resources are instantly stale anyhow
-	nc, err := nats.Connect(c.URL, nats.NoReconnect())
+	nc, err := nats.Connect(c.URL, opts...)
 	if err != nil {
 		return err
 	}
