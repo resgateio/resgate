@@ -1,0 +1,13 @@
+{
+  "name": "password-authentication",
+  "description": "Resgate Password Authentication Example",
+  "dependencies": {
+    "cookie": "^0.3.1",
+    "express": "^4.16.4",
+    "jsonwebtoken": "^8.3.0",
+    "nats": "^1.0.1"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}
