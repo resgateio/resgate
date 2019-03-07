@@ -4,7 +4,7 @@ This is an example written in Javascript (Node.js) of a simple text field that c
 * It exposes a single resource: `example.shared`.
 * It allows setting the resource's `message` property through the `set` method.
 * It resets the model on server restart.
-* It serves a web client at http://localhost:8081
+* It serves a web client at http://localhost:8082
 
 ## Prerequisite
 
@@ -20,7 +20,7 @@ npm start
 ```
 Open the client
 ```
-http://localhost:8081
+http://localhost:8082
 ```
 
 ## Things to try out

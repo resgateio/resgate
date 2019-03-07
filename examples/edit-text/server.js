@@ -5,7 +5,7 @@ let shared = { message: "Edit me!" };
 
 // Get listener. Reply with the json encoded model
 nats.subscribe('get.example.shared', function(req, reply) {
-  nats.publish(reply, JSON.stringify({ result: { model: shared }}));
+	nats.publish(reply, JSON.stringify({ result: { model: shared }}));
 });
 
 // Access listener. Everyone gets read access and access to call the set-method
@@ -24,18 +24,9 @@ nats.subscribe('call.example.shared.set', (req, reply) => {
 		nats.publish('event.example.shared.change', JSON.stringify({ message: p.message }));
 	}
 	// Reply success by sending an empty result
-	nats.publish(reply, JSON.stringify({result: null}));
+	nats.publish(reply, JSON.stringify({ result: null }));
 });
 
 // System resets tells Resgate that the service has been (re)started.
 // Resgate will then update any cached resource from example
-nats.publish('system.reset', JSON.stringify({ resources: [ 'example.>' ]}));
-
-
-// Run a simple webserver to serve the client.
-// This is only for the purpose of making the example easier to run
-const connect = require('connect');
-const serveStatic = require('serve-static');
-connect().use(serveStatic(__dirname)).listen(8081, function(){
-    console.log('Client available at http://localhost:8081');
-});
+nats.publish('system.reset', JSON.stringify({ resources: [ 'example.>' ] }));
