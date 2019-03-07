@@ -1,7 +1,7 @@
-# Hello World example
+# Edit text example
 
-This is an example of a simple Hello World RES service written in javascript (node.js).
-* It exposes a single resource: `example.mymodel`.
+This is an example written in Javascript (Node.js) of a simple text field that can be edited by multiple clients.
+* It exposes a single resource: `example.shared`.
 * It allows setting the resource's `message` property through the `set` method.
 * It resets the model on server restart.
 * It serves a web client at http://localhost:8081
@@ -34,12 +34,12 @@ Resources can be retrieved using ordinary HTTP GET requests, and methods can be 
 
 ### Get model
 ```
-GET http://localhost:8080/api/example/mymodel
+GET http://localhost:8080/api/example/shared
 ```
 
 ### Update model
 ```
-POST http://localhost:8080/api/example/mymodel/set
+POST http://localhost:8080/api/example/shared/set
 ```
 *Body*  
 ```

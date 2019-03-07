@@ -1,7 +1,7 @@
 {
-  "name": "hello-world",
+  "name": "edit-text",
   "version": "1.0.0",
-  "description": "Resgate Hello World Example",
+  "description": "Resgate Edit Text Example",
   "main": "server.js",
   "dependencies": {
     "connect": "^3.6.6",
