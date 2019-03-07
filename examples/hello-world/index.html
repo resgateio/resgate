@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<title>Resgate - Hello World example</title>
+		<script src="https://unpkg.com/resclient@latest/dist/resclient.min.js"></script>
+	</head>
+	<body>
+		<script>
+			const ResClient = resclient.default;
+			let client = new ResClient('ws://localhost:8080');
+
+			client.get('example.model').then(model => {
+				document.body.textContent = model.message;
+			}).catch(err => {
+				document.body.textContent = "Error getting model. Are NATS Server and Resgate running?";
+			});
+		</script>
+	</body>
+</html>

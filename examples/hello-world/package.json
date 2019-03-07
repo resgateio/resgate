@@ -1,0 +1,14 @@
+{
+  "name": "hello-world",
+  "description": "Resgate Hello World Example",
+  "dependencies": {
+    "nats": "^1.0.1"
+  },
+  "devDependencies": {
+    "concurrently": "^4.1.0",
+    "serve": "^10.1.2"
+  },
+  "scripts": {
+    "start": "concurrently \"node server.js\" \"serve -l 8081\""
+  }
+}
