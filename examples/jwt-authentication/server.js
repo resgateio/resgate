@@ -1,8 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
-// Load authService and exampleService.
-// Both may run as separate micro-services
+// Load authService.js and exampleService.js
+// Both may run as independent micro-services
 require("./authService.js");
 require("./exampleService.js");
 
