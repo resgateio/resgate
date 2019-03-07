@@ -9,16 +9,16 @@ const errorInvalidParams = (message) => JSON.stringify({ error: { code: "system.
 
 // Map of all book models
 let bookModels = {
-	"bookService.book.1": { id: 1, title: "Animal Farm", author: "George Orwell" },
-	"bookService.book.2": { id: 2, title: "Brave New World", author: "Aldous Huxley" },
-	"bookService.book.3": { id: 3, title: "Coraline", author: "Neil Gaiman" }
+	"library.book.1": { id: 1, title: "Animal Farm", author: "George Orwell" },
+	"library.book.2": { id: 2, title: "Brave New World", author: "Aldous Huxley" },
+	"library.book.3": { id: 3, title: "Coraline", author: "Neil Gaiman" }
 };
 
 // Collection of books
 var books = [
-	{ rid: "bookService.book.1" },
-	{ rid: "bookService.book.2" },
-	{ rid: "bookService.book.3" }
+	{ rid: "library.book.1" },
+	{ rid: "library.book.2" },
+	{ rid: "library.book.3" }
 ];
 
 // ID counter for book models
@@ -36,13 +36,13 @@ function getError(field, value) {
 	}
 }
 
-// Access listener for all bookService resources. Everyone gets full access
-nats.subscribe('access.bookService.>', (req, reply) => {
+// Access listener for all library resources. Everyone gets full access
+nats.subscribe('access.library.>', (req, reply) => {
 	nats.publish(reply, accessGranted);
 });
 
 // Book get listener
-nats.subscribe('get.bookService.book.*', function(req, reply, subj) {
+nats.subscribe('get.library.book.*', function(req, reply, subj) {
 	let rid = subj.substring(4); // Remove "get." to get resource ID
 	let model = bookModels[rid];
 	if (model) {
@@ -53,7 +53,7 @@ nats.subscribe('get.bookService.book.*', function(req, reply, subj) {
 });
 
 // Book set listener
-nats.subscribe('call.bookService.book.*.set', (req, reply, subj) => {
+nats.subscribe('call.library.book.*.set', (req, reply, subj) => {
 	let rid = subj.substring(5, subj.length - 4); // Remove "call." and ".set" to get resource ID
 	let model = bookModels[rid];
 	if (!model) {
@@ -95,12 +95,12 @@ nats.subscribe('call.bookService.book.*.set', (req, reply, subj) => {
 });
 
 // Books get listener
-nats.subscribe('get.bookService.books', function(req, reply, subj) {
+nats.subscribe('get.library.books', function(req, reply, subj) {
 	nats.publish(reply, JSON.stringify({ result: { collection: books }}));
 });
 
 // Books new listener
-nats.subscribe('call.bookService.books.new', (req, reply) => {
+nats.subscribe('call.library.books.new', (req, reply) => {
 	let r = JSON.parse(req);
 	let p = r.params || {};
 
@@ -114,13 +114,13 @@ nats.subscribe('call.bookService.books.new', (req, reply) => {
 	}
 
 	let id = nextBookID++; // Book ID
-	let rid = "bookService.book." + id; // Book's resource ID
+	let rid = "library.book." + id; // Book's resource ID
 	let book = { id, title, author }; // Book's model
 	let ref = { rid }; // Reference value to the book
 
 	bookModels[rid] = book;
 	// Publish add event
-	nats.publish("event.bookService.books.add", JSON.stringify({ value: ref, idx: books.length }));
+	nats.publish("event.library.books.add", JSON.stringify({ value: ref, idx: books.length }));
 	books.push(ref);
 
 	// Reply success by sending an empty result
@@ -128,19 +128,19 @@ nats.subscribe('call.bookService.books.new', (req, reply) => {
 });
 
 // Books delete listener
-nats.subscribe('call.bookService.books.delete', (req, reply) => {
+nats.subscribe('call.library.books.delete', (req, reply) => {
 	let r = JSON.parse(req);
 	let p = r.params || {};
 
 	let id = p.id; // Book ID
 
 	// Check if the book ID is a number
-	if (typeof id !== "number")  {
+	if (typeof id !== "number") {
 		nats.publish(reply, errorInvalidParams("Book ID must be a number"));
 		return;
 	}
 
-	let rid = "bookService.book." + id; // Book's resource ID
+	let rid = "library.book." + id; // Book's resource ID
 	// Check if book exists
 	if (bookModels[rid]) {
 		// Delete the model and remove the reference from the collection
@@ -149,7 +149,7 @@ nats.subscribe('call.bookService.books.delete', (req, reply) => {
 		if (idx >= 0) {
 			books.splice(idx, 1);
 			// Publish remove event
-			nats.publish("event.bookService.books.remove", JSON.stringify({ idx }));
+			nats.publish("event.library.books.remove", JSON.stringify({ idx }));
 		}
 	}
 
@@ -158,14 +158,14 @@ nats.subscribe('call.bookService.books.delete', (req, reply) => {
 });
 
 // System resets tells Resgate that the service has been (re)started.
-// Resgate will then update any cached resource from bookService
-nats.publish('system.reset', JSON.stringify({ resources: [ 'bookService.>' ]}));
+// Resgate will then update any cached resource from library
+nats.publish('system.reset', JSON.stringify({ resources: [ 'library.>' ] }));
 
 
 // Run a simple webserver to serve the client.
 // This is only for the purpose of making the example easier to run
 const connect = require('connect');
 const serveStatic = require('serve-static');
-connect().use(serveStatic(__dirname)).listen(8082, function(){
-    console.log('Client available at http://localhost:8082');
+connect().use(serveStatic(__dirname)).listen(8082, () => {
+	console.log('Client available at http://localhost:8082');
 });
