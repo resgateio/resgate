@@ -7,10 +7,11 @@
 	</head>
 	<body>
 		<h3>Resgate Client Session Example</h3>
-		<p>The client lets you log in to see a counter updated from <i>tickerService.js</i>.
+		<p>The client lets you log in with a user session to see a counter updated from <i>tickerService.js</i>.
+		<p>The session will not be lost on client reload (F5) or from a restart of Resgate.</p>
 		<p>Resgate will stop sending updates as soon as the client is logged out.</p>
 		<hr>
-		<div id="login-panel">
+		<div id="login-panel" style="display: none">
 			<div>Available usernames / passwords are:
 				<ul>
 					<li><code>admin / admin</code></li>
@@ -23,9 +24,9 @@
 			<label>Password: <input id="input-password" /></label>
 			<button onclick="login()">Login</button>
 		</div>
-		<div id="logout-panel">
+		<div id="logout-panel" style="display: none">
 			You are logged in:
-			<ul class="def-list">
+			<ul>
 				<li><span>ID: </span><span id="userid">1</span></li>
 				<li><span>Name: </span><span id="name">John Doe</span></li>
 				<li><span>Role: </span><span id="role">user</span></li>
@@ -34,11 +35,13 @@
 		</div>
 		<hr>
 		<div id="message">Login to see the counter</div>
+
 		<script>
 			const ResClient = resclient.default;
 			let client = new ResClient('ws://localhost:8080');
 
 			let message = document.getElementById('message');
+			let reloginTimer = null;
 
 			let loadTickerModel = (function() {
 				let modelPromise = null;
@@ -59,11 +62,18 @@
 				};
 			}());
 
+			function startReloginTimer() {
+				clearTimeout(reloginTimer);
+				// Relogin after 1 min = 60000 ms
+				reloginTimer = setTimeout(relogin, 60000);
+			}
+
 			function updateUserInfo(user) {
 				// No user ID means we are not logged in
 				if (!user.id) {
 					document.getElementById('login-panel').style.display = "block";
 					document.getElementById('logout-panel').style.display = "none";
+					relogin();
 				} else {
 					document.getElementById('login-panel').style.display = "none";
 					document.getElementById('logout-panel').style.display = "block";
@@ -77,7 +87,10 @@
 			function login() {
 				let username = document.getElementById('input-username').value;
 				let password = document.getElementById('input-password').value;
-				client.authenticate('session', 'login', { username, password }).catch(err => {
+				client.authenticate('session', 'login', { username, password }).then(result => {
+					localStorage.setItem("reloginKey", result.reloginKey);
+					startReloginTimer();
+				}).catch(err => {
 					message.textContent = err.message;
 				});
 			}
@@ -87,6 +100,24 @@
 					message.textContent = err.message;
 				});
 			}
+
+			function relogin() {
+				let reloginKey = localStorage.getItem('reloginKey');
+				// Quick escape if we have no relogin key
+				if (!reloginKey) return;
+
+				// Try to relogin with key
+				return client.authenticate('session', 'relogin', { reloginKey }).then(result => {
+					localStorage.setItem("reloginKey", result.reloginKey);
+					startReloginTimer();
+				}).catch(err => {
+					message.textContent = err.message;
+					localStorage.removeItem("reloginKey");
+				});
+			}
+
+			// Add relogin callback when client (re)connects
+			client.setOnConnect(relogin);
 
 			// Get the connection user model
 			// It uses special tag {cid} which Resgate will replace with the actual connection ID

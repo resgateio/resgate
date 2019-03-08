@@ -146,7 +146,7 @@ nats.subscribe('auth.session.relogin', (req, reply) => {
 	let key = params && params.reloginKey;
 
 	// Validate we have a reloginKey
-	if (key !== 'string' ) {
+	if (typeof key !== 'string' ) {
 		nats.publish(reply, JSON.stringify({ error:
 			{ code: 'system.invalidParams', message: "Invalid parameters" }
 		}));
@@ -203,7 +203,7 @@ nats.subscribe('access.session.user.*', (req, reply, subject) => {
 
 // User get listener for model access.session.user.{cid}
 nats.subscribe('get.session.user.*', (req, reply, subject) => {
-	let cid = subject.substr(20); // Remove 'access.session.user.' from subject
+	let cid = subject.substr(17); // Remove 'get.session.user.' from subject
 
 	// Check if the connection is logged in to a session
 	let session = sessionsByCID[cid];
