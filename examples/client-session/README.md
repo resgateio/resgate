@@ -61,7 +61,7 @@ Log in with a username and password shown in the client to set the connection's 
 Press F5 to reload the web page. The client will relogin to the session and resume displaying the user info and counter.
 
 **Restart Resgate**  
-Disconnect the WebSocket connection by restarting Resgate. The client will periodically try to reconnect. Once Resgate is started again, the client will relogin and resume recieving events (unless the *relogin key* has expired).
+Disconnect the WebSocket connection by restarting Resgate. The client will periodically try to reconnect. Once Resgate is started again, the client will relogin and resume receiving events (unless the *relogin key* has expired).
 
 **Expire the relogin key**  
 Login and then close the page. Load the page again after more than 1m30s. The *relogin key* should now have expired, causing the client to fail on relogin.
