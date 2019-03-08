@@ -1,6 +1,6 @@
 {
-  "name": "password-authentication",
-  "description": "Resgate Password Authentication Example",
+  "name": "client-session",
+  "description": "Resgate Client Session Example",
   "dependencies": {
     "express": "^4.16.4",
     "nats": "^1.0.1"
