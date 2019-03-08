@@ -8,10 +8,10 @@ nats.subscribe('get.ticker.model', function(req, reply) {
 	nats.publish(reply, JSON.stringify({ result: { model: model }}));
 });
 
-// Access listener. Only get access if the token is { foo: "bar" }
+// Access listener. Only get access if the token has any role set
 nats.subscribe('access.ticker.model', (req, reply) => {
 	let { token } = JSON.parse(req);
-	if (token && token.foo === 'bar') {
+	if (token && token.role) {
 		nats.publish(reply, JSON.stringify({ result: { get: true }}));
 	} else {
 		nats.publish(reply, JSON.stringify({ result: { get: false }}));

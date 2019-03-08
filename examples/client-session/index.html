@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<title>Resgate - Client Session Example</title>
+		<script src="https://unpkg.com/resclient@latest/dist/resclient.min.js"></script>
+	</head>
+	<body>
+		<h3>Resgate Client Session Example</h3>
+		<p>The client lets you log in to see a counter updated from <i>tickerService.js</i>.
+		<p>Resgate will stop sending updates as soon as the client is logged out.</p>
+		<hr>
+		<div id="login-panel">
+			<div>Available usernames / passwords are:
+				<ul>
+					<li><code>admin / admin</code></li>
+					<li><code>guest / guest</code></li>
+					<li><code>jane / jane</code></li>
+					<li><code>john / john</code></li>
+				</ul>
+			</div>
+			<label>Username: <input id="input-username" /></label>
+			<label>Password: <input id="input-password" /></label>
+			<button onclick="login()">Login</button>
+		</div>
+		<div id="logout-panel">
+			You are logged in:
+			<ul class="def-list">
+				<li><span>ID: </span><span id="userid">1</span></li>
+				<li><span>Name: </span><span id="name">John Doe</span></li>
+				<li><span>Role: </span><span id="role">user</span></li>
+			</ul>
+			<button id="btn-logout" onclick="logout()">Logout</button>
+		</div>
+		<hr>
+		<div id="message">Login to see the counter</div>
+		<script>
+			const ResClient = resclient.default;
+			let client = new ResClient('ws://localhost:8080');
+
+			let message = document.getElementById('message');
+
+			let loadTickerModel = (function() {
+				let modelPromise = null;
+
+				return function() {
+					// Only load model once
+					if (modelPromise) return;
+
+					// Get the model from the service.
+					modelPromise = client.get('ticker.model').then(model => {
+						let setText = () => message.textContent = "Seconds since service start: " + model.seconds;
+						model.on('change', setText);
+						setText();
+					}).catch(err => {
+						message.textContent = err.message;
+						modelPromise = null;
+					});
+				};
+			}());
+
+			function updateUserInfo(user) {
+				// No user ID means we are not logged in
+				if (!user.id) {
+					document.getElementById('login-panel').style.display = "block";
+					document.getElementById('logout-panel').style.display = "none";
+				} else {
+					document.getElementById('login-panel').style.display = "none";
+					document.getElementById('logout-panel').style.display = "block";
+					document.getElementById('userid').textContent = user.id;
+					document.getElementById('name').textContent = user.name;
+					document.getElementById('role').textContent = user.role;
+					loadTickerModel();
+				}
+			}
+
+			function login() {
+				let username = document.getElementById('input-username').value;
+				let password = document.getElementById('input-password').value;
+				client.authenticate('session', 'login', { username, password }).catch(err => {
+					message.textContent = err.message;
+				});
+			}
+
+			function logout() {
+				client.authenticate('session', 'logout').catch(err => {
+					message.textContent = err.message;
+				});
+			}
+
+			// Get the connection user model
+			// It uses special tag {cid} which Resgate will replace with the actual connection ID
+			client.get('session.user.{cid}').then(user => {
+				user.on('change', () => updateUserInfo(user));
+				updateUserInfo(user);
+			}).catch(err => {
+				message.textContent = err.message;
+			});
+		</script>
+	</body>
+</html>

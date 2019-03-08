@@ -1,5 +1,6 @@
 // Connect to NATS server
 const nats = require('nats').connect("nats://localhost:4222");
+const crypto = require('crypto');
 
 // List of users and their passwords
 const users = {
@@ -69,7 +70,7 @@ function issueReloginKey(session) {
 	// Store the session on the key
 	sessionsByKey[key] = session;
 
-	return reloginKey;
+	return key;
 };
 
 // Disposes the session and clears the connection's access token and user model
