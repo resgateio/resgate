@@ -92,14 +92,14 @@ func (s *Service) start() error {
 		return nil
 	}
 	if s.stopping {
-		return errors.New("Service is stopping")
+		return errors.New("Server is stopping")
 	}
 
-	s.Logf("Starting service")
+	s.Logf("Starting server")
 	s.stop = make(chan error, 1)
 
 	if err := s.startMQClient(); err != nil {
-		s.Logf("Failed to connect to message queue: %s", err)
+		s.Logf("Failed to connect to messaging system: %s", err)
 		return err
 	}
 
@@ -118,7 +118,7 @@ func (s *Service) Stop(err error) {
 	s.stopping = true
 	s.mu.Unlock()
 
-	s.Logf("Stopping service...")
+	s.Logf("Stopping server...")
 
 	s.stopWSHandler()
 	s.stopHTTPServer()

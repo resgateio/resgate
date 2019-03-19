@@ -104,7 +104,7 @@
 			document.getElementById('add-new').addEventListener('click', () => {
 				let newTitle = document.getElementById('new-title');
 				let newAuthor = document.getElementById('new-author');
-				client.call('bookService.books', 'new', {
+				client.call('library.books', 'new', {
 					title: newTitle.value,
 					author: newAuthor.value
 				}).then(() => {
@@ -115,7 +115,7 @@
 			});
 
 			// Get the collection from the service.
-			client.get('bookService.books').then(books => {
+			client.get('library.books').then(books => {
 				// Here we use modapp components to render the view.
 				// It is a protest against all these frameworks with virtual doms.
 				// Why use virtual doms when it is faster with vanilla javascript?

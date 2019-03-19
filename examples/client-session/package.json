@@ -1,0 +1,11 @@
+{
+  "name": "client-session",
+  "description": "Resgate Client Session Example",
+  "dependencies": {
+    "express": "^4.16.4",
+    "nats": "^1.0.1"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}

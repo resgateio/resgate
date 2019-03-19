@@ -1,27 +1,27 @@
 # JWT Authentication example
 
-This example, written in javascript (node.js), shows how jwt tokens can be used to authenticate the client. The server consists of three files:
+This example, written in Javascript (Node.js), shows how *jwt tokens* can be used to authenticate the client. The server consists of three files:
 
 **exampleService.js**
-* It exposes a single resource, `exampleService.myModel`.
-* It requires a token to access the resource and its `set` method.
+* exposes a single resource: `example.model`
+* requires a token to access the resource and its `set` method
 
 **authService.js**
-* It exposes an [authentication method](../../docs/res-service-protocol.md#auth-request), `authService.jwtHeader`.
-* The `jwtHeader` auth method verifies the jwt token and sets it as [connection token](docs/res-service-protocol.md#connection-token-event).
+* exposes an [authentication method](../../docs/res-service-protocol.md#auth-request), `auth.jwtHeader`.
+* `jwtHeader` auth method verifies the jwt token and sets it as [connection token](docs/res-service-protocol.md#connection-token-event).
 
 **server.js**
-* It starts the *exampleService.js* and *authService.js* micro-services
-* It serves `/index.html` which is the example client
-* It serves `/login` which sets the jwt token cookie
-* It serves `/logout` which clears the jwt token cookie
+* starts the *exampleService.js* and *authService.js* micro-services
+* serves `/index.html` which is the example client
+* serves `/login` which sets the jwt token cookie
+* serves `/logout` which clears the jwt token cookie
 
 ## Running Resgate
 
 To access the resource with HTTP GET requests, Resgate needs to be configured with the header authentication method to use. Start Resgate with the following flag:
 
 ```bash
-resgate --headauth authService.jwtHeader
+resgate --headauth auth.jwtHeader
 ```
 ## Prerequisite
 
@@ -58,12 +58,12 @@ Try accessing the model as web resource (REST), both with the jwt token set or c
 
 ### Get model
 ```
-GET http://localhost:8080/api/exampleService/myModel
+GET http://localhost:8080/api/example/model
 ```
 
 ### Update model
 ```
-POST http://localhost:8080/api/exampleService/myModel/set
+POST http://localhost:8080/api/example/model/set
 ```
 *Body*  
 ```

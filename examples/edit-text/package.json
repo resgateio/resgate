@@ -1,6 +1,6 @@
 {
-  "name": "hello-world",
-  "description": "Resgate Hello World Example",
+  "name": "edit-text",
+  "description": "Resgate Edit Text Example",
   "dependencies": {
     "nats": "^1.0.1"
   },
@@ -9,6 +9,6 @@
     "serve": "^10.1.2"
   },
   "scripts": {
-    "start": "concurrently \"node server.js\" \"serve -l 8081\""
+    "start": "concurrently \"node server.js\" \"serve -l 8082\""
   }
 }

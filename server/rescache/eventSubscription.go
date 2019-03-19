@@ -297,7 +297,7 @@ func (e *EventSubscription) mqUnsubscribe() bool {
 	// Clear the response queue
 	e.queue = nil
 
-	// Unsubscribe from message queue
+	// Unsubscribe from messaging system
 	if e.mqSub != nil {
 		err := e.mqSub.Unsubscribe()
 		if err != nil {

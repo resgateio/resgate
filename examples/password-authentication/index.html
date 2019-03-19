@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<title>Resgate - Password Authentication Example</title>
+		<script src="https://unpkg.com/resclient@latest/dist/resclient.min.js"></script>
+	</head>
+	<body>
+		<h3>Resgate Password Authentication Example</h3>
+		<p>The client lets you log in to see a counter updated from <i>tickerService.js</i>.
+		<p>Resgate will stop sending updates as soon as the client is logged out.</p>
+		<hr>
+		<div>The password is: <code>secret</code></div>
+		<label>Password: <input id="input" /></label>
+		<button id="login" onclick="login()">Login</button>
+		<button id="logout" onclick="logout()" disabled>Logout</button>
+		<hr>
+		<div id="message">Login to see the counter</div>
+		<script>
+			const ResClient = resclient.default;
+			let client = new ResClient('ws://localhost:8080');
+
+			let input = document.getElementById('input');
+			let btnLogin = document.getElementById('login');
+			let btnLogout = document.getElementById('logout');
+			let message = document.getElementById('message');
+
+			function loadModel() {
+				// Get the model from the service.
+				client.get('ticker.model').then(model => {
+					let setText = () => message.textContent = "Seconds since service start: " + model.seconds;
+					model.on('change', setText);
+					setText();
+				}).catch(err => {
+					message.textContent = err.message;
+				});
+			}
+
+			function login() {
+				client.authenticate('passwd', 'login', { password: input.value }).then(() => {
+					input.disabled = true;
+					btnLogin.disabled = true;
+					btnLogout.disabled = false;
+					loadModel();
+				}).catch(err => {
+					message.textContent = err.message;
+				});
+			}
+
+			function logout() {
+				client.authenticate('passwd', 'logout').then(() => {
+					input.disabled = false;
+					btnLogin.disabled = false;
+					btnLogout.disabled = true;
+				});
+			}
+		</script>
+	</body>
+</html>
