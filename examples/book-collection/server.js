@@ -65,8 +65,8 @@ nats.subscribe('call.library.book.*.set', (req, reply, subj) => {
 	let p = r.params || {};
 	let changed = null;
 
-	// Check if title property was set
-	if (p.title !== undefined) {
+	// Check if title property was set and has changed
+	if (p.title !== undefined && p.title !== model.title) {
 		let err = getError("Title", p.title);
 		if (err) {
 			nats.publish(reply, err);
@@ -75,8 +75,8 @@ nats.subscribe('call.library.book.*.set', (req, reply, subj) => {
 		changed = Object.assign({}, changed, { title: p.title });
 	}
 
-	// Check if author property was set
-	if (p.title !== undefined) {
+	// Check if author property was set and has changed
+	if (p.author !== undefined && p.author !== model.author) {
 		let err = getError("Author", p.author);
 		if (err) {
 			nats.publish(reply, err);

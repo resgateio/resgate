@@ -12,10 +12,10 @@ func (s *Service) initMQClient() {
 	s.cache = rescache.NewCache(s.mq, mqWorkers, s.logger)
 }
 
-// startMQClients creates a connection to the message queue.
+// startMQClients creates a connection to the messaging system.
 // Service.mu is held when called
 func (s *Service) startMQClient() error {
-	s.Logf("Connecting to message queue")
+	s.Logf("Connecting to messaging system")
 	if err := s.mq.Connect(); err != nil {
 		return err
 	}
@@ -31,7 +31,7 @@ func (s *Service) startMQClient() error {
 // stopMQClient closes the connection to the nats server
 func (s *Service) stopMQClient() {
 	if !s.mq.IsClosed() {
-		s.Logf("Closing the message queue client connection...")
+		s.Logf("Closing the messaging system's client connection...")
 		s.mq.Close()
 	}
 	s.Logf("Stopping rescache workers...")
@@ -45,5 +45,5 @@ func (s *Service) handleClosedMQ(err error) {
 	} else {
 		s.Logf("Message queue connection closed")
 	}
-	s.Stop(errors.New("lost connection to message queue"))
+	s.Stop(errors.New("lost connection to messaging system"))
 }
