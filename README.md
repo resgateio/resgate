@@ -22,6 +22,14 @@ Used for building **new REST APIs** with real-time functionality, or when creati
 ![Book Collection Animation](docs/img/book-collection-anim.gif)  
 *Screen capture from the [Book Collection Example](examples/book-collection/)*.
 
+## How it works
+
+Resgate handles all API requests from your clients, instead of directly exposing your micro-services (represented by *Node.js* and *Java* below). Clients will connect to Resgate, using either HTTP or WebSocket, to make requests. These requests are sent to the micro-services over NATS server, and Resgate will keep track on which resource each client has requested.
+
+Whenever there is a change to the data, the responsible micro-service sends an event. Resgate will use this event to both update its own cache, and make sure each subscribing client is kept up-to-date.
+
+<p align="center"><img width="480" src="docs/img/res-network.png" alt="RES network diagram"></p>
+
 ## Quickstart
 
 ### Download
