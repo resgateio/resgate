@@ -37,7 +37,7 @@ npm start
 ```
 Open the client
 ```
-http://localhost:8083
+http://localhost:8084
 ```
 
 ## Things to try out
@@ -46,10 +46,10 @@ http://localhost:8083
 When loading the client without a token set, the client should not be able to access the model, instead showing the *Access denied* error message.
 
 **Gain access**  
-Go to `http://localhost:8083/login`, to set the jwt token, and then return back to the client. The editable input box should now show with the model's message.
+Go to `http://localhost:8084/login`, to set the jwt token, and then return back to the client. The editable input box should now show with the model's message.
 
 **Remove access**  
-Go to `http://localhost:8083/logout`, to clear the jwt token, and then return back to the client. The message *Access denied* should show again.
+Go to `http://localhost:8084/logout`, to clear the jwt token, and then return back to the client. The message *Access denied* should show again.
 
 **Accessing via REST**  
 Try accessing the model as web resource (REST), both with the jwt token set or cleared.

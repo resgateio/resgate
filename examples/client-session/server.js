@@ -10,6 +10,6 @@ let app = express();
 
 // Serve index.html and start listening
 app.use('/', express.static(__dirname));
-app.listen(8085, () => {
-	console.log('Client available at http://localhost:8085');
+app.listen(8086, () => {
+	console.log('Client available at http://localhost:8086');
 });

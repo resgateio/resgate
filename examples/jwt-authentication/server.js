@@ -27,6 +27,6 @@ app.get('/logout', (req, res) => {
 
 // Serve index.html and start listening
 app.use('/', express.static(__dirname));
-app.listen(8083, () => {
-	console.log('Client available at http://localhost:8083');
+app.listen(8084, () => {
+	console.log('Client available at http://localhost:8084');
 });

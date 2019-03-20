@@ -126,6 +126,12 @@ type ConnTokenEvent struct {
 	Token json.RawMessage `json:"token"`
 }
 
+// ChangeEvent represent a RES-server model change event
+// https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#model-change-event
+type ChangeEvent struct {
+	Props map[string]Value `json:"props"`
+}
+
 // AddEvent represent a RES-server collection add event
 // https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#collection-add-event
 type AddEvent struct {
@@ -379,8 +385,35 @@ func DecodeEventQueryResponse(payload []byte) ([]*EventQueryEvent, error) {
 	return r.Result.Events, nil
 }
 
-// DecodeChangeEvent decodes a JSON encoded RES-service model change event
-func DecodeChangeEvent(data json.RawMessage) (map[string]Value, error) {
+// IsLegacyChangeEvent returns true if the model change event is detected as v1.0 legacy
+// Remove after 2020-03-31
+func IsLegacyChangeEvent(data json.RawMessage) bool {
+	var r map[string]json.RawMessage
+	err := json.Unmarshal(data, &r)
+	if err != nil {
+		return false
+	}
+
+	if len(r) != 1 {
+		return true
+	}
+
+	v, ok := r["props"]
+	if !ok {
+		return true
+	}
+
+	for _, c := range v {
+		// Check character unless it is a whitespace
+		if c != '\t' && c != '\n' && c != '\r' && c != ' ' {
+			return c != '{'
+		}
+	}
+	return true
+}
+
+// DecodeLegacyChangeEvent decodes a JSON encoded RES-service v1.0 model change event
+func DecodeLegacyChangeEvent(data json.RawMessage) (map[string]Value, error) {
 	var r map[string]Value
 	err := json.Unmarshal(data, &r)
 	if err != nil {
@@ -388,6 +421,17 @@ func DecodeChangeEvent(data json.RawMessage) (map[string]Value, error) {
 	}
 
 	return r, nil
+}
+
+// DecodeChangeEvent decodes a JSON encoded RES-service model change event
+func DecodeChangeEvent(data json.RawMessage) (map[string]Value, error) {
+	var r ChangeEvent
+	err := json.Unmarshal(data, &r)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Props, nil
 }
 
 // EncodeAddEvent creates a JSON encoded RES-service collection add event

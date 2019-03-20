@@ -163,7 +163,17 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 		return false
 	}
 
-	props, err := codec.DecodeChangeEvent(r.Payload)
+	var props map[string]codec.Value
+	var err error
+	// Detect legacy v1.0 behavior
+	// Remove after 2020-03-31
+	if codec.IsLegacyChangeEvent(r.Payload) {
+		rs.e.cache.deprecated(rs.e.ResourceName, deprecatedModelChangeEvent)
+		props, err = codec.DecodeLegacyChangeEvent(r.Payload)
+	} else {
+		props, err = codec.DecodeChangeEvent(r.Payload)
+	}
+
 	if err != nil {
 		rs.e.cache.Logf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
 	}
