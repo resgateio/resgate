@@ -353,7 +353,7 @@ Change events are sent when a [model](res-protocol.md#models)'s properties has b
 MUST NOT be sent on [collections](res-protocol.md#collections).  
 The event payload has the following parameter:
 
-**props**  
+**values**  
 A key/value object describing the properties that was changed.  
 Each property should have a new [value](res-protocol.md#values) or a [delete action](#delete-action).  
 Unchanged properties SHOULD NOT be included.  
@@ -361,7 +361,7 @@ Unchanged properties SHOULD NOT be included.
 **Example payload**
 ```json
 {
-  "props": {
+  "values": {
     "myProperty": "New value",
     "unusedProperty": { "action": "delete" }
   }

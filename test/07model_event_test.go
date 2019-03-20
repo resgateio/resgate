@@ -13,7 +13,7 @@ func TestChangeEventOnSubscribedResource(t *testing.T) {
 		subscribeToTestModel(t, s, c)
 
 		// Send event on model and validate client event
-		s.ResourceEvent("test.model", "change", json.RawMessage(`{"string":"bar","int":-12}`))
+		s.ResourceEvent("test.model", "change", json.RawMessage(`{"values":{"string":"bar","int":-12}}`))
 		c.GetEvent(t).Equals(t, "test.model.change", json.RawMessage(`{"values":{"string":"bar","int":-12}}`))
 	})
 }
@@ -30,7 +30,7 @@ func TestChangeEventPriorToGetResponseIsDiscarded(t *testing.T) {
 		// Wait for get and access request
 		mreqs := s.GetParallelRequests(t, 2)
 		// Send change event
-		s.ResourceEvent("test.model", "change", json.RawMessage(`{"string":"bar","int":-12}`))
+		s.ResourceEvent("test.model", "change", json.RawMessage(`{"values":{"string":"bar","int":-12}}`))
 		// Respond to get and access request
 		mreqs.GetRequest(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
 		mreqs.GetRequest(t, "access.test.model").RespondSuccess(json.RawMessage(`{"get":true}`))
@@ -45,15 +45,26 @@ func TestChangeEventPriorToGetResponseIsDiscarded(t *testing.T) {
 // Test change event effect on cached model
 func TestChangeEventOnCachedModel(t *testing.T) {
 	tbl := []struct {
-		ChangeEvent   string // Change event to send (raw JSON)
-		ExpectedModel string // Expected model after event (raw JSON)
+		ChangeEvent         string // Change event to send (raw JSON)
+		ExpectedChangeEvent string // Expected event sent to client (raw JSON. Empty means none)
+		ExpectedModel       string // Expected model after event (raw JSON)
 	}{
-		{`{"string":"bar","int":-12}`, `{"string":"bar","int":-12,"bool":true,"null":null}`},
-		{`{"string":"bar"}`, `{"string":"bar","int":42,"bool":true,"null":null}`},
-		{`{"int":-12}`, `{"string":"foo","int":-12,"bool":true,"null":null}`},
-		{`{}`, `{"string":"foo","int":42,"bool":true,"null":null}`},
-		{`{"new":false}`, `{"string":"foo","int":42,"bool":true,"null":null,"new":false}`},
-		{`{"int":{"action":"delete"}}`, `{"string":"foo","bool":true,"null":null}`},
+		{`{"values":{"string":"bar","int":-12}}`, `{"values":{"string":"bar","int":-12}}`, `{"string":"bar","int":-12,"bool":true,"null":null}`},
+		{`{"values":{"string":"bar"}}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`},
+		{`{"values":{"int":-12}}`, `{"values":{"int":-12}}`, `{"string":"foo","int":-12,"bool":true,"null":null}`},
+		{`{"values":{"new":false}}`, `{"values":{"new":false}}`, `{"string":"foo","int":42,"bool":true,"null":null,"new":false}`},
+		{`{"values":{"int":{"action":"delete"}}}`, `{"values":{"int":{"action":"delete"}}}`, `{"string":"foo","bool":true,"null":null}`},
+
+		// Unchanged values
+		{`{"values":{}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`},
+		{`{"values":{"string":"foo"}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`},
+		{`{"values":{"string":"foo","int":42}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`},
+		{`{"values":{"invalid":{"action":"delete"}}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`},
+		{`{"values":{"null":null,"string":"bar"}}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`},
+
+		// Model change event v1.0 legacy behavior
+		{`{"string":"bar","int":-12}`, `{"values":{"string":"bar","int":-12}}`, `{"string":"bar","int":-12,"bool":true,"null":null}`},
+		{`{"string":"bar"}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`},
 	}
 
 	for i, l := range tbl {
@@ -73,7 +84,11 @@ func TestChangeEventOnCachedModel(t *testing.T) {
 
 				// Send event on model and validate client event
 				s.ResourceEvent("test.model", "change", json.RawMessage(l.ChangeEvent))
-				c.GetEvent(t).Equals(t, "test.model.change", json.RawMessage(`{"values":`+l.ChangeEvent+`}`))
+				if l.ExpectedChangeEvent == "" {
+					c.AssertNoEvent(t, "test.model.change")
+				} else {
+					c.GetEvent(t).Equals(t, "test.model.change", json.RawMessage(l.ExpectedChangeEvent))
+				}
 
 				if sameClient {
 					c.Request("unsubscribe.test.model", nil).GetResponse(t)
@@ -107,7 +122,7 @@ func TestChangeEventWithNewResourceReference(t *testing.T) {
 		subscribeToTestModel(t, s, c)
 
 		// Send event on model and validate client event
-		s.ResourceEvent("test.model", "change", json.RawMessage(`{"ref":{"rid":"test.collection"}}`))
+		s.ResourceEvent("test.model", "change", json.RawMessage(`{"values":{"ref":{"rid":"test.collection"}}}`))
 
 		// Handle collection get request
 		s.
@@ -136,7 +151,7 @@ func TestChangeEventWithRemovedResourceReference(t *testing.T) {
 		c.GetEvent(t).Equals(t, "test.model.custom", customEvent)
 
 		// Send event on model and validate client event
-		s.ResourceEvent("test.model.parent", "change", json.RawMessage(`{"child":null}`))
+		s.ResourceEvent("test.model.parent", "change", json.RawMessage(`{"values":{"child":null}}`))
 		c.GetEvent(t).Equals(t, "test.model.parent.change", json.RawMessage(`{"values":{"child":null}}`))
 
 		// Send event on collection and validate client event is not sent to client
@@ -155,7 +170,7 @@ func TestChangeEventWithChangedResourceReference(t *testing.T) {
 		subscribeToTestModelParent(t, s, c, false)
 
 		// Send change event on model parent
-		s.ResourceEvent("test.model.parent", "change", json.RawMessage(`{"child":{"rid":"test.collection"}}`))
+		s.ResourceEvent("test.model.parent", "change", json.RawMessage(`{"values":{"child":{"rid":"test.collection"}}}`))
 
 		// Handle collection get request
 		s.

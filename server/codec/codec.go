@@ -129,7 +129,7 @@ type ConnTokenEvent struct {
 // ChangeEvent represent a RES-server model change event
 // https://github.com/jirenius/resgate/blob/master/docs/res-service-protocol.md#model-change-event
 type ChangeEvent struct {
-	Props map[string]Value `json:"props"`
+	Values map[string]Value `json:"values"`
 }
 
 // AddEvent represent a RES-server collection add event
@@ -398,7 +398,7 @@ func IsLegacyChangeEvent(data json.RawMessage) bool {
 		return true
 	}
 
-	v, ok := r["props"]
+	v, ok := r["values"]
 	if !ok {
 		return true
 	}
@@ -431,7 +431,7 @@ func DecodeChangeEvent(data json.RawMessage) (map[string]Value, error) {
 		return nil, err
 	}
 
-	return r.Props, nil
+	return r.Values, nil
 }
 
 // EncodeAddEvent creates a JSON encoded RES-service collection add event

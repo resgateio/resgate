@@ -4,7 +4,7 @@
 
 The update only affects [Model change event](res-service-protocol.md#model-change-event).
 
-The specification has been updated to have the changed properties contained in a `props` field:
+The specification has been updated to have the changed properties contained in a `values` field:
 
 **v1.0 model change event payload:**
 ```json
@@ -17,7 +17,7 @@ The specification has been updated to have the changed properties contained in a
 **v1.1 model change event payload:**
 ```json
 {
-   "props": {
+   "values": {
       "foo": "bar",
       "faz": 42
    }
@@ -37,13 +37,13 @@ Resgate can detect service legacy (v1.0) behaviour and handle it, but will log a
 The only time a legacy service might be mistakenly taken as non-legacy (v1.1), is for the following two change event payloads:
 ```json
 {
-    "props": { "rid": "example.model" }
+    "values": { "rid": "example.model" }
 }
 ```
 or
 ```json
 {
-   "props": { "action": "delete" }
+   "values": { "action": "delete" }
 }
 ```
 

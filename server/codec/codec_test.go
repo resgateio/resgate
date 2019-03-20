@@ -14,21 +14,21 @@ func TestIsLegacyChangeEvent(t *testing.T) {
 	}{
 		{` [}`, false},                        // Broken JSON
 		{`"foo"`, false},                      // Broken event
-		{`{ "foo": "bar", "faz": 42 }`, true}, // Multiple props
-		{`{ "props": {"action": "delete"}, "faz": 42 }`, true},   // Multiple props with delete action
-		{`{ "props": {"rid": "example.bar"}, "faz": 42 }`, true}, // Multiple props with resource reference
-		{`{ "props": {"foo": "bar"}, "faz": 42 }`, true},         // Invalid multiple props
-		{`{ "foo": "bar" }`, true},                               // Single prop
-		{`{ "props": "bar" }`, true},                             // Single prop named props
-		{` { "props": "bar" }`, true},                            // Single prop named props with leading whitespace
-		{"\t\r\n { \"props\": \"bar\" }", true},                  // Single prop named props with all types of whitespace
-		{`{ "props": { "foo": "bar" }}`, false},                  // Non-legacy with single prop
-		{`{ "props": { "foo": "bar", "faz": 42 }}`, false},       // Non-legacy with multiple props
-		{` { "props": { "foo": "bar" }}`, false},                 // Non-legacy with single prop with leading whitespace
+		{`{ "foo": "bar", "faz": 42 }`, true}, // Multiple values
+		{`{ "values": {"action": "delete"}, "faz": 42 }`, true},   // Multiple values with delete action
+		{`{ "values": {"rid": "example.bar"}, "faz": 42 }`, true}, // Multiple values with resource reference
+		{`{ "values": {"foo": "bar"}, "faz": 42 }`, true},         // Invalid multiple values
+		{`{ "foo": "bar" }`, true},                                // Single value
+		{`{ "values": "bar" }`, true},                             // Single value named values
+		{` { "values": "bar" }`, true},                            // Single value named values with leading whitespace
+		{"\t\r\n { \"values\": \"bar\" }", true},                  // Single value named values with all types of whitespace
+		{`{ "values": { "foo": "bar" }}`, false},                  // Non-legacy with single value
+		{`{ "values": { "foo": "bar", "faz": 42 }}`, false},       // Non-legacy with multiple values
+		{` { "values": { "foo": "bar" }}`, false},                 // Non-legacy with single value with leading whitespace
 
 		// The ones below should be the only false negatives
-		{`{ "props": { "action": "delete" }}`, false},   // Legacy with delete action
-		{`{ "props": { "rid": "example.foo" }}`, false}, // Legacy with resource reference
+		{`{ "values": { "action": "delete" }}`, false},   // Legacy with delete action
+		{`{ "values": { "rid": "example.foo" }}`, false}, // Legacy with resource reference
 	}
 
 	for _, r := range tbl {

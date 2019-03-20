@@ -178,7 +178,7 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 		rs.e.cache.Logf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
 	}
 
-	// Clone old map using old map  size as capacity.
+	// Clone old map using old map size as capacity.
 	// It might not be exact, but often sufficient
 	m := make(map[string]codec.Value, len(rs.model.Values))
 	for k, v := range rs.model.Values {
@@ -188,10 +188,23 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 	// Update model properties
 	for k, v := range props {
 		if v.Type == codec.ValueTypeDelete {
-			delete(m, k)
+			if _, ok := m[k]; ok {
+				delete(m, k)
+			} else {
+				delete(props, k)
+			}
 		} else {
-			m[k] = v
+			if m[k].Equal(v) {
+				delete(props, k)
+			} else {
+				m[k] = v
+			}
 		}
+	}
+
+	// No actual changes
+	if len(props) == 0 {
+		return false
 	}
 
 	r.Changed = props
