@@ -21,7 +21,9 @@ nats.subscribe('call.example.shared.set', (req, reply) => {
 	if (typeof p.message === 'string' && p.message !== shared.message) {
 		shared.message = p.message;
 		// The model is updated. Send a change event.
-		nats.publish('event.example.shared.change', JSON.stringify({ message: p.message }));
+		nats.publish('event.example.shared.change', JSON.stringify({
+			values: { message: p.message }
+		}));
 	}
 	// Reply success by sending an empty result
 	nats.publish(reply, JSON.stringify({ result: null }));

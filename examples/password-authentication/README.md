@@ -43,3 +43,10 @@ Click on the *Logout* button to clear the client's access token. As the `ticker.
 
 **Regain access**  
 Logging in again will allow the client to resume getting updates. There might be a slight delay before the updates start, as *ResClient* will periodically try to resubscribe to resources still being listened to.
+
+> **Note**
+>
+> This example does not handle disconnects or Resgate restarts.
+>
+> Look at [Client Session example](../client-session/) or [JWT Authentication example](../jwt-authentication/) to learn more about session handling.
+

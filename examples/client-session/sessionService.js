@@ -50,9 +50,9 @@ function setSessionCID(session, newCid) {
 
 	// Update the connection's user model
 	// The client may access this information
-	nats.publish('event.session.user.' + newCid + '.change', JSON.stringify(
-		{ id: user.id, name: user.name, role: user.role }
-	));
+	nats.publish('event.session.user.' + newCid + '.change', JSON.stringify({
+		values: { id: user.id, name: user.name, role: user.role }
+	}));
 }
 
 // Issues a new relogin key to the session and resets the session expire timeout
@@ -81,9 +81,9 @@ function disposeSession(session) {
 	clearTimeout(expireId);
 
 	// Clear the connection's user model
-	nats.publish('event.session.user.' + cid + '.change', JSON.stringify(
-		{ id: null, name: null, role: null }
-	));
+	nats.publish('event.session.user.' + cid + '.change', JSON.stringify({
+		values: { id: null, name: null, role: null }
+	}));
 	// Clear token from current connection
 	nats.publish('conn.' + cid + '.token', JSON.stringify({ token: null }));
 

@@ -88,7 +88,7 @@ nats.subscribe('call.library.book.*.set', (req, reply, subj) => {
 	// Publish update event on property changed
 	if (changed) {
 		Object.assign(model, changed);
-		nats.publish("event." + rid + ".change", JSON.stringify(changed));
+		nats.publish("event." + rid + ".change", JSON.stringify({ values: changed }));
 	}
 
 	// Reply success by sending an empty result

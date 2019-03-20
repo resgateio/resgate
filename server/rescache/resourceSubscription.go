@@ -468,11 +468,9 @@ func (rs *ResourceSubscription) processResetModel(props map[string]codec.Value) 
 		return
 	}
 
-	data, _ := json.Marshal(props)
-
 	r := &ResourceEvent{
 		Event:   "change",
-		Payload: json.RawMessage(data),
+		Payload: codec.EncodeChangeEvent(props),
 	}
 
 	rs.handleEvent(r)

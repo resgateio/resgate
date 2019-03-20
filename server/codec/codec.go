@@ -412,15 +412,10 @@ func IsLegacyChangeEvent(data json.RawMessage) bool {
 	return true
 }
 
-// DecodeLegacyChangeEvent decodes a JSON encoded RES-service v1.0 model change event
-func DecodeLegacyChangeEvent(data json.RawMessage) (map[string]Value, error) {
-	var r map[string]Value
-	err := json.Unmarshal(data, &r)
-	if err != nil {
-		return nil, err
-	}
-
-	return r, nil
+// EncodeChangeEvent creates a JSON encoded RES-service change event
+func EncodeChangeEvent(values map[string]Value) json.RawMessage {
+	data, _ := json.Marshal(ChangeEvent{Values: values})
+	return json.RawMessage(data)
 }
 
 // DecodeChangeEvent decodes a JSON encoded RES-service model change event
@@ -432,6 +427,17 @@ func DecodeChangeEvent(data json.RawMessage) (map[string]Value, error) {
 	}
 
 	return r.Values, nil
+}
+
+// DecodeLegacyChangeEvent decodes a JSON encoded RES-service v1.0 model change event
+func DecodeLegacyChangeEvent(data json.RawMessage) (map[string]Value, error) {
+	var r map[string]Value
+	err := json.Unmarshal(data, &r)
+	if err != nil {
+		return nil, err
+	}
+
+	return r, nil
 }
 
 // EncodeAddEvent creates a JSON encoded RES-service collection add event
