@@ -143,7 +143,7 @@ done
 
 Visit [Resgate.io](https://resgate.io) for documentation and resources.
 
-Contains guides on [installation](), [configuration](), [writing services](), [scaling](), [queries](), and other useful things. It also contains guides on workig with frameworks such as [React](), [Vue.js](), and [Modapp]().
+Contains guides on [installation](https://resgate.io/docs/get-started/installation/), [configuration](https://resgate.io/docs/get-started/configuration/), [writing services](https://resgate.io/docs/writing-services/01hello-world/), [scaling](https://resgate.io/docs/advanced-topics/scaling/), [queries](https://resgate.io/docs/advanced-topics/query-resources/), and other useful things. It also contains guides for [ResClient](https://resgate.io/docs/writing-clients/resclient/) when working with frameworks such as [React](https://resgate.io/docs/writing-clients/using-react/), [Vue.js](https://resgate.io/docs/writing-clients/using-vuejs/), and [Modapp](https://resgate.io/docs/writing-clients/using-modapp/).
 
 ## Support Resgate
 
