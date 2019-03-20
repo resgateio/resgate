@@ -1,4 +1,4 @@
-# The RES-Client Protocol Specification
+# The RES-Client Protocol Specification v1.1
 
 ## Table of contents
 - [Introduction](#introduction)
