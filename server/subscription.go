@@ -593,7 +593,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 
 		// Quick exit if there are no new unsent subscriptions
 		if subs == nil {
-			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Payload}))
+			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Changed}))
 			return
 		}
 
@@ -616,7 +616,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 				for _, sub := range subs {
 					sub.populateResources(r)
 				}
-				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Payload, Resources: r}))
+				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Changed, Resources: r}))
 				for _, sub := range subs {
 					sub.ReleaseRPCResources()
 				}

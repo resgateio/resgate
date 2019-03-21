@@ -26,7 +26,9 @@ nats.subscribe('call.example.model.set', (req, reply) => {
 	if (typeof p.message === 'string' && p.message !== model.message) {
 		model.message = p.message;
 		// The model is updated. Send a change event.
-		nats.publish('event.example.model.change', JSON.stringify({ message: p.message }));
+		nats.publish('event.example.model.change', JSON.stringify({
+			values: { message: p.message }
+		}));
 	}
 	// Reply success by sending an empty result
 	nats.publish(reply, JSON.stringify({ result: null }));

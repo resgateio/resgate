@@ -1,4 +1,4 @@
-# The RES-Client Protocol Specification
+# The RES-Client Protocol Specification v1.1
 
 ## Table of contents
 - [Introduction](#introduction)
@@ -341,6 +341,12 @@ Change events are only sent on [models](res-protocol.md#models).
 `<resourceID>.change`
 
 **data**  
+[Change event object](#change-event-object).
+
+### Change event object
+The change event object has the following parameters:
+
+**values**
 A key/value object describing the properties that was changed. Each property contains the new [value](res-protocol.md#values) or a [delete action](#delete-action).  
 Unchanged properties may be included and SHOULD be ignored.
 

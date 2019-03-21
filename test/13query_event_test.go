@@ -97,7 +97,7 @@ func TestModelQueryEventResultingInChangeEvent(t *testing.T) {
 		// Send query event
 		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
 		// Respond to query request with a single change event
-		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"string":"bar","int":-12}}]}`))
+		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"values":{"string":"bar","int":-12}}}]}`))
 
 		// Validate change event was sent to client
 		c.GetEvent(t).Equals(t, "test.model?q=foo&f=bar.change", json.RawMessage(`{"values":{"string":"bar","int":-12}}`))
@@ -116,7 +116,7 @@ func TestDifferentModelQueriesWithSameNormalizedQueryEachGetsClientChangeEvents(
 		// Send query event
 		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
 		// Get query requests and respond
-		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"string":"bar","int":-12}}]}`))
+		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"values":{"string":"bar","int":-12}}}]}`))
 
 		// Validate client change event was sent on both query models
 		evs := c.GetParallelEvents(t, 2)
@@ -135,7 +135,7 @@ func TestModelQueryEventResponseUpdatesTheCache(t *testing.T) {
 		// Send query event
 		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
 		// Respond to query request with a single change event
-		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"string":"bar","int":-12}}]}`))
+		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"values":{"string":"bar","int":-12}}}]}`))
 		// Validate change event sent to the client
 		c.GetEvent(t).Equals(t, "test.model?q=foo&f=bar.change", json.RawMessage(`{"values":{"string":"bar","int":-12}}`))
 
@@ -165,11 +165,11 @@ func TestModelQueryChangeEventOnMultipleQueries(t *testing.T) {
 		req2 := s.GetRequest(t)
 		// Determine which order the query requests came and send change response
 		if req1.PathPayload(t, "query").(string) == "q=foo&f=bar" {
-			req1.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"string":"barbar"}}]}`))
-			req2.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"string":"barbaz"}}]}`))
+			req1.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"values":{"string":"barbar"}}}]}`))
+			req2.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"values":{"string":"barbaz"}}}]}`))
 		} else {
-			req1.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"string":"barbaz"}}]}`))
-			req2.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"string":"barbar"}}]}`))
+			req1.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"values":{"string":"barbaz"}}}]}`))
+			req2.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"values":{"string":"barbar"}}}]}`))
 		}
 
 		// Validate both change events are sent to the client
@@ -421,11 +421,11 @@ func TestQueryEventQueuesOtherEventsUntilHandled(t *testing.T) {
 		subscribeToTestQueryModel(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
 
 		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
-		s.ResourceEvent("test.model", "change", json.RawMessage(`{"string":"bar","int":-12}`))
+		s.ResourceEvent("test.model", "change", json.RawMessage(`{"values":{"string":"bar","int":-12}}`))
 		s.
 			GetRequest(t).
 			Equals(t, "_EVENT_01_", json.RawMessage(`{"query":"q=foo&f=bar"}`)).
-			RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"string":"baz","int":-13}}]}`))
+			RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"values":{"string":"baz","int":-13}}}]}`))
 
 		// Validate query change event was sent to client first
 		c.GetEvent(t).Equals(t, "test.model?q=foo&f=bar.change", json.RawMessage(`{"values":{"string":"baz","int":-13}}`))
@@ -446,18 +446,18 @@ func TestQueryEventWithMultipleQueryRequestsQueuesOtherEventsUntilHandled(t *tes
 		// Send query event
 		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
 		// Send regular event
-		s.ResourceEvent("test.model", "change", json.RawMessage(`{"string":"bar","int":-12}`))
+		s.ResourceEvent("test.model", "change", json.RawMessage(`{"values":{"string":"bar","int":-12}}`))
 
 		// Get query requests for the two model queries
 		req1 := s.GetRequest(t)
 		req2 := s.GetRequest(t)
 		// Determine which order the query requests came and send change response
 		if req1.PathPayload(t, "query").(string) == "q=foo&f=bar" {
-			req1.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"string":"barbar"}}]}`))
-			req2.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"string":"barbaz"}}]}`))
+			req1.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"values":{"string":"barbar"}}}]}`))
+			req2.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"values":{"string":"barbaz"}}}]}`))
 		} else {
-			req1.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"string":"barbaz"}}]}`))
-			req2.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"string":"barbar"}}]}`))
+			req1.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"values":{"string":"barbaz"}}}]}`))
+			req2.RespondSuccess(json.RawMessage(`{"events":[{"event":"change","data":{"values":{"string":"barbar"}}}]}`))
 		}
 
 		// Validate both query change event were sent to client first

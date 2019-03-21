@@ -22,7 +22,9 @@ nats.subscribe('access.ticker.model', (req, reply) => {
 let count = function() {
 	setTimeout(() => {
 		model.seconds++;
-		nats.publish('event.ticker.model.change', JSON.stringify({ seconds: model.seconds }));
+		nats.publish('event.ticker.model.change', JSON.stringify({
+			values: { seconds: model.seconds }
+		}));
 		count();
 	}, 1000);
 };

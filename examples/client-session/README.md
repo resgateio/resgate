@@ -49,7 +49,7 @@ npm start
 ```
 Open the client
 ```
-http://localhost:8085
+http://localhost:8086
 ```
 
 ## Things to try out

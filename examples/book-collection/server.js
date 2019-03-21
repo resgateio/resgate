@@ -87,7 +87,8 @@ nats.subscribe('call.library.book.*.set', (req, reply, subj) => {
 
 	// Publish update event on property changed
 	if (changed) {
-		nats.publish("event." + rid + ".change", JSON.stringify(changed));
+		Object.assign(model, changed);
+		nats.publish("event." + rid + ".change", JSON.stringify({ values: changed }));
 	}
 
 	// Reply success by sending an empty result
@@ -166,6 +167,6 @@ nats.publish('system.reset', JSON.stringify({ resources: [ 'library.>' ] }));
 // This is only for the purpose of making the example easier to run
 const connect = require('connect');
 const serveStatic = require('serve-static');
-connect().use(serveStatic(__dirname)).listen(8082, () => {
-	console.log('Client available at http://localhost:8082');
+connect().use(serveStatic(__dirname)).listen(8083, () => {
+	console.log('Client available at http://localhost:8083');
 });

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Test change event on subscribed resource
+// Test add and remove events on subscribed resource
 func TestAddAndRemoveEventOnSubscribedResource(t *testing.T) {
 	runTest(t, func(s *Session) {
 		c := s.Connect()
@@ -77,7 +77,7 @@ func TestAddRemoveEventsOnCachedCollection(t *testing.T) {
 	}
 }
 
-// Test change event with new resource reference
+// Test add event with new resource reference
 func TestAddEventWithNewResourceReference(t *testing.T) {
 	model := resource["test.model"]
 	customEvent := json.RawMessage(`{"foo":"bar"}`)
@@ -104,7 +104,7 @@ func TestAddEventWithNewResourceReference(t *testing.T) {
 	})
 }
 
-// Test change event with removed resource reference
+// Test remove event with removed resource reference
 func TestRemoveEventWithRemovedResourceReference(t *testing.T) {
 	customEvent := json.RawMessage(`{"foo":"bar"}`)
 

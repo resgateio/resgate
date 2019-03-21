@@ -1,4 +1,4 @@
-# The RES-Service Protocol Specification
+# The RES-Service Protocol Specification v1.1
 
 ## Table of contents
 - [Introduction](#introduction)
@@ -350,16 +350,22 @@ When a resource is modified, the service MUST send the defined events that descr
 `event.<resourceName>.change`
 
 Change events are sent when a [model](res-protocol.md#models)'s properties has been changed.  
-The event payload is a key/value object describing the properties that was changed. Each property should have a new [value](res-protocol.md#values) or a [delete action](#delete-action).  
+MUST NOT be sent on [collections](res-protocol.md#collections).  
+The event payload has the following parameter:
+
+**values**  
+A key/value object describing the properties that was changed.  
+Each property should have a new [value](res-protocol.md#values) or a [delete action](#delete-action).  
 Unchanged properties SHOULD NOT be included.  
-MUST NOT be sent on [collections](res-protocol.md#collections).
 
 **Example payload**
 ```json
-  {
+{
+  "values": {
     "myProperty": "New value",
     "unusedProperty": { "action": "delete" }
   }
+}
 ```
 
 ### Delete action
@@ -384,18 +390,31 @@ The event payload has the following parameters:
 Zero-based index number of where the value is inserted.  
 MUST be a number that is zero or greater and less than the length of the collection.
 
+**Example payload**
+```json
+{
+  "value": "foo",
+  "idx": 2
+}
+```
+
 ## Collection remove event
 
 **Subject**  
 `event.<resourceName>.remove`
 
-Remove events are sent when a value is removed from a [collection]res-protocol.md(#collection).  
+Remove events are sent when a value is removed from a [collection](res-protocol.md#collections).  
 MUST NOT be sent on [models](res-protocol.md#models).  
 The event payload has the following parameter:
 
 **idx**  
 Zero-based index number of where the value was prior to removal.  
 MUST be a number that is zero or greater and less than the length of the collection prior to removal.
+
+**Example payload**
+```json
+{ "idx": 2 }
+```
 
 ## Reaccess event
 
@@ -435,6 +454,16 @@ The event payload has the following parameter:
 Access token.
 A `null` token clears any previously set token.
 
+**Example payload**
+```json
+{
+  "token": {
+    "username": "foo",
+    "role": "admin",
+  }
+}
+```
+
 
 # System events
 
@@ -459,6 +488,14 @@ JSON array of [resource name patterns](#resource-name-pattern).
 Any gateway with clients subscribing to a matching resource should send new [access requests](#access-request) for each client subscription.  
 May be omitted.
 
+**Example payload**
+```json
+{
+  "resources": [ "userService.users", "userService.user.*" ],
+  "access": [ "userService.>" ]
+}
+```
+
 ### Resource name pattern
 A resource name pattern is a string used for matching resource names.  
 The pattern may use the following wild cards:  
@@ -466,8 +503,6 @@ The pattern may use the following wild cards:
 Eg. `userService.user.*.roles` - Pattern that matches the roles collection of all users.
 * The greater than symbol (`>`) matches one or more parts at the end of a resource name, and must be the last part.  
 Eg. `messageService.>` - Pattern that matches all resources owned by *messageService*.  
-
-
 
 
 # Query resources
@@ -489,6 +524,13 @@ The event payload has the following parameter:
 A subject string to which a (#query-request) may be sent.  
 MUST be a string.
 
+**Example payload**
+```json
+{
+  "subject": "_REQUEST_SUBJECT_12345678"
+}
+```
+
 ## Query request
 
 **Subject**  
@@ -501,12 +543,29 @@ The request payload has the following parameters:
 Normalized query received in the response to the get request for the query resource.  
 MUST be a string.
 
+**Example payload**
+```json
+{
+  "query": "limit=25&start=0"
+}
+```
+
 ### Result
 
 **events**  
 An array of events for the query resource.  
 MUST be an array of [event query objects](#event-query-object)  
 May be omitted if there are no events.
+
+**Example result payload**
+```json
+{
+  "events": [
+    { "event": "remove", "data": { "idx": 24 }},
+    { "event": "add", "data": { "value": "foo", "idx": 0 }},
+  ]
+}
+```
 
 ### Event query object
 
