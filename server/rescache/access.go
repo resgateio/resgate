@@ -8,7 +8,7 @@ import (
 // Access represents a RES-service access response
 type Access struct {
 	*codec.AccessResult
-	Error error
+	Error *reserr.Error
 }
 
 // CanGet reports whether get access is granted.
