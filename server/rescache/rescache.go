@@ -9,6 +9,7 @@ import (
 	"github.com/jirenius/resgate/logger"
 	"github.com/jirenius/resgate/server/codec"
 	"github.com/jirenius/resgate/server/mq"
+	"github.com/jirenius/resgate/server/reserr"
 	"github.com/jirenius/timerqueue"
 )
 
@@ -121,12 +122,12 @@ func (c *Cache) Access(sub Subscriber, token interface{}, callback func(access *
 	subj := "access." + rname
 	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
-			callback(&Access{Error: err})
+			callback(&Access{Error: reserr.RESError(err)})
 			return
 		}
 
-		access, err := codec.DecodeAccessResponse(data)
-		callback(&Access{AccessResult: access, Error: err})
+		access, rerr := codec.DecodeAccessResponse(data)
+		callback(&Access{AccessResult: access, Error: rerr})
 	})
 }
 

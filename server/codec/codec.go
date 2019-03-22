@@ -481,7 +481,7 @@ func DecodeRemoveEvent(data json.RawMessage) (*RemoveEvent, error) {
 }
 
 // DecodeAccessResponse decodes a JSON encoded RES-service access response
-func DecodeAccessResponse(payload []byte) (*AccessResult, error) {
+func DecodeAccessResponse(payload []byte) (*AccessResult, *reserr.Error) {
 	var r AccessResponse
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
