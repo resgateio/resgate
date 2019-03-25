@@ -1,8 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
-// Load authService and exampleService.
-// Both may run as separate micro-services
+// Load authService.js and exampleService.js
+// Both may run as independent micro-services
 require("./authService.js");
 require("./exampleService.js");
 
@@ -27,6 +27,6 @@ app.get('/logout', (req, res) => {
 
 // Serve index.html and start listening
 app.use('/', express.static(__dirname));
-app.listen(8083, () => {
-	console.log('Client available at http://localhost:8083');
+app.listen(8084, () => {
+	console.log('Client available at http://localhost:8084');
 });

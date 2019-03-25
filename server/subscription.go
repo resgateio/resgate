@@ -48,7 +48,7 @@ type Subscription struct {
 	isQueueing      bool
 	eventQueue      []*rescache.ResourceEvent
 	access          *rescache.Access
-	accessCallbacks []func()
+	accessCallbacks []func(*rescache.Access)
 	accessCalled    bool
 
 	// Protected by conn
@@ -593,7 +593,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 
 		// Quick exit if there are no new unsent subscriptions
 		if subs == nil {
-			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Payload}))
+			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Changed}))
 			return
 		}
 
@@ -616,7 +616,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 				for _, sub := range subs {
 					sub.populateResources(r)
 				}
-				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Payload, Resources: r}))
+				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Changed, Resources: r}))
 				for _, sub := range subs {
 					sub.ReleaseRPCResources()
 				}
@@ -638,8 +638,8 @@ func (s *Subscription) handleReaccess() {
 	// Start queueing again
 	s.queueEvents()
 
-	s.loadAccess(func() {
-		err := s.access.CanGet()
+	s.loadAccess(func(a *rescache.Access) {
+		err := a.CanGet()
 		if err != nil {
 			s.c.Unsubscribe(s, true, s.direct, true)
 			s.c.Send(rpc.NewEvent(s.rid, "unsubscribe", rpc.UnsubscribeEvent{Reason: reserr.RESError(err)}))
@@ -716,9 +716,9 @@ func parseRID(rid string) (name string, query string) {
 	return rid[:i], rid[i+1:]
 }
 
-func (s *Subscription) loadAccess(cb func()) {
+func (s *Subscription) loadAccess(cb func(*rescache.Access)) {
 	if s.access != nil {
-		cb()
+		cb(s.access)
 		return
 	}
 
@@ -738,11 +738,14 @@ func (s *Subscription) loadAccess(cb func()) {
 
 			cbs := s.accessCallbacks
 			s.accessCalled = false
-			s.access = access
+			// Only store in case of an actual result or system.accessDenied error
+			if access.Error == nil || access.Error.Code == reserr.CodeAccessDenied {
+				s.access = access
+			}
 			s.accessCallbacks = nil
 
 			for _, cb := range cbs {
-				cb()
+				cb(access)
 			}
 		})
 	})
@@ -758,8 +761,8 @@ func (s *Subscription) CanGet(cb func(err error)) {
 		return
 	}
 
-	s.loadAccess(func() {
-		cb(s.access.CanGet())
+	s.loadAccess(func(a *rescache.Access) {
+		cb(a.CanGet())
 	})
 }
 
@@ -768,7 +771,7 @@ func (s *Subscription) CanGet(cb func(err error)) {
 // describing the reason. If access is granted, the callback will be called with
 // err being nil.
 func (s *Subscription) CanCall(action string, cb func(err error)) {
-	s.loadAccess(func() {
-		cb(s.access.CanCall(action))
+	s.loadAccess(func(a *rescache.Access) {
+		cb(a.CanCall(action))
 	})
 }

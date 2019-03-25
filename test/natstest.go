@@ -402,6 +402,9 @@ func (r *Request) PathPayload(t *testing.T, path string) interface{} {
 	parts := strings.Split(path, ".")
 	v := reflect.ValueOf(r.Payload)
 	for _, part := range parts {
+		if v.Kind() == reflect.Interface {
+			v = v.Elem()
+		}
 		typ := v.Type()
 		if typ.Kind() != reflect.Map {
 			t.Fatalf("expected to find path %#v, but part %#v is of type %s", path, part, typ)

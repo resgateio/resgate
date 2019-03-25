@@ -7,7 +7,7 @@ const mySecret = 'shhhhh';
 const jwtCookieName = 'access-token';
 
 // Auth listener for header login with jwt
-nats.subscribe('auth.authService.jwtHeader', function(req, reply) {
+nats.subscribe('auth.auth.jwtHeader', function(req, reply) {
 	let { cid, header } = JSON.parse(req);
 
 	// Parse Cookie header

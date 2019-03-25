@@ -1,4 +1,4 @@
-# The RES-Client Protocol Specification
+# The RES-Client Protocol Specification v1.1
 
 ## Table of contents
 - [Introduction](#introduction)
@@ -88,7 +88,7 @@ The set is grouped by type, `models`, `collections`, and `errors`. Each group is
 
 A connection ID tag is a specific string, "`{cid}`" (without the quotation marks), that may be used as part of a [resource ID](res-protocol.md#resource-ids).
 
-The gateway will replace the tag with the clients actual [connection ID](res-protocol.md#connection-ids) before passing any request further to the services.
+The gateway will replace the tag with the client's actual [connection ID](res-protocol.md#connection-ids) before passing any request further to the services.
 
 Any [event](#events) on a resource containing a connection ID tag will be sent to the client with the tag, never with the actual connection ID.
 
@@ -341,6 +341,12 @@ Change events are only sent on [models](res-protocol.md#models).
 `<resourceID>.change`
 
 **data**  
+[Change event object](#change-event-object).
+
+### Change event object
+The change event object has the following parameters:
+
+**values**
 A key/value object describing the properties that was changed. Each property contains the new [value](res-protocol.md#values) or a [delete action](#delete-action).  
 Unchanged properties may be included and SHOULD be ignored.
 

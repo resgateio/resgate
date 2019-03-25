@@ -1,4 +1,4 @@
-# RES Protocol
+# RES Protocol v1.1
 
 ## Table of contents
 - [Introduction](#introduction)

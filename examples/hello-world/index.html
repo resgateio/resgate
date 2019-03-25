@@ -2,39 +2,18 @@
 <html>
 	<head>
 		<meta charset="UTF-8" />
-		<title>Hello World</title>
+		<title>Resgate - Hello World Example</title>
 		<script src="https://unpkg.com/resclient@latest/dist/resclient.min.js"></script>
 	</head>
 	<body>
-		<h3>Resgate Hello World Example</h3>
-		<p>Try running it in two separate tabs!</p>
-		<p>The model can also be <a href="http://localhost:8080/api/exampleService/myModel">accessed via REST</a>.</p>
-		<div id="root"></div>
 		<script>
 			const ResClient = resclient.default;
-
 			let client = new ResClient('ws://localhost:8080');
-			let root = document.getElementById('root');
 
-			// Get the model from the service.
-			client.get('exampleService.myModel').then(model => {
-				// Create an input element
-				let input = document.createElement('input');
-				input.value = model.message;
-				root.appendChild(input);
-
-				// Call set to update the remote model
-				input.addEventListener('input', () => {
-					model.set({ message: input.value });
-				});
-
-				// Listen for model change events.
-				// The model will be unsubscribed after calling model.off
-				model.on('change', () => {
-					input.value = model.message;
-				});
+			client.get('example.model').then(model => {
+				document.body.textContent = model.message;
 			}).catch(err => {
-				root.textContent = err.message || "Connection error. Are NATS Server and Resgate running?";
+				document.body.textContent = "Error getting model. Are NATS Server and Resgate running?";
 			});
 		</script>
 	</body>

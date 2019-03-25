@@ -34,6 +34,9 @@ func TestResponseOnInvalidRequests(t *testing.T) {
 		{"subscribe.test model", nil, reserr.ErrInvalidRequest},
 		{"subscribe.test\ufffdmodel", nil, reserr.ErrInvalidRequest},
 		{"subscribe.täst.model", nil, reserr.ErrInvalidRequest},
+		{"subscribe.test.*.model", nil, reserr.ErrInvalidRequest},
+		{"subscribe.test.>.model", nil, reserr.ErrInvalidRequest},
+		{"subscribe.test.model.>", nil, reserr.ErrInvalidRequest},
 	}
 
 	for i, l := range tbl {

@@ -1,8 +1,6 @@
 {
-  "name": "hello-world",
-  "version": "1.0.0",
-  "description": "Resgate Hello World Example",
-  "main": "server.js",
+  "name": "book-collection",
+  "description": "Resgate Book Collection Example",
   "dependencies": {
     "connect": "^3.6.6",
     "nats": "^1.0.1",
