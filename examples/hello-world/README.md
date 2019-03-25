@@ -1,4 +1,4 @@
-# Hello World example
+# Hello World Example
 
 This is a Hello World example written in javascript (Node.js).
 * It exposes a single resource: `example.model`

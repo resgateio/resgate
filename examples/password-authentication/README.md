@@ -1,4 +1,4 @@
-# Password Authentication example
+# Password Authentication Example
 
 This example, written in Javascript (Node.js), shows how authentication can be done using a password. It also shows how access to events are revoked as soon as the client is logged out. The server consists of three files:
 

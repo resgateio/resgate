@@ -1,4 +1,4 @@
-# Edit text example
+# Edit Text Example
 
 This is an example written in Javascript (Node.js) of a simple text field that can be edited by multiple clients.
 * It exposes a single resource: `example.shared`.

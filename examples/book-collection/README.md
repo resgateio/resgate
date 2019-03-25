@@ -1,4 +1,4 @@
-# Book Collection example
+# Book Collection Example
 
 This is an example, written in javascript (node.js), of a RES service with collections and resource references to books, which can be created, edited and deleted.
 * It exposes a collection, `bookService.books`, containing book model references.

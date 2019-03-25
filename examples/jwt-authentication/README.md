@@ -1,4 +1,4 @@
-# JWT Authentication example
+# JWT Authentication Example
 
 This example, written in Javascript (Node.js), shows how *jwt tokens* can be used to authenticate the client. The server consists of three files:
 

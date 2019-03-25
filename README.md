@@ -65,7 +65,7 @@ While Resgate may be used with any language, the examples are written in Javascr
 | [Book Collection](examples/book-collection/) | List of book titles & authors that can be edited by many.
 | [JWT Authentication](examples/jwt-authentication/) |Showing how JWT tokens can be used for authentication.
 | [Password Authentication](examples/password-authentication/) | Showing authentication with user and password credentials.
-| [Client Session](examples/password-authentication/) | Creating client sessions that survive reloads and reconnects.
+| [Client Session](examples/client-session/) | Creating client sessions that survive reloads and reconnects.
 
 > **Note**
 >
