@@ -162,3 +162,98 @@ func TestCallOnResource(t *testing.T) {
 		})
 	}
 }
+
+// Test responses to client call requests after an initial access error
+func TestCallOnResourceAfterAccessError(t *testing.T) {
+	params := json.RawMessage(`{"value":42}`)
+	successResponse := json.RawMessage(`{"foo":"bar"}`)
+	// Access responses
+	fullCallAccess := json.RawMessage(`{"get":true,"call":"*"}`)
+	noCallAccess := json.RawMessage(`{"get":true}`)
+
+	tbl := []struct {
+		FirstAccessResponse  interface{} // Response on first access request. nil means timeout
+		FirstExpectCall      bool        // Flag if a first call request is expected
+		FirstExpected        interface{}
+		SecondAccessResponse interface{} // Response on second access request. noRequest means no second access request is expected. nil means timeout.
+		SecondExpectCall     bool        // Flag if a first call request is expected
+		SecondExpected       interface{}
+	}{
+		{fullCallAccess, true, successResponse, noRequest, true, successResponse},
+		{noCallAccess, false, reserr.ErrAccessDenied, noRequest, false, reserr.ErrAccessDenied},
+		{reserr.ErrAccessDenied, false, reserr.ErrAccessDenied, noRequest, false, reserr.ErrAccessDenied},
+		{nil, false, reserr.ErrTimeout, fullCallAccess, true, successResponse},
+		{nil, false, reserr.ErrTimeout, nil, false, reserr.ErrTimeout},
+		{nil, false, reserr.ErrTimeout, reserr.ErrAccessDenied, false, reserr.ErrAccessDenied},
+		{reserr.ErrInternalError, false, reserr.ErrInternalError, fullCallAccess, true, successResponse},
+		{reserr.ErrInternalError, false, reserr.ErrInternalError, nil, false, reserr.ErrTimeout},
+		{reserr.ErrInternalError, false, reserr.ErrInternalError, reserr.ErrAccessDenied, false, reserr.ErrAccessDenied},
+	}
+
+	for i, l := range tbl {
+		for subscribe := true; subscribe; subscribe = false {
+			runTest(t, func(s *Session) {
+				panicked := true
+				defer func() {
+					if panicked {
+						t.Logf("Error in test %d", i)
+					}
+				}()
+
+				c := s.Connect()
+				var creq *ClientRequest
+
+				if subscribe {
+					// Subscribe to parent model
+					subscribeToTestModelParent(t, s, c, false)
+				}
+
+				accessResponse := l.FirstAccessResponse
+				expectCall := l.FirstExpectCall
+				expected := l.FirstExpected
+				for round := 0; round < 2; round++ {
+					// Send client call request
+					creq = c.Request("call.test.model.method", params)
+
+					// Handle access request if one is expected
+					if accessResponse != noRequest {
+						req := s.GetRequest(t)
+						req.AssertSubject(t, "access.test.model")
+						if accessResponse == nil {
+							req.Timeout()
+						} else if err, ok := accessResponse.(*reserr.Error); ok {
+							req.RespondError(err)
+						} else if raw, ok := accessResponse.([]byte); ok {
+							req.RespondRaw(raw)
+						} else {
+							req.RespondSuccess(accessResponse)
+						}
+					}
+
+					if expectCall {
+						// Get call request
+						req := s.GetRequest(t)
+						req.AssertSubject(t, "call.test.model.method")
+						req.RespondSuccess(successResponse)
+					}
+
+					// Validate client response
+					cresp := creq.GetResponse(t)
+					if err, ok := expected.(*reserr.Error); ok {
+						cresp.AssertError(t, err)
+					} else if code, ok := expected.(string); ok {
+						cresp.AssertErrorCode(t, code)
+					} else {
+						cresp.AssertResult(t, expected)
+					}
+
+					accessResponse = l.SecondAccessResponse
+					expectCall = l.SecondExpectCall
+					expected = l.SecondExpected
+				}
+
+				panicked = false
+			})
+		}
+	}
+}
