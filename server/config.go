@@ -2,11 +2,13 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"strings"
 )
 
 // Config holds server configuration
 type Config struct {
+	Addr       *string `json:"addr"`
 	Port       uint16  `json:"port"`
 	WSPath     string  `json:"wsPath"`
 	APIPath    string  `json:"apiPath"`
@@ -19,13 +21,18 @@ type Config struct {
 	NoHTTP bool `json:"-"` // Disable start of the HTTP server. Used for testing
 
 	scheme           string
-	portString       string
+	netAddr          string
 	headerAuthRID    string
 	headerAuthAction string
 }
 
+var defaultAddr = "0.0.0.0"
+
 // SetDefault sets the default values
 func (c *Config) SetDefault() {
+	if c.Addr == nil {
+		c.Addr = &defaultAddr
+	}
 	if c.Port == 0 {
 		c.Port = 8080
 	}
@@ -44,18 +51,34 @@ func (c *Config) prepare() {
 		if c.Port == 0 {
 			c.Port = 443
 		}
-		if c.Port != 443 {
-			c.portString = fmt.Sprintf(":%d", c.Port)
-		}
 	} else {
 		c.scheme = "http"
 		if c.Port == 0 {
 			c.Port = 80
 		}
-		if c.Port != 80 {
-			c.portString = fmt.Sprintf(":%d", c.Port)
-		}
 	}
+
+	// Resolve network address
+	c.netAddr = ""
+	if c.Addr != nil {
+		if *c.Addr != "" {
+			ip := net.ParseIP(*c.Addr)
+			if len(ip) > 0 {
+				// Test if it is an IPv6 address
+				if ip.To4() == nil {
+					c.netAddr = "[" + ip.String() + "]"
+				} else {
+					c.netAddr = ip.String()
+				}
+			} else {
+				c.netAddr = defaultAddr
+			}
+		}
+	} else {
+		c.netAddr = defaultAddr
+	}
+	c.netAddr += fmt.Sprintf(":%d", c.Port)
+
 	if c.HeaderAuth != nil {
 		s := *c.HeaderAuth
 		idx := strings.LastIndexByte(s, '.')

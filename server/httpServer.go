@@ -17,11 +17,11 @@ func (s *Service) startHTTPServer() {
 	}
 
 	s.Logf("Starting HTTP server")
-	h := &http.Server{Addr: s.cfg.portString, Handler: s}
+	h := &http.Server{Addr: s.cfg.netAddr, Handler: s}
 	s.h = h
 
 	go func() {
-		s.Logf("Listening on %s://%s%s", s.cfg.scheme, "0.0.0.0", s.cfg.portString)
+		s.Logf("Listening on %s://%s", s.cfg.scheme, s.cfg.netAddr)
 
 		var err error
 		if s.cfg.TLS {

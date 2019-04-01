@@ -86,6 +86,7 @@ resgate [options]
 | Option | Description |
 |---|---|
 | `-n, --nats <url>` | NATS Server URL |
+| `-i, --addr <host>` | Bind to HOST address |
 | `-p, --port <port>` | Use port for clients |
 | `-w, --wspath <path>` | Path to WebSocket |
 | `-a, --apipath <path>` | Path to web resources |
@@ -109,6 +110,10 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
 	"natsUrl": "nats://127.0.0.1:4222",
 	// Timeout in milliseconds for NATS requests
 	"requestTimeout": 3000,
+	// Bind to HOST IPv4 or IPv6 address
+	// Empty string ("") means all IPv4 and IPv6 addresses.
+	// Invalid or missing IP address defaults to 0.0.0.0.
+	"addr": "0.0.0.0",
 	// Port for the http server to listen on.
 	// If the port value is missing or 0, standard http(s) port is used.
 	"port": 8080,
