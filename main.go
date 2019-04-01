@@ -22,6 +22,7 @@ Usage: resgate [options]
 
 Server Options:
     -n, --nats <url>                 NATS Server URL (default: nats://127.0.0.1:4222)
+    -i  --addr <host>                Bind to HOST address (default: 0.0.0.0)
     -p, --port <port>                HTTP port for client connections (default: 8080)
     -w, --wspath <path>              WebSocket path for clients (default: /)
     -a, --apipath <path>             Web resource path for clients (default: /api/)
@@ -63,6 +64,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 		configFile string
 		port       uint
 		headauth   string
+		addr       string
 	)
 
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
@@ -71,6 +73,8 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&configFile, "config", "", "Configuration file.")
 	fs.StringVar(&c.NatsURL, "n", "", "NATS Server URL.")
 	fs.StringVar(&c.NatsURL, "nats", "", "NATS Server URL.")
+	fs.StringVar(&addr, "i", "", "Bind to HOST address.")
+	fs.StringVar(&addr, "addr", "", "Bind to HOST address.")
 	fs.UintVar(&port, "p", 0, "HTTP port for client connections.")
 	fs.UintVar(&port, "port", 0, "HTTP port for client connections.")
 	fs.StringVar(&c.WSPath, "w", "", "WebSocket path for clients.")
@@ -137,6 +141,10 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 			} else {
 				c.HeaderAuth = &headauth
 			}
+		case "i":
+			fallthrough
+		case "addr":
+			c.Addr = &addr
 		}
 	})
 
