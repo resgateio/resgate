@@ -37,10 +37,7 @@ type Subscription struct {
 	c     ConnSubscriber
 	state subscriptionState
 
-	loadedCallbacks []func(*Subscription)
-	refMap          map[string]bool
-	resourceCount   int
-	cycleCount      int
+	readyCallbacks []*readyCallback
 
 	resourceSub     *rescache.ResourceSubscription
 	typ             rescache.ResourceType
@@ -64,11 +61,16 @@ type reference struct {
 	count int
 }
 
+type readyCallback struct {
+	refMap  map[string]bool
+	cb      func()
+	loading int
+}
+
 const (
 	stateDisposed subscriptionState = iota
 	stateLoading
 	stateLoaded
-	stateCollecting
 	stateReady
 	stateToSend
 	stateSent
@@ -88,12 +90,11 @@ func NewSubscription(c ConnSubscriber, rid string) *Subscription {
 	name, query := parseRID(c.ExpandCID(rid))
 
 	sub := &Subscription{
-		rid:             rid,
-		resourceName:    name,
-		resourceQuery:   query,
-		c:               c,
-		loadedCallbacks: make([]func(*Subscription), 0, 2),
-		state:           stateLoading,
+		rid:           rid,
+		resourceName:  name,
+		resourceQuery: query,
+		c:             c,
+		state:         stateLoading,
 	}
 
 	return sub
@@ -139,25 +140,30 @@ func (s *Subscription) IsReady() bool {
 // when loading the resource, resourceSub will be nil, and err will be the error.
 func (s *Subscription) Loaded(resourceSub *rescache.ResourceSubscription, err error) {
 	if !s.c.Enqueue(func() {
-		if err != nil {
-			s.err = err
-			s.doneLoading()
-			return
-		}
-
 		if s.state == stateDisposed {
 			resourceSub.Unsubscribe(s)
 			return
 		}
 
-		s.resourceSub = resourceSub
-		s.typ = resourceSub.GetResourceType()
-		s.state = stateLoaded
+		if err != nil {
+			s.err = err
+		} else {
+			s.resourceSub = resourceSub
+			s.typ = resourceSub.GetResourceType()
+			s.state = stateLoaded
 
-		// Wait with setting resources until
-		// OnLoaded callback is added, so we have a refMap
-		if s.refMap != nil {
 			s.setResource()
+		}
+
+		if s.err != nil {
+			s.doneLoading()
+		} else {
+			rcbs := s.readyCallbacks
+			s.readyCallbacks = nil
+			// Collect references for any waiting ready callbacks
+			for _, rcb := range rcbs {
+				s.collectRefs(rcb)
+			}
 		}
 	}) {
 		if err == nil {
@@ -177,7 +183,6 @@ func (s *Subscription) setResource() {
 		err := fmt.Errorf("subscription %s: unknown resource type", s.rid)
 		s.c.Logf("%s", err)
 		s.err = err
-		s.doneLoading()
 	}
 }
 
@@ -195,29 +200,34 @@ func (s *Subscription) Error() error {
 	return s.err
 }
 
-// OnLoaded gets a callback that should be called once the subscribed resource
-// has been loaded from the rescache. If the resource is already loaded,
-// the callback will directly be queued onto the connections worker goroutine.
-func (s *Subscription) OnLoaded(cb func(*Subscription), refMap map[string]bool) {
-	if s.loadedCallbacks != nil {
-		if s.refMap == nil {
-			if refMap == nil {
-				refMap = map[string]bool{s.rid: true}
-			}
-			s.refMap = refMap
-			s.loadedCallbacks = append(s.loadedCallbacks, cb)
-			if s.state == stateLoaded {
-				s.setResource()
-			}
-		} else {
-			s.loadedCallbacks = append(s.loadedCallbacks, cb)
-		}
+// OnReady gets a callback that should be called once the subscribed resource
+// and all its referenced resources recursively, has been loaded from the rescache.
+// If the resource is already ready, the callback will directly be called.
+func (s *Subscription) OnReady(cb func()) {
+	if s.IsReady() {
+		cb()
 		return
 	}
 
-	s.c.Enqueue(func() {
-		cb(s)
+	s.onLoaded(&readyCallback{
+		refMap: make(map[string]bool),
+		cb:     cb,
 	})
+}
+
+// onLoaded gets a readyCallback that should be called once the subscribed resource
+// has been loaded from the rescache. If the resource is already loaded,
+// the callback will directly be queued onto the connections worker goroutine.
+func (s *Subscription) onLoaded(rcb *readyCallback) {
+	// Add itself to refMap
+	rcb.refMap[s.rid] = true
+	rcb.loading++
+
+	if s.state >= stateLoaded {
+		s.collectRefs(rcb)
+	} else {
+		s.readyCallbacks = append(s.readyCallbacks, rcb)
+	}
 }
 
 // GetRPCResources returns a rpc.Resources object.
@@ -356,7 +366,6 @@ func (s *Subscription) populateResources(r *rpc.Resources) {
 }
 
 // setModel subscribes to all resource references in the model.
-// Subscription lock must be held when calling, and will be released on return
 func (s *Subscription) setModel() {
 	m := s.resourceSub.GetModel()
 	s.queueEvents()
@@ -367,11 +376,9 @@ func (s *Subscription) setModel() {
 		}
 	}
 	s.model = m
-	s.collectRefs()
 }
 
 // setCollection subscribes to all resource references in the collection.
-// Subscription lock must be held when calling, and will be released on return
 func (s *Subscription) setCollection() {
 	c := s.resourceSub.GetCollection()
 	s.queueEvents()
@@ -382,7 +389,6 @@ func (s *Subscription) setCollection() {
 		}
 	}
 	s.collection = c
-	s.collectRefs()
 }
 
 // subscribeRef subscribes to any resource reference value
@@ -413,31 +419,26 @@ func (s *Subscription) subscribeRef(v codec.Value) bool {
 
 // collectRefs will wait for all references to be loaded
 // and call doneLoading() once completed.
-func (s *Subscription) collectRefs() {
-	resourceCount := len(s.refs)
-	cycleCount := 0
+func (s *Subscription) collectRefs(rcb *readyCallback) {
+	rcb.loading--
 
-	s.state = stateCollecting
 	for rid, ref := range s.refs {
-		if ref.sub.IsReady() {
-			resourceCount--
+		// Don't wait for already ready references
+		// or references already included in the refMap
+		if ref.sub.IsReady() || rcb.refMap[rid] {
 			continue
 		}
 
-		// Check if the resource is a cyclic reference
-		if s.refMap[rid] {
-			cycleCount++
-			ref.sub.OnLoaded(s.cyclicRefLoaded, s.refMap)
-		} else {
-			ref.sub.OnLoaded(s.refLoaded, s.refMap)
-		}
-
+		ref.sub.onLoaded(rcb)
 	}
 
-	s.cycleCount = cycleCount
-	s.resourceCount = resourceCount
+	s.testReady(rcb)
+}
 
-	s.testDoneLoading()
+func (s *Subscription) testReady(rcb *readyCallback) {
+	if rcb.loading == 0 {
+		rcb.cb()
+	}
 }
 
 func pathContains(path []string, rid string) bool {
@@ -489,44 +490,6 @@ func (s *Subscription) removeReference(rid string) {
 	if ref.count == 0 {
 		s.c.Unsubscribe(ref.sub, false, 1, true)
 		delete(s.refs, rid)
-	}
-}
-
-func (s *Subscription) refLoaded(sub *Subscription) {
-	// Assert client is still subscribing
-	// If not we just unsubscribe
-	if s.state == stateDisposed {
-		return
-	}
-
-	s.resourceCount--
-
-	s.testDoneLoading()
-}
-
-func (s *Subscription) cyclicRefLoaded(sub *Subscription) {
-	// Assert client is still subscribing
-	// If not we just unsubscribe
-	if s.state == stateDisposed {
-		return
-	}
-
-	s.resourceCount--
-	s.cycleCount--
-
-	s.testDoneLoading()
-}
-
-func (s *Subscription) testDoneLoading() {
-	if s.resourceCount == 0 {
-		s.doneLoading()
-	} else if s.cycleCount == s.resourceCount {
-		// If all remaining references are cyclic.
-		// Then the first OnLoaded may be called.
-		cb := s.loadedCallbacks[0]
-		s.loadedCallbacks = s.loadedCallbacks[1:]
-		s.refMap = nil
-		cb(s)
 	}
 }
 
@@ -588,7 +551,7 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 			// Start queueing again
 			s.queueEvents()
 
-			sub.OnLoaded(func(sub *Subscription) {
+			sub.OnReady(func() {
 				// Assert client is still subscribing
 				// If not we just unsubscribe
 				if s.state == stateDisposed {
@@ -600,7 +563,7 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 				sub.ReleaseRPCResources()
 
 				s.unqueueEvents()
-			}, nil)
+			})
 		case codec.ValueTypePrimitive:
 			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEvent{Idx: idx, Value: v.RawMessage}))
 		}
@@ -661,7 +624,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 		s.queueEvents()
 		count := len(subs)
 		for _, sub := range subs {
-			sub.OnLoaded(func(sub *Subscription) {
+			sub.OnReady(func() {
 				// Assert client is not disposed
 				if s.state == stateDisposed {
 					return
@@ -682,7 +645,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 				}
 
 				s.unqueueEvents()
-			}, nil)
+			})
 		}
 
 	default:
@@ -716,7 +679,7 @@ func (s *Subscription) unsubscribe() {
 	}
 
 	s.state = stateDisposed
-	s.loadedCallbacks = nil
+	s.readyCallbacks = nil
 	s.eventQueue = nil
 
 	if s.resourceSub != nil {
@@ -731,16 +694,16 @@ func (s *Subscription) Dispose() {
 	s.unsubscribe()
 }
 
-// doneLoading calls all OnLoaded callbacks.
-// Subscription lock must be held when calling doneLoading,
+// doneLoading will decrease all loading counters for
+// each readyCallback, and test if they reach 0.
 func (s *Subscription) doneLoading() {
 	s.state = stateReady
-	cbs := s.loadedCallbacks
-	s.loadedCallbacks = nil
-	s.refMap = nil
+	rcbs := s.readyCallbacks
+	s.readyCallbacks = nil
 
-	for _, cb := range cbs {
-		cb(s)
+	for _, rcb := range rcbs {
+		rcb.loading--
+		s.testReady(rcb)
 	}
 }
 

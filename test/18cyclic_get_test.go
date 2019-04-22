@@ -40,7 +40,7 @@ func TestCyclicGetTest(t *testing.T) {
 		"example.b": []string{"example.b", "example.c"},
 		"example.d": []string{"example.d", "example.e", "example.f"},
 		"example.g": []string{"example.d", "example.e", "example.f", "example.g"},
-		"example.h": []string{"example.d", "example.e", "example.f", "example.g", "example.h"},
+		"example.h": []string{"example.d", "example.e", "example.f", "example.h"},
 	}
 
 	tbl := [][]struct {
@@ -105,7 +105,7 @@ func TestCyclicGetTest(t *testing.T) {
 			for _, ev := range l {
 				switch ev.Event {
 				case "subscribe":
-					creqs[ev.RID] = c.Request("get."+ev.RID, nil)
+					creqs[ev.RID] = c.Request("subscribe."+ev.RID, nil)
 				case "access":
 					for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
 						treq := s.GetRequest(t)

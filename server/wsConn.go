@@ -224,7 +224,7 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 			return
 		}
 
-		sub.OnLoaded(func(sub *Subscription) {
+		sub.OnReady(func() {
 			err := sub.Error()
 			if err != nil {
 				cb(nil, err)
@@ -234,7 +234,7 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 			cb(sub.GetRPCResources(), nil)
 			sub.ReleaseRPCResources()
 			c.Unsubscribe(sub, true, 1, true)
-		}, nil)
+		})
 	})
 }
 
@@ -252,10 +252,10 @@ func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interfa
 			return
 		}
 
-		sub.OnLoaded(func(sub *Subscription) {
+		sub.OnReady(func() {
 			c.outputHTTPResource(prefix, sub, cb)
 			c.Unsubscribe(sub, true, 1, true)
-		}, nil)
+		})
 	})
 }
 
@@ -297,7 +297,7 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 			return
 		}
 
-		sub.OnLoaded(func(sub *Subscription) {
+		sub.OnReady(func() {
 			err := sub.Error()
 			if err != nil {
 				cb(nil, err)
@@ -307,7 +307,7 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 
 			cb(sub.GetRPCResources(), nil)
 			sub.ReleaseRPCResources()
-		}, nil)
+		})
 	})
 }
 
@@ -346,7 +346,7 @@ func (c *wsConn) NewResource(rid string, params interface{}, cb func(result *rpc
 					return
 				}
 
-				sub.OnLoaded(func(sub *Subscription) {
+				sub.OnReady(func() {
 					// Respond with success even if subscription contains errors,
 					// as the call to 'new' atleast succeeded.
 					cb(&rpc.NewResult{
@@ -354,7 +354,7 @@ func (c *wsConn) NewResource(rid string, params interface{}, cb func(result *rpc
 						Resources: sub.GetRPCResources(),
 					}, nil)
 					sub.ReleaseRPCResources()
-				}, nil)
+				})
 			})
 		})
 	})

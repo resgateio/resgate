@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -23,6 +24,7 @@ type Conn struct {
 	evs     chan *ClientEvent
 	mu      sync.Mutex
 	closeCh chan struct{}
+	err     error
 }
 
 type clientRequest struct {
@@ -178,6 +180,7 @@ func (c *Conn) listen() {
 	var err error
 
 	// Loop until an error is returned when reading
+Loop:
 	for {
 		if _, in, err = c.ws.ReadMessage(); err != nil {
 			break
@@ -186,7 +189,8 @@ func (c *Conn) listen() {
 		cr := clientResponse{}
 		err := json.Unmarshal(in, &cr)
 		if err != nil {
-			panic("test: error unmarshaling client response: " + err.Error())
+			c.setError(errors.New("test: error unmarshaling client response: " + err.Error()))
+			break Loop
 		}
 
 		c.mu.Lock()
@@ -201,7 +205,8 @@ func (c *Conn) listen() {
 			req, ok := c.reqs[cr.ID]
 			if !ok {
 				c.mu.Unlock()
-				panic("test: response without matching request")
+				c.setError(errors.New("test: response without matching request"))
+				break Loop
 			}
 			delete(c.reqs, cr.ID)
 			c.mu.Unlock()
@@ -211,11 +216,24 @@ func (c *Conn) listen() {
 				Error:  cr.Error,
 			}:
 			default:
-				panic("test: failed to write client response")
+				c.setError(err)
+				break Loop
 			}
 		}
 	}
 	close(c.closeCh)
+}
+
+func (c *Conn) setError(err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.err = err
+}
+
+func (c *Conn) Error() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.err
 }
 
 // GetResponse awaits for a response and returns it.
