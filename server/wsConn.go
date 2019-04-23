@@ -211,7 +211,7 @@ func (c *wsConn) Send(data []byte) {
 }
 
 func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)) {
-	sub, err := c.Subscribe(rid, true, nil)
+	sub, err := c.Subscribe(rid, true)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -224,7 +224,7 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 			return
 		}
 
-		sub.OnLoaded(func(sub *Subscription) {
+		sub.OnReady(func() {
 			err := sub.Error()
 			if err != nil {
 				cb(nil, err)
@@ -239,7 +239,7 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 }
 
 func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interface{}, err error)) {
-	sub, err := c.Subscribe(rid, true, nil)
+	sub, err := c.Subscribe(rid, true)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -252,7 +252,7 @@ func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interfa
 			return
 		}
 
-		sub.OnLoaded(func(sub *Subscription) {
+		sub.OnReady(func() {
 			c.outputHTTPResource(prefix, sub, cb)
 			c.Unsubscribe(sub, true, 1, true)
 		})
@@ -284,7 +284,7 @@ func (c *wsConn) outputHTTPResource(prefix string, sub *Subscription, cb func(da
 }
 
 func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err error)) {
-	sub, err := c.Subscribe(rid, true, nil)
+	sub, err := c.Subscribe(rid, true)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -297,7 +297,7 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 			return
 		}
 
-		sub.OnLoaded(func(sub *Subscription) {
+		sub.OnReady(func() {
 			err := sub.Error()
 			if err != nil {
 				cb(nil, err)
@@ -323,7 +323,7 @@ func (c *wsConn) NewResource(rid string, params interface{}, cb func(result *rpc
 				return
 			}
 
-			sub, err := c.Subscribe(newRID, true, nil)
+			sub, err := c.Subscribe(newRID, true)
 			if err != nil {
 				cb(nil, err)
 				return
@@ -346,7 +346,7 @@ func (c *wsConn) NewResource(rid string, params interface{}, cb func(result *rpc
 					return
 				}
 
-				sub.OnLoaded(func(sub *Subscription) {
+				sub.OnReady(func() {
 					// Respond with success even if subscription contains errors,
 					// as the call to 'new' atleast succeeded.
 					cb(&rpc.NewResult{
@@ -388,7 +388,7 @@ func (c *wsConn) UnsubscribeResource(rid string, cb func(ok bool)) {
 func (c *wsConn) call(rid, action string, params interface{}, cb func(result interface{}, err error)) {
 	sub, ok := c.subs[rid]
 	if !ok {
-		sub = NewSubscription(c, rid, nil)
+		sub = NewSubscription(c, rid)
 	}
 
 	sub.CanCall(action, func(err error) {
@@ -407,7 +407,7 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result int
 func (c *wsConn) callNew(rid string, params interface{}, cb func(newRID string, err error)) {
 	sub, ok := c.subs[rid]
 	if !ok {
-		sub = NewSubscription(c, rid, nil)
+		sub = NewSubscription(c, rid)
 	}
 
 	sub.CanCall("new", func(err error) {
@@ -420,7 +420,7 @@ func (c *wsConn) callNew(rid string, params interface{}, cb func(newRID string, 
 	})
 }
 
-func (c *wsConn) subscribe(rid string, direct bool, path []string) (*Subscription, error) {
+func (c *wsConn) subscribe(rid string, direct bool) (*Subscription, error) {
 
 	sub, ok := c.subs[rid]
 	if ok {
@@ -428,7 +428,7 @@ func (c *wsConn) subscribe(rid string, direct bool, path []string) (*Subscriptio
 		return sub, err
 	}
 
-	sub = NewSubscription(c, rid, path)
+	sub = NewSubscription(c, rid)
 	_ = c.addCount(sub, direct)
 	c.serv.cache.Subscribe(sub)
 
@@ -438,12 +438,12 @@ func (c *wsConn) subscribe(rid string, direct bool, path []string) (*Subscriptio
 
 // subscribe gets existing subscription or creates a new one to cache
 // Will return error if number of allowed subscriptions for the resource is exceeded
-func (c *wsConn) Subscribe(rid string, direct bool, path []string) (*Subscription, error) {
+func (c *wsConn) Subscribe(rid string, direct bool) (*Subscription, error) {
 	if c.disposing {
 		return nil, reserr.ErrDisposing
 	}
 
-	return c.subscribe(rid, direct, path)
+	return c.subscribe(rid, direct)
 }
 
 // unsubscribe counts down the subscription counter

@@ -16,13 +16,14 @@ const timeoutSeconds = 1
 
 // Session represents a test session with a resgate server
 type Session struct {
+	t *testing.T
 	*NATSTestClient
 	s     *server.Service
 	conns map[*Conn]struct{}
 	l     *logger.MemLogger
 }
 
-func setup() *Session {
+func setup(t *testing.T) *Session {
 	l := logger.NewMemLogger(true, true)
 
 	c := NewNATSTestClient(l)
@@ -30,6 +31,7 @@ func setup() *Session {
 	serv.SetLogger(l)
 
 	s := &Session{
+		t:              t,
 		NATSTestClient: c,
 		s:              serv,
 		conns:          make(map[*Conn]struct{}),
@@ -52,7 +54,9 @@ func (s *Session) ConnectWithChannel(evs chan *ClientEvent) *Conn {
 		panic(err)
 	}
 
-	return NewConn(s, d, c, evs)
+	conn := NewConn(s, d, c, evs)
+	s.conns[conn] = struct{}{}
+	return conn
 }
 
 // Connect makes a new mock client websocket connection
@@ -90,7 +94,14 @@ func (s *Session) HTTPRequest(method, url string, body []byte) *HTTPRequest {
 
 func teardown(s *Session) {
 	for conn := range s.conns {
+		err := conn.Error()
+		if err != nil {
+			panic(err.Error())
+		}
 		conn.Disconnect()
+		if s.t != nil {
+			conn.AssertClosed(s.t)
+		}
 	}
 	st := s.s.StopChannel()
 	go s.s.Stop(nil)
@@ -110,7 +121,7 @@ func TestConfig() server.Config {
 	return cfg
 }
 
-func runTest(t *testing.T, cb func(s *Session)) {
+func runTest(t *testing.T, cb func(*Session)) {
 	var s *Session
 	panicked := true
 	defer func() {
@@ -119,7 +130,7 @@ func runTest(t *testing.T, cb func(s *Session)) {
 		}
 	}()
 
-	s = setup()
+	s = setup(t)
 	cb(s)
 	teardown(s)
 

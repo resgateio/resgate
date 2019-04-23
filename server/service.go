@@ -92,7 +92,7 @@ func (s *Service) start() error {
 		return nil
 	}
 	if s.stopping {
-		return errors.New("Server is stopping")
+		return errors.New("server is stopping")
 	}
 
 	s.Logf("Starting server")

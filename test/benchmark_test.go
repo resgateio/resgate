@@ -6,7 +6,7 @@ import (
 )
 
 func BenchmarkCallRequestWithNilParamsOnSubscribedModel(b *testing.B) {
-	s := setup()
+	s := setup(nil)
 	c := s.Connect()
 
 	model := resource["test.model"]
@@ -35,7 +35,7 @@ func BenchmarkCallRequestWithNilParamsOnSubscribedModel(b *testing.B) {
 }
 
 func BenchmarkCallRequestWithNilParamsOnSubscribedModelParallel(b *testing.B) {
-	s := setup()
+	s := setup(nil)
 	c := s.Connect()
 
 	model := resource["test.model"]
