@@ -64,3 +64,27 @@ func TestNoEventOnLinkedModelGet(t *testing.T) {
 		c.AssertNoEvent(t, "test.model.parent")
 	})
 }
+
+// Test that events are not sent to a model fetched with a client get request
+func TestModelResentOnSuccessiveModelGet(t *testing.T) {
+	runTest(t, func(s *Session) {
+		model := resource["test.model"]
+		result := json.RawMessage(`{"models":{"test.model":` + model + `}}`)
+
+		c := s.Connect()
+		creq1 := c.Request("get.test.model", nil)
+
+		// Handle model get and access request
+		mreqs := s.GetParallelRequests(t, 2)
+		req := mreqs.GetRequest(t, "access.test.model")
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+		req = mreqs.GetRequest(t, "get.test.model")
+
+		creq2 := c.Request("get.test.model", nil)
+		req.RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+
+		// Validate client response
+		creq1.GetResponse(t).AssertResult(t, result)
+		creq2.GetResponse(t).AssertResult(t, result)
+	})
+}
