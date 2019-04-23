@@ -121,7 +121,7 @@ func TestConfig() server.Config {
 	return cfg
 }
 
-func runTest(t *testing.T, cb func(s *Session)) {
+func runTest(t *testing.T, cb func(*Session)) {
 	var s *Session
 	panicked := true
 	defer func() {

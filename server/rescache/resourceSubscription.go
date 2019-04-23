@@ -17,7 +17,7 @@ const (
 	stateModel
 )
 
-var errQueryResourceOnNonQueryRequest = errors.New("Query resource on non-query request")
+var errQueryResourceOnNonQueryRequest = errors.New("query resource on non-query request")
 
 // Model represents a RES model
 // https://github.com/jirenius/resgate/blob/master/docs/res-protocol.md#models
