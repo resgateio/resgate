@@ -199,6 +199,19 @@ func TestResponseOnLinkedModelSubscribe(t *testing.T) {
 	})
 }
 
+// Test that a response with linked models is sent to the client on a client
+// subscribe request when access response is delayed
+func TestResponseOnLinkedModelSubscribeWithDelayedAccess(t *testing.T) {
+	// Run multiple times as the bug GH-84 is caused by race conditions
+	// and won't always be triggered.
+	for i := 0; i < 100; i++ {
+		runTest(t, func(s *Session) {
+			c := s.Connect()
+			subscribeToTestModelParentExt(t, s, c, false, true)
+		})
+	}
+}
+
 // Test that events are subscribed to on linked model subscription
 func TestEventsOnLinkedModelSubscribe(t *testing.T) {
 	runTest(t, func(s *Session) {

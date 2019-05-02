@@ -14,7 +14,7 @@ const (
 
 var (
 	depMutex  sync.Mutex
-	depLogged map[string]featureType = make(map[string]featureType)
+	depLogged = make(map[string]featureType)
 )
 
 // deprecated logs a deprecated error for each unique service name and feature

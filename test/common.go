@@ -29,6 +29,14 @@ func subscribeToTestModel(t *testing.T, s *Session, c *Conn) string {
 // subscribeToTestModelParent makes a successful subscription to test.model.parent
 // Returns the connection ID (cid)
 func subscribeToTestModelParent(t *testing.T, s *Session, c *Conn, childIsSubscribed bool) string {
+	return subscribeToTestModelParentExt(t, s, c, childIsSubscribed, false)
+}
+
+// subscribeToTestModelParentExt makes a successful subscription to test.model.parent
+// and allows to delay access response.
+// Returns the connection ID (cid)
+func subscribeToTestModelParentExt(t *testing.T, s *Session, c *Conn, childIsSubscribed bool, delayAccess bool) string {
+	var cid string
 	model := resource["test.model"]
 	modelParent := resource["test.model.parent"]
 
@@ -36,19 +44,27 @@ func subscribeToTestModelParent(t *testing.T, s *Session, c *Conn, childIsSubscr
 	creq := c.Request("subscribe.test.model.parent", nil)
 
 	// Handle parent get and access request
-	mreqs := s.GetParallelRequests(t, 2)
-	mreqs.GetRequest(t, "get.test.model.parent").RespondSuccess(json.RawMessage(`{"model":` + modelParent + `}`))
-	req := mreqs.GetRequest(t, "access.test.model.parent")
-	cid := req.PathPayload(t, "cid").(string)
-	req.RespondSuccess(json.RawMessage(`{"get":true}`))
+	mreqs1 := s.GetParallelRequests(t, 2)
+	mreqs1.GetRequest(t, "get.test.model.parent").RespondSuccess(json.RawMessage(`{"model":` + modelParent + `}`))
+	if !delayAccess || childIsSubscribed {
+		req := mreqs1.GetRequest(t, "access.test.model.parent")
+		cid = req.PathPayload(t, "cid").(string)
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+	}
 
 	if childIsSubscribed {
 		// Get client response
 		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model.parent":`+modelParent+`}}`))
 	} else {
 		// Handle child get request and validate
-		mreqs = s.GetParallelRequests(t, 1)
-		mreqs.GetRequest(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+		mreqs2 := s.GetParallelRequests(t, 1)
+		mreqs2.GetRequest(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+
+		if delayAccess {
+			req := mreqs1.GetRequest(t, "access.test.model.parent")
+			cid = req.PathPayload(t, "cid").(string)
+			req.RespondSuccess(json.RawMessage(`{"get":true}`))
+		}
 
 		// Get client response and validate
 		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model":`+model+`,"test.model.parent":`+modelParent+`}}`))
