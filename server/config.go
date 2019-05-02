@@ -8,11 +8,12 @@ import (
 
 // Config holds server configuration
 type Config struct {
-	Addr       *string `json:"addr"`
-	Port       uint16  `json:"port"`
-	WSPath     string  `json:"wsPath"`
-	APIPath    string  `json:"apiPath"`
-	HeaderAuth *string `json:"headerAuth"`
+	Addr        *string `json:"addr"`
+	Port        uint16  `json:"port"`
+	WSPath      string  `json:"wsPath"`
+	APIPath     string  `json:"apiPath"`
+	HeaderAuth  *string `json:"headerAuth"`
+	APIEncoding string  `json:"apiEncoding"`
 
 	TLS     bool   `json:"tls"`
 	TLSCert string `json:"certFile"`
@@ -41,6 +42,9 @@ func (c *Config) SetDefault() {
 	}
 	if c.APIPath == "" {
 		c.APIPath = "/api"
+	}
+	if c.APIEncoding == "" {
+		c.APIEncoding = "json"
 	}
 }
 

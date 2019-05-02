@@ -135,6 +135,40 @@ func (s *Subscription) IsReady() bool {
 	return s.state >= stateReady
 }
 
+// IsSent returns true if the subscribed resource has been sent to the client.
+func (s *Subscription) IsSent() bool {
+	return s.state == stateSent
+}
+
+// Error returns any error that occurred when loading the subscribed resource.
+func (s *Subscription) Error() error {
+	if s.state == stateDisposed {
+		return errDisposedSubscription
+	}
+	return s.err
+}
+
+// ModelValues returns the subscriptions model values.
+// Panics if the subscription is not a loaded model.
+func (s *Subscription) ModelValues() map[string]codec.Value {
+	return s.model.Values
+}
+
+// CollectionValues returns the subscriptions collection values.
+// Panics if the subscription is not a loaded collection.
+func (s *Subscription) CollectionValues() []codec.Value {
+	return s.collection.Values
+}
+
+// Ref returns the referenced subscription, or nil if subscription has no such reference.
+func (s *Subscription) Ref(rid string) *Subscription {
+	r := s.refs[rid]
+	if r != nil {
+		return r.sub
+	}
+	return nil
+}
+
 // Loaded is called by rescache when the subscribed resource has been loaded.
 // If the resource was successfully loaded, err will be nil. If an error occurred
 // when loading the resource, resourceSub will be nil, and err will be the error.
@@ -188,20 +222,6 @@ func (s *Subscription) setResource() {
 	}
 }
 
-// IsSent reports whether the subscribed resource has been sent to the client.
-func (s *Subscription) IsSent() bool {
-	return s.state == stateSent
-}
-
-// Error returns any error that occurred when loading the subscribed resource.
-func (s *Subscription) Error() error {
-	if s.state == stateDisposed {
-		return errDisposedSubscription
-	}
-
-	return s.err
-}
-
 // OnReady gets a callback that should be called once the subscribed resource
 // and all its referenced resources recursively, has been loaded from the rescache.
 // If the resource is already ready, the callback will directly be called.
@@ -248,7 +268,7 @@ func (s *Subscription) GetHTTPResource(apiPath string, path []string) *httpapi.R
 	}
 
 	// Check for cyclic reference
-	if pathContains(path, s.rid) {
+	if containsString(path, s.rid) {
 		return &httpapi.Resource{APIPath: apiPath, RID: s.rid}
 	}
 	path = append(path, s.rid)
@@ -442,7 +462,7 @@ func (s *Subscription) testReady(rcb *readyCallback) {
 	}
 }
 
-func pathContains(path []string, rid string) bool {
+func containsString(path []string, rid string) bool {
 	for _, p := range path {
 		if p == rid {
 			return true

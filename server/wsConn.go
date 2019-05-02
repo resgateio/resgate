@@ -238,6 +238,33 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 	})
 }
 
+func (c *wsConn) GetSubscription(rid string, cb func(sub *Subscription, err error)) {
+	sub, err := c.Subscribe(rid, true)
+	if err != nil {
+		cb(nil, err)
+		return
+	}
+
+	sub.CanGet(func(err error) {
+		if err != nil {
+			cb(nil, err)
+			c.Unsubscribe(sub, true, 1, true)
+			return
+		}
+
+		sub.OnReady(func() {
+			err := sub.Error()
+			if err != nil {
+				cb(nil, err)
+				return
+			}
+			cb(sub, nil)
+			sub.ReleaseRPCResources()
+			c.Unsubscribe(sub, true, 1, true)
+		})
+	})
+}
+
 func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interface{}, err error)) {
 	sub, err := c.Subscribe(rid, true)
 	if err != nil {

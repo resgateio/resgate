@@ -9,6 +9,7 @@ import (
 
 	"github.com/jirenius/resgate/server/codec"
 	"github.com/jirenius/resgate/server/httpapi"
+	"github.com/jirenius/resgate/server/rescache"
 	"github.com/jirenius/resgate/server/reserr"
 )
 
@@ -48,7 +49,12 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.temporaryConn(w, r, func(c *wsConn, cb func(interface{}, error)) {
-			c.GetHTTPResource(rid, apiPath, cb)
+			switch s.cfg.APIEncoding {
+			case "jsonFlat":
+				c.GetSubscription(rid, encodeJSONFlat(cb))
+			default:
+				c.GetHTTPResource(rid, apiPath, cb)
+			}
 		})
 
 	case "POST":
@@ -181,4 +187,112 @@ func httpError(w http.ResponseWriter, err error) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
 	w.Write(out)
+}
+
+func encodeJSONFlat(cb func(interface{}, error)) func(*Subscription, error) {
+	return func(s *Subscription, err error) {
+		if err != nil {
+			cb(nil, err)
+			return
+		}
+
+		var e encoderJSONFlat
+		cb(e.Encode(s))
+	}
+}
+
+type encoderJSONFlat struct {
+	b    bytes.Buffer
+	path []string
+}
+
+func (e *encoderJSONFlat) Encode(s *Subscription) (json.RawMessage, error) {
+	err := e.encodeSubscription(s)
+	if err != nil {
+		return nil, err
+	}
+	b := e.b.Bytes()
+	println(string(b))
+	return json.RawMessage(b), nil
+}
+
+func (e *encoderJSONFlat) encodeSubscription(s *Subscription) error {
+	rid := s.RID()
+
+	// Check for cyclic reference
+	if containsString(e.path, rid) {
+		e.b.Write([]byte(`{"rid":`))
+		dta, err := json.Marshal(rid)
+		if err != nil {
+			return err
+		}
+		e.b.Write(dta)
+		e.b.WriteByte('}')
+		return nil
+	}
+
+	// Check for errors
+	if err := s.Error(); err != nil {
+		dta, err := json.Marshal(reserr.RESError(err))
+		if err != nil {
+			return err
+		}
+		e.b.Write(dta)
+		return nil
+	}
+
+	// Add itself to path
+	e.path = append(e.path, s.rid)
+
+	switch s.ResourceType() {
+	case rescache.TypeCollection:
+		e.b.WriteByte('[')
+		vals := s.CollectionValues()
+		for i, v := range vals {
+			if i > 0 {
+				e.b.WriteByte(',')
+			}
+			if v.Type == codec.ValueTypeResource {
+				sc := s.Ref(v.RID)
+				if err := e.encodeSubscription(sc); err != nil {
+					return err
+				}
+			} else {
+				e.b.Write(v.RawMessage)
+			}
+		}
+		e.b.WriteByte(']')
+
+	case rescache.TypeModel:
+		e.b.WriteByte('{')
+		vals := s.ModelValues()
+		first := true
+		for k, v := range vals {
+			// Write comma separator
+			if !first {
+				e.b.WriteByte(',')
+			}
+			first = false
+
+			// Write object key
+			dta, err := json.Marshal(k)
+			if err != nil {
+				return err
+			}
+			e.b.Write(dta)
+			e.b.WriteByte(':')
+
+			if v.Type == codec.ValueTypeResource {
+				sc := s.Ref(v.RID)
+				if err := e.encodeSubscription(sc); err != nil {
+					return err
+				}
+			} else {
+				e.b.Write(v.RawMessage)
+			}
+		}
+		e.b.WriteByte('}')
+	}
+
+	return nil
 }
