@@ -420,8 +420,6 @@ func (s *Subscription) subscribeRef(v codec.Value) bool {
 // collectRefs will wait for all references to be loaded
 // and call doneLoading() once completed.
 func (s *Subscription) collectRefs(rcb *readyCallback) {
-	rcb.loading--
-
 	for rid, ref := range s.refs {
 		// Don't wait for already ready references
 		// or references already included in the refMap
@@ -432,6 +430,7 @@ func (s *Subscription) collectRefs(rcb *readyCallback) {
 		ref.sub.onLoaded(rcb)
 	}
 
+	rcb.loading--
 	s.testReady(rcb)
 }
 
