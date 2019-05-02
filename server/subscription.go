@@ -140,30 +140,32 @@ func (s *Subscription) IsReady() bool {
 // when loading the resource, resourceSub will be nil, and err will be the error.
 func (s *Subscription) Loaded(resourceSub *rescache.ResourceSubscription, err error) {
 	if !s.c.Enqueue(func() {
+		if err != nil {
+			s.err = err
+			s.doneLoading()
+			return
+		}
+
 		if s.state == stateDisposed {
 			resourceSub.Unsubscribe(s)
 			return
 		}
 
-		if err != nil {
-			s.err = err
-		} else {
-			s.resourceSub = resourceSub
-			s.typ = resourceSub.GetResourceType()
-			s.state = stateLoaded
+		s.resourceSub = resourceSub
+		s.typ = resourceSub.GetResourceType()
+		s.state = stateLoaded
 
-			s.setResource()
-		}
-
+		s.setResource()
 		if s.err != nil {
 			s.doneLoading()
-		} else {
-			rcbs := s.readyCallbacks
-			s.readyCallbacks = nil
-			// Collect references for any waiting ready callbacks
-			for _, rcb := range rcbs {
-				s.collectRefs(rcb)
-			}
+			return
+		}
+
+		rcbs := s.readyCallbacks
+		s.readyCallbacks = nil
+		// Collect references for any waiting ready callbacks
+		for _, rcb := range rcbs {
+			s.collectRefs(rcb)
 		}
 	}) {
 		if err == nil {

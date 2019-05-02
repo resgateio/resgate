@@ -3,6 +3,7 @@ package test
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/jirenius/resgate/server/reserr"
@@ -290,6 +291,126 @@ func TestHTTPGetInvalidURLs(t *testing.T) {
 			}
 
 			panicked = false
+		})
+	}
+}
+
+// Test handle HTTP get requests with cyclic data
+func TestCyclicHTTPGetTest(t *testing.T) {
+	// The following cyclic groups exist
+	// a -> a
+
+	// b -> c
+	// c -> f
+
+	// d -> e, f
+	// e -> d
+	// f -> d
+
+	// Other entry points
+	// g -> e, f
+	// h -> e
+
+	resources := map[string]string{
+		"example.a": `{"a":{"rid":"example.a"}}`,
+
+		"example.b": `{"c":{"rid":"example.c"}}`,
+		"example.c": `{"b":{"rid":"example.b"}}`,
+
+		"example.d": `{"e":{"rid":"example.e"},"f":{"rid":"example.f"}}`,
+		"example.e": `{"d":{"rid":"example.d"}}`,
+		"example.f": `{"d":{"rid":"example.d"}}`,
+
+		"example.g": `{"e":{"rid":"example.e"},"f":{"rid":"example.f"}}`,
+		"example.h": `{"e":{"rid":"example.e"}}`,
+	}
+
+	responses := map[string]string{
+		"example.a": `{"a":{"href":"/api/example/a"}}`,
+		"example.b": `{"c":{"href":"/api/example/c","model":{"b":{"href":"/api/example/b"}}}}`,
+		"example.d": `{"e":{"href":"/api/example/e","model":{"d":{"href":"/api/example/d"}}},"f":{"href":"/api/example/f","model":{"d":{"href":"/api/example/d"}}}}`,
+		"example.g": `{"e":{"href":"/api/example/e","model":{"d":{"href":"/api/example/d","model":{"e":{"href":"/api/example/e"},"f":{"href":"/api/example/f","model":{"d":{"href":"/api/example/d"}}}}}}},"f":{"href":"/api/example/f","model":{"d":{"href":"/api/example/d","model":{"e":{"href":"/api/example/e","model":{"d":{"href":"/api/example/d"}}},"f":{"href":"/api/example/f"}}}}}}`,
+		"example.h": `{"e":{"href":"/api/example/e","model":{"d":{"href":"/api/example/d","model":{"e":{"href":"/api/example/e"},"f":{"href":"/api/example/f","model":{"d":{"href":"/api/example/d"}}}}}}}}`,
+	}
+
+	tbl := [][]struct {
+		Event string
+		RID   string
+	}{
+		{
+			{"subscribe", "example.a"},
+			{"access", "example.a"},
+			{"get", "example.a"},
+			{"response", "example.a"},
+		},
+		{
+			{"subscribe", "example.b"},
+			{"access", "example.b"},
+			{"get", "example.b"},
+			{"get", "example.c"},
+			{"response", "example.b"},
+		},
+		{
+			{"subscribe", "example.d"},
+			{"access", "example.d"},
+			{"get", "example.d"},
+			{"get", "example.e"},
+			{"get", "example.f"},
+			{"response", "example.d"},
+		},
+		{
+			{"subscribe", "example.g"},
+			{"access", "example.g"},
+			{"get", "example.g"},
+			{"get", "example.e"},
+			{"get", "example.f"},
+			{"get", "example.d"},
+			{"response", "example.g"},
+		},
+		{
+			{"subscribe", "example.d"},
+			{"access", "example.d"},
+			{"get", "example.d"},
+			{"subscribe", "example.h"},
+			{"access", "example.h"},
+			{"get", "example.e"},
+			{"get", "example.h"},
+			{"get", "example.f"},
+			{"response", "example.d"},
+			{"response", "example.h"},
+		},
+	}
+
+	for _, l := range tbl {
+		runTest(t, func(s *Session) {
+			var hreq *HTTPRequest
+			var req *Request
+
+			hreqs := make(map[string]*HTTPRequest)
+			reqs := make(map[string]*Request)
+
+			for _, ev := range l {
+				switch ev.Event {
+				case "subscribe":
+					url := "/api/" + strings.Replace(ev.RID, ".", "/", -1)
+					hreqs[ev.RID] = s.HTTPRequest("GET", url, nil)
+				case "access":
+					for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
+						treq := s.GetRequest(t)
+						reqs[treq.Subject] = treq
+					}
+					req.RespondSuccess(json.RawMessage(`{"get":true}`))
+				case "get":
+					for req = reqs["get."+ev.RID]; req == nil; req = reqs["get."+ev.RID] {
+						req = s.GetRequest(t)
+						reqs[req.Subject] = req
+					}
+					req.RespondSuccess(json.RawMessage(`{"model":` + resources[ev.RID] + `}`))
+				case "response":
+					hreq = hreqs[ev.RID]
+					hreq.GetResponse(t).Equals(t, http.StatusOK, json.RawMessage(responses[ev.RID]))
+				}
+			}
 		})
 	}
 }
