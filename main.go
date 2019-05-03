@@ -31,6 +31,7 @@ Server Options:
         --tls                        Enable TLS for HTTP (default: false)
         --tlscert <file>             HTTP server certificate file
         --tlskey <file>              Private key for HTTP server certificate
+        --apiencoding <type>         Encoding for web resources: json, jsonflat (default: json)
     -c, --config <file>              Configuration file
 
 Common Options:
@@ -86,6 +87,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.BoolVar(&c.TLS, "tls", false, "Enable TLS for HTTP.")
 	fs.StringVar(&c.TLSCert, "tlscert", "", "HTTP server certificate file.")
 	fs.StringVar(&c.TLSKey, "tlskey", "", "Private key for HTTP server certificate.")
+	fs.StringVar(&c.APIEncoding, "apiencoding", "", "Encoding for web resources.")
 	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout in milliseconds for NATS requests.")
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
 
@@ -185,11 +187,14 @@ func main() {
 		l.Logf("[DEPRECATED] ", "Request timeout should be in milliseconds.\nChange your requestTimeout from %d to %d, and you won't be bothered anymore.", cfg.RequestTimeout, cfg.RequestTimeout*1000)
 		cfg.RequestTimeout *= 1000
 	}
-	serv := server.NewService(&nats.Client{
+	serv, err := server.NewService(&nats.Client{
 		URL:            cfg.NatsURL,
 		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Millisecond,
 		Logger:         l,
 	}, cfg.Config)
+	if err != nil {
+		printAndDie(err.Error(), false)
+	}
 	serv.SetLogger(l)
 
 	if err := serv.Start(); err != nil {

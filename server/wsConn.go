@@ -238,7 +238,7 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 	})
 }
 
-func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interface{}, err error)) {
+func (c *wsConn) GetSubscription(rid string, cb func(sub *Subscription, err error)) {
 	sub, err := c.Subscribe(rid, true)
 	if err != nil {
 		cb(nil, err)
@@ -253,34 +253,16 @@ func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interfa
 		}
 
 		sub.OnReady(func() {
-			c.outputHTTPResource(prefix, sub, cb)
+			err := sub.Error()
+			if err != nil {
+				cb(nil, err)
+				return
+			}
+			cb(sub, nil)
+			sub.ReleaseRPCResources()
 			c.Unsubscribe(sub, true, 1, true)
 		})
 	})
-}
-
-func (c *wsConn) outputHTTPResource(prefix string, sub *Subscription, cb func(data interface{}, err error)) {
-	err := sub.Error()
-	if err != nil {
-		cb(nil, err)
-		return
-	}
-
-	r := sub.GetHTTPResource(prefix, make([]string, 0, 32))
-
-	// Select which part of the httpapi.Resource
-	// that is to be sent in the response.
-	var data interface{}
-	switch {
-	case r.Model != nil:
-		data = r.Model
-	case r.Collection != nil:
-		data = r.Collection
-	default:
-		data = r
-	}
-	cb(data, nil)
-	sub.ReleaseRPCResources()
 }
 
 func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err error)) {
@@ -311,7 +293,7 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 	})
 }
 
-func (c *wsConn) CallResource(rid, action string, params interface{}, callback func(result interface{}, err error)) {
+func (c *wsConn) CallResource(rid, action string, params interface{}, callback func(result json.RawMessage, err error)) {
 	c.call(rid, action, params, callback)
 }
 
@@ -372,11 +354,11 @@ func (c *wsConn) NewHTTPResource(rid, prefix string, params interface{}, cb func
 	})
 }
 
-func (c *wsConn) AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error)) {
+func (c *wsConn) AuthResource(rid, action string, params interface{}, cb func(result json.RawMessage, err error)) {
 	rname, query := parseRID(c.ExpandCID(rid))
 	c.serv.cache.Auth(c, rname, query, action, c.token, params, func(result json.RawMessage, err error) {
 		c.Enqueue(func() {
-			callback(result, err)
+			cb(result, err)
 		})
 	})
 }
@@ -385,7 +367,7 @@ func (c *wsConn) UnsubscribeResource(rid string, cb func(ok bool)) {
 	cb(c.UnsubscribeByRID(rid))
 }
 
-func (c *wsConn) call(rid, action string, params interface{}, cb func(result interface{}, err error)) {
+func (c *wsConn) call(rid, action string, params interface{}, cb func(result json.RawMessage, err error)) {
 	sub, ok := c.subs[rid]
 	if !ok {
 		sub = NewSubscription(c, rid)

@@ -58,7 +58,7 @@ func TestUnsubscribeLinkedModel(t *testing.T) {
 // after one parent is unsubscribed
 func TestUnsubscribeOnOverlappingLinkedModel(t *testing.T) {
 	runTest(t, func(s *Session) {
-		modelSecondParent := resource["test.model.secondparent"]
+		modelSecondParent := resourceData("test.model.secondparent")
 		event := json.RawMessage(`{"foo":"bar"}`)
 
 		c := s.Connect()
@@ -130,7 +130,7 @@ func TestUnsubscribeLinkedCollection(t *testing.T) {
 // after one parent is unsubscribed
 func TestUnsubscribeOnOverlappingLinkedCollection(t *testing.T) {
 	runTest(t, func(s *Session) {
-		collectionSecondParent := resource["test.collection.secondparent"]
+		collectionSecondParent := resourceData("test.collection.secondparent")
 		event := json.RawMessage(`{"foo":"bar"}`)
 
 		c := s.Connect()

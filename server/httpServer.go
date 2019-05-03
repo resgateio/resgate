@@ -7,7 +7,9 @@ import (
 	"time"
 )
 
-func (s *Service) initHTTPServer() {}
+func (s *Service) initHTTPServer() error {
+	return nil
+}
 
 // startHTTPServer initializes the server and starts a goroutine with a http server
 // Service.mu is held when called
@@ -76,6 +78,6 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(r.URL.Path, s.cfg.APIPath):
 		s.apiHandler(w, r)
 	default:
-		notFoundHandler(w, r)
+		notFoundHandler(w, r, s.enc)
 	}
 }

@@ -24,7 +24,7 @@ func TestConnectionEvent(t *testing.T) {
 // Test token is sent on access call
 func TestTokenOnAccessCall(t *testing.T) {
 	token := `{"user":"foo"}`
-	model := resource["test.model"]
+	model := resourceData("test.model")
 
 	runTest(t, func(s *Session) {
 		c := s.Connect()

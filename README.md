@@ -11,16 +11,18 @@
 <a href="https://coveralls.io/github/jirenius/resgate?branch=master"><img src="https://coveralls.io/repos/github/jirenius/resgate/badge.svg?branch=master" alt="Coverage"></a>
 </p>
 
+<p align="center">Visit <a href="https://resgate.io">Resgate.io</a> for <a href="https://resgate.io/docs/get-started/introduction/">guides</a>, <a href="https://resgate.io/demo/">live demos</a>, and <a href="https://resgate.io/docs/get-started/resources/">resources</a>.</p>
+
 ---
 
-[Resgate](https://resgate.io) is a [Go](http://golang.org) project implementing a realtime API gateway for the [RES protocol](docs/res-protocol.md) with [NATS server](https://nats.io/about/) as messaging system.
+Resgate is a [Go](http://golang.org) project implementing a realtime API gateway for the [RES protocol](docs/res-protocol.md) with [NATS server](https://nats.io/about/) as messaging system.
 
 It is a simple server that lets you create REST, real time, and RPC APIs, where all your clients are synchronized seamlessly.
 
 Used for building **new REST APIs** with real-time functionality, or when creating **single page applications** using reactive frameworks such as React, Vue.js, or Modapp.
 
 ![Book Collection Animation](docs/img/book-collection-anim.gif)  
-*Screen capture from the [Book Collection Example](examples/book-collection/)*.
+*Screen capture from the [Book Collection Example](examples/book-collection/). Try out the [Live demo](https://resgate.io/demo/#book-collection-demo) version yourself.*
 
 ## How it works
 
@@ -95,6 +97,7 @@ resgate [options]
 | `    --tls` | Enable TLS |
 | `    --tlscert <file>` | Server certificate file |
 | `    --tlskey <file>` | Private key for server certificate |
+| `    --apiencoding <type>` | Encoding for web resources: json, jsonflat |
 | `-c, --config <file>` | Configuration file |
 | `-h, --help` | Show usage message |
 
@@ -121,6 +124,11 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
 	"wsPath": "/",
 	// Path for accessing web resources
 	"apiPath": "/api",
+	// Encoding for web resources.
+	// Available encodings are:
+	// * json - JSON encoding with resource reference meta data
+	// * jsonflat - JSON encoding without resource reference meta data
+	"apiEncoding": "json",
 	// Header authentication resource method for web resources.
 	// Prior to accessing the resource, this resource method will be
 	// called, allowing an auth service to set a token using

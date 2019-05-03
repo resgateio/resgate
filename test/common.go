@@ -8,7 +8,7 @@ import (
 // subscribeToTestModel makes a successful subscription to test.model
 // Returns the connection ID (cid)
 func subscribeToTestModel(t *testing.T, s *Session, c *Conn) string {
-	model := resource["test.model"]
+	model := resourceData("test.model")
 
 	// Send subscribe request
 	creq := c.Request("subscribe.test.model", nil)
@@ -37,8 +37,8 @@ func subscribeToTestModelParent(t *testing.T, s *Session, c *Conn, childIsSubscr
 // Returns the connection ID (cid)
 func subscribeToTestModelParentExt(t *testing.T, s *Session, c *Conn, childIsSubscribed bool, delayAccess bool) string {
 	var cid string
-	model := resource["test.model"]
-	modelParent := resource["test.model.parent"]
+	model := resourceData("test.model")
+	modelParent := resourceData("test.model.parent")
 
 	// Send subscribe request
 	creq := c.Request("subscribe.test.model.parent", nil)
@@ -76,7 +76,7 @@ func subscribeToTestModelParentExt(t *testing.T, s *Session, c *Conn, childIsSub
 // subscribeToTestCollection makes a successful subscription to test.collection
 // Returns the connection ID (cid) of the access request
 func subscribeToTestCollection(t *testing.T, s *Session, c *Conn) string {
-	collection := resource["test.collection"]
+	collection := resourceData("test.collection")
 
 	// Send subscribe request
 	creq := c.Request("subscribe.test.collection", nil)
@@ -97,8 +97,8 @@ func subscribeToTestCollection(t *testing.T, s *Session, c *Conn) string {
 // subscribeToTestCollectionParent makes a successful subscription to test.collection.parent
 // Returns the connection ID (cid)
 func subscribeToTestCollectionParent(t *testing.T, s *Session, c *Conn, childIsSubscribed bool) string {
-	collection := resource["test.collection"]
-	collectionParent := resource["test.collection.parent"]
+	collection := resourceData("test.collection")
+	collectionParent := resourceData("test.collection.parent")
 
 	// Send subscribe request
 	creq := c.Request("subscribe.test.collection.parent", nil)
@@ -139,7 +139,7 @@ func getCID(t *testing.T, s *Session, c *Conn) string {
 // subscribeToTestQueryModel makes a successful subscription to test.model
 // with a query and the normalized query. Returns the connection ID (cid)
 func subscribeToTestQueryModel(t *testing.T, s *Session, c *Conn, q, normq string) string {
-	model := resource["test.model"]
+	model := resourceData("test.model")
 
 	normqj, err := json.Marshal(normq)
 	if err != nil {
@@ -173,7 +173,7 @@ func subscribeToTestQueryModel(t *testing.T, s *Session, c *Conn, q, normq strin
 // subscribeToTestQueryCollection makes a successful subscription to test.collection
 // with a query and the normalized query. Returns the connection ID (cid)
 func subscribeToTestQueryCollection(t *testing.T, s *Session, c *Conn, q, normq string) string {
-	collection := resource["test.collection"]
+	collection := resourceData("test.collection")
 
 	normqj, err := json.Marshal(normq)
 	if err != nil {

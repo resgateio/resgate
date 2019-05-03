@@ -8,7 +8,7 @@ import (
 // Test that events are not sent to a model fetched with a client get request
 func TestNoEventsOnPrimitiveModelGet(t *testing.T) {
 	runTest(t, func(s *Session) {
-		model := resource["test.model"]
+		model := resourceData("test.model")
 		event := json.RawMessage(`{"foo":"bar"}`)
 
 		c := s.Connect()
@@ -33,8 +33,8 @@ func TestNoEventsOnPrimitiveModelGet(t *testing.T) {
 // Test that events are not sent to a linked model fetched with a client get request
 func TestNoEventOnLinkedModelGet(t *testing.T) {
 	runTest(t, func(s *Session) {
-		model := resource["test.model"]
-		modelParent := resource["test.model.parent"]
+		model := resourceData("test.model")
+		modelParent := resourceData("test.model.parent")
 		event := json.RawMessage(`{"foo":"bar"}`)
 
 		c := s.Connect()

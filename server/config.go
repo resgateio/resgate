@@ -4,15 +4,18 @@ import (
 	"fmt"
 	"net"
 	"strings"
+
+	"github.com/jirenius/resgate/server/codec"
 )
 
 // Config holds server configuration
 type Config struct {
-	Addr       *string `json:"addr"`
-	Port       uint16  `json:"port"`
-	WSPath     string  `json:"wsPath"`
-	APIPath    string  `json:"apiPath"`
-	HeaderAuth *string `json:"headerAuth"`
+	Addr        *string `json:"addr"`
+	Port        uint16  `json:"port"`
+	WSPath      string  `json:"wsPath"`
+	APIPath     string  `json:"apiPath"`
+	APIEncoding string  `json:"apiEncoding"`
+	HeaderAuth  *string `json:"headerAuth"`
 
 	TLS     bool   `json:"tls"`
 	TLSCert string `json:"certFile"`
@@ -42,10 +45,13 @@ func (c *Config) SetDefault() {
 	if c.APIPath == "" {
 		c.APIPath = "/api"
 	}
+	if c.APIEncoding == "" {
+		c.APIEncoding = "json"
+	}
 }
 
 // prepare sets the unexported values
-func (c *Config) prepare() {
+func (c *Config) prepare() error {
 	if c.TLS {
 		c.scheme = "https"
 		if c.Port == 0 {
@@ -61,8 +67,9 @@ func (c *Config) prepare() {
 	// Resolve network address
 	c.netAddr = ""
 	if c.Addr != nil {
-		if *c.Addr != "" {
-			ip := net.ParseIP(*c.Addr)
+		s := *c.Addr
+		if s != "" {
+			ip := net.ParseIP(s)
 			if len(ip) > 0 {
 				// Test if it is an IPv6 address
 				if ip.To4() == nil {
@@ -71,7 +78,7 @@ func (c *Config) prepare() {
 					c.netAddr = ip.String()
 				}
 			} else {
-				c.netAddr = defaultAddr
+				return fmt.Errorf("invalid addr setting (%s) - must be a valid IPv4 or IPv6 address", s)
 			}
 		}
 	} else {
@@ -82,11 +89,11 @@ func (c *Config) prepare() {
 	if c.HeaderAuth != nil {
 		s := *c.HeaderAuth
 		idx := strings.LastIndexByte(s, '.')
-		if idx >= 0 {
+		if codec.IsValidRID(s, false) && idx >= 0 {
 			c.headerAuthRID = s[:idx]
 			c.headerAuthAction = s[idx+1:]
 		} else {
-			c.HeaderAuth = nil
+			return fmt.Errorf("invalid headerAuth setting (%s) - must be a valid resource method", s)
 		}
 	}
 	if c.WSPath == "" {
@@ -95,4 +102,6 @@ func (c *Config) prepare() {
 	if c.APIPath == "" || c.APIPath[len(c.APIPath)-1] != '/' {
 		c.APIPath = c.APIPath + "/"
 	}
+
+	return nil
 }

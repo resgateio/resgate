@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/jirenius/resgate/server/reserr"
@@ -40,14 +41,7 @@ func TestResponseOnInvalidRequests(t *testing.T) {
 	}
 
 	for i, l := range tbl {
-		runTest(t, func(s *Session) {
-			panicked := true
-			defer func() {
-				if panicked {
-					t.Logf("Error in test %d", i)
-				}
-			}()
-
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
 			c := s.Connect()
 			creq := c.Request(l.Method, l.Params)
 
@@ -60,8 +54,6 @@ func TestResponseOnInvalidRequests(t *testing.T) {
 			} else {
 				cresp.AssertResult(t, l.Expected)
 			}
-
-			panicked = false
 		})
 	}
 }
