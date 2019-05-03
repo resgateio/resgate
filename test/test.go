@@ -27,7 +27,10 @@ func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 	l := logger.NewMemLogger(true, true)
 
 	c := NewNATSTestClient(l)
-	serv := server.NewService(c, TestConfig(cfgs...))
+	serv, err := server.NewService(c, TestConfig(cfgs...))
+	if err != nil {
+		t.Fatalf("error creating new service: %s", err)
+	}
 	serv.SetLogger(l)
 
 	s := &Session{
