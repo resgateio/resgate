@@ -22,7 +22,8 @@ type Service struct {
 	cache *rescache.Cache
 
 	// httpServer
-	h *http.Server
+	h   *http.Server
+	enc APIEncoder
 
 	// wsListener/wsConn
 	conns map[string]*wsConn // Connections by wsConn Id's

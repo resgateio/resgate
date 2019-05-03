@@ -15,8 +15,8 @@ type Requester interface {
 	GetResource(rid string, callback func(data *Resources, err error))
 	SubscribeResource(rid string, callback func(data *Resources, err error))
 	UnsubscribeResource(rid string, callback func(ok bool))
-	CallResource(rid, action string, params interface{}, callback func(result interface{}, err error))
-	AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error))
+	CallResource(rid, action string, params interface{}, callback func(result json.RawMessage, err error))
+	AuthResource(rid, action string, params interface{}, callback func(result json.RawMessage, err error))
 	NewResource(rid string, params interface{}, callback func(data *NewResult, err error))
 }
 
@@ -152,7 +152,7 @@ func HandleRequest(data []byte, req Requester) error {
 			}
 		})
 	case "call":
-		req.CallResource(rid, method, r.Params, func(result interface{}, err error) {
+		req.CallResource(rid, method, r.Params, func(result json.RawMessage, err error) {
 			if err != nil {
 				req.Send(r.ErrorResponse(err))
 			} else {
@@ -161,7 +161,7 @@ func HandleRequest(data []byte, req Requester) error {
 		})
 
 	case "auth":
-		req.AuthResource(rid, method, r.Params, func(result interface{}, err error) {
+		req.AuthResource(rid, method, r.Params, func(result json.RawMessage, err error) {
 			if err != nil {
 				req.Send(r.ErrorResponse(err))
 			} else {

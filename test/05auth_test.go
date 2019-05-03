@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/jirenius/resgate/server/mq"
@@ -35,14 +36,7 @@ func TestAuthOnResource(t *testing.T) {
 	}
 
 	for i, l := range tbl {
-		runTest(t, func(s *Session) {
-			panicked := true
-			defer func() {
-				if panicked {
-					t.Logf("Error in test %d", i)
-				}
-			}()
-
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
 			c := s.Connect()
 
 			// Send client call request
@@ -76,8 +70,6 @@ func TestAuthOnResource(t *testing.T) {
 			} else {
 				cresp.AssertResult(t, l.Expected)
 			}
-
-			panicked = false
 		})
 	}
 }

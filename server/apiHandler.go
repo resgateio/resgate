@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -9,22 +8,12 @@ import (
 
 	"github.com/jirenius/resgate/server/codec"
 	"github.com/jirenius/resgate/server/httpapi"
-	"github.com/jirenius/resgate/server/rescache"
 	"github.com/jirenius/resgate/server/reserr"
 )
 
-var nullBytes = []byte("null")
-var notFoundBytes []byte
-
-func init() {
-	out, err := json.Marshal(reserr.ErrNotFound)
-	if err != nil {
-		panic(err)
-	}
-	notFoundBytes = out
+func (s *Service) initAPIHandler() {
+	s.enc = apiEncoderFactories[s.cfg.APIEncoding](s.cfg)
 }
-
-func (s *Service) initAPIHandler() {}
 
 func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.RawPath
@@ -38,42 +27,43 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		// Redirect paths with trailing slash (unless it is only the APIPath)
 		if len(path) > len(apiPath) && path[len(path)-1] == '/' {
-			notFoundHandler(w, r)
+			notFoundHandler(w, r, s.enc)
 			return
 		}
 
-		rid := httpapi.PathToRID(path, r.URL.RawQuery, apiPath)
+		rid := PathToRID(path, r.URL.RawQuery, apiPath)
 		if !codec.IsValidRID(rid, true) {
-			notFoundHandler(w, r)
+			notFoundHandler(w, r, s.enc)
 			return
 		}
 
-		s.temporaryConn(w, r, func(c *wsConn, cb func(interface{}, error)) {
-			switch s.cfg.APIEncoding {
-			case "jsonFlat":
-				c.GetSubscription(rid, encodeJSONFlat(cb))
-			default:
-				c.GetHTTPResource(rid, apiPath, cb)
-			}
+		s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, error)) {
+			c.GetSubscription(rid, func(sub *Subscription, err error) {
+				if err != nil {
+					cb(nil, err)
+					return
+				}
+				cb(s.enc.EncodeGET(sub))
+			})
 		})
 
 	case "POST":
 		// Redirect paths with trailing slash (unless it is only the APIPath)
 		if len(path) > len(apiPath) && path[len(path)-1] == '/' {
-			notFoundHandler(w, r)
+			notFoundHandler(w, r, s.enc)
 			return
 		}
 
 		rid, action := httpapi.PathToRIDAction(path, r.URL.RawQuery, apiPath)
 		if !codec.IsValidRID(rid, true) || !codec.IsValidRID(action, false) {
-			notFoundHandler(w, r)
+			notFoundHandler(w, r, s.enc)
 			return
 		}
 
 		// Try to parse the body
 		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error reading request body: " + err.Error()})
+			httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error reading request body: " + err.Error()}, s.enc)
 			return
 		}
 
@@ -81,12 +71,12 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 		if strings.TrimSpace(string(b)) != "" {
 			err = json.Unmarshal(b, &params)
 			if err != nil {
-				httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error decoding request body: " + err.Error()})
+				httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error decoding request body: " + err.Error()}, s.enc)
 				return
 			}
 		}
 
-		s.temporaryConn(w, r, func(c *wsConn, cb func(interface{}, error)) {
+		s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, error)) {
 			switch action {
 			case "new":
 				c.NewHTTPResource(rid, s.cfg.APIPath, params, func(href string, err error) {
@@ -97,58 +87,55 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 					cb(nil, err)
 				})
 			default:
-				c.CallResource(rid, action, params, cb)
+				c.CallResource(rid, action, params, func(r json.RawMessage, err error) {
+					if err != nil {
+						cb(nil, err)
+						return
+					}
+					cb(s.enc.EncodePOST(r))
+				})
 			}
 		})
 
 	default:
-		httpError(w, reserr.ErrMethodNotAllowed)
+		httpError(w, reserr.ErrMethodNotAllowed, s.enc)
 	}
 }
 
-func notFoundHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+func notFoundHandler(w http.ResponseWriter, r *http.Request, enc APIEncoder) {
+	w.Header().Set("Content-Type", enc.ContentType())
 	w.WriteHeader(http.StatusNotFound)
-	w.Write(notFoundBytes)
+	w.Write(enc.NotFoundError())
 }
 
-func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func(interface{}, error))) {
+func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func([]byte, error))) {
 	c := s.newWSConn(nil, r)
 	if c == nil {
-		httpError(w, reserr.ErrServiceUnavailable)
+		httpError(w, reserr.ErrServiceUnavailable, s.enc)
 		return
 	}
 
 	done := make(chan struct{})
-	rs := func(data interface{}, err error) {
+	rs := func(out []byte, err error) {
 		defer c.dispose()
 		defer close(done)
 
-		var out []byte
 		if err != nil {
-			httpError(w, err)
+			httpError(w, err, s.enc)
 			return
 		}
 
-		if data != nil {
-			out, err = json.Marshal(data)
-			if err != nil {
-				httpError(w, err)
-				return
-			}
-
-			if !bytes.Equal(out, nullBytes) {
-				w.Header().Set("Content-Type", "application/json; charset=utf-8")
-				w.Write(out)
-				return
-			}
+		if len(out) > 0 {
+			w.Header().Set("Content-Type", s.enc.ContentType())
+			w.Write(out)
+			return
 		}
 
 		w.WriteHeader(http.StatusNoContent)
 	}
 	c.Enqueue(func() {
 		if s.cfg.HeaderAuth != nil {
-			c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(result interface{}, err error) {
+			c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(_ json.RawMessage, err error) {
 				cb(c, rs)
 			})
 		} else {
@@ -158,13 +145,9 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 	<-done
 }
 
-func httpError(w http.ResponseWriter, err error) {
+func httpError(w http.ResponseWriter, err error, enc APIEncoder) {
 	rerr := reserr.RESError(err)
-	out, err := json.Marshal(rerr)
-	if err != nil {
-		httpError(w, err)
-		return
-	}
+	out := enc.EncodeError(rerr)
 
 	var code int
 	switch rerr.Code {
@@ -184,115 +167,7 @@ func httpError(w http.ResponseWriter, err error) {
 		code = http.StatusBadRequest
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Type", enc.ContentType())
 	w.WriteHeader(code)
 	w.Write(out)
-}
-
-func encodeJSONFlat(cb func(interface{}, error)) func(*Subscription, error) {
-	return func(s *Subscription, err error) {
-		if err != nil {
-			cb(nil, err)
-			return
-		}
-
-		var e encoderJSONFlat
-		cb(e.Encode(s))
-	}
-}
-
-type encoderJSONFlat struct {
-	b    bytes.Buffer
-	path []string
-}
-
-func (e *encoderJSONFlat) Encode(s *Subscription) (json.RawMessage, error) {
-	err := e.encodeSubscription(s)
-	if err != nil {
-		return nil, err
-	}
-	b := e.b.Bytes()
-	println(string(b))
-	return json.RawMessage(b), nil
-}
-
-func (e *encoderJSONFlat) encodeSubscription(s *Subscription) error {
-	rid := s.RID()
-
-	// Check for cyclic reference
-	if containsString(e.path, rid) {
-		e.b.Write([]byte(`{"rid":`))
-		dta, err := json.Marshal(rid)
-		if err != nil {
-			return err
-		}
-		e.b.Write(dta)
-		e.b.WriteByte('}')
-		return nil
-	}
-
-	// Check for errors
-	if err := s.Error(); err != nil {
-		dta, err := json.Marshal(reserr.RESError(err))
-		if err != nil {
-			return err
-		}
-		e.b.Write(dta)
-		return nil
-	}
-
-	// Add itself to path
-	e.path = append(e.path, s.rid)
-
-	switch s.ResourceType() {
-	case rescache.TypeCollection:
-		e.b.WriteByte('[')
-		vals := s.CollectionValues()
-		for i, v := range vals {
-			if i > 0 {
-				e.b.WriteByte(',')
-			}
-			if v.Type == codec.ValueTypeResource {
-				sc := s.Ref(v.RID)
-				if err := e.encodeSubscription(sc); err != nil {
-					return err
-				}
-			} else {
-				e.b.Write(v.RawMessage)
-			}
-		}
-		e.b.WriteByte(']')
-
-	case rescache.TypeModel:
-		e.b.WriteByte('{')
-		vals := s.ModelValues()
-		first := true
-		for k, v := range vals {
-			// Write comma separator
-			if !first {
-				e.b.WriteByte(',')
-			}
-			first = false
-
-			// Write object key
-			dta, err := json.Marshal(k)
-			if err != nil {
-				return err
-			}
-			e.b.Write(dta)
-			e.b.WriteByte(':')
-
-			if v.Type == codec.ValueTypeResource {
-				sc := s.Ref(v.RID)
-				if err := e.encodeSubscription(sc); err != nil {
-					return err
-				}
-			} else {
-				e.b.Write(v.RawMessage)
-			}
-		}
-		e.b.WriteByte('}')
-	}
-
-	return nil
 }

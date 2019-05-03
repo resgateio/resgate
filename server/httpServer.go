@@ -76,6 +76,6 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(r.URL.Path, s.cfg.APIPath):
 		s.apiHandler(w, r)
 	default:
-		notFoundHandler(w, r)
+		notFoundHandler(w, r, s.enc)
 	}
 }

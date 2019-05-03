@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 )
 
@@ -207,14 +208,7 @@ func TestInvalidModelQueryEvent(t *testing.T) {
 	}
 
 	for i, l := range tbl {
-		runTest(t, func(s *Session) {
-			panicked := true
-			defer func() {
-				if panicked {
-					t.Logf("Error in test %d", i)
-				}
-			}()
-
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
 			c := s.Connect()
 			subscribeToTestQueryModel(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
 
@@ -223,8 +217,6 @@ func TestInvalidModelQueryEvent(t *testing.T) {
 
 			// Assert no request is sent to NATS
 			c.AssertNoNATSRequest(t, "test.model")
-
-			panicked = false
 		})
 	}
 }

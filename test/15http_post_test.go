@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -68,14 +69,7 @@ func TestHTTPPostResponses(t *testing.T) {
 	}
 
 	for i, l := range tbl {
-		runTest(t, func(s *Session) {
-			panicked := true
-			defer func() {
-				if panicked {
-					t.Logf("Error in test %d", i)
-				}
-			}()
-
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
 			// Send HTTP post request
 			hreq := s.HTTPRequest("POST", "/api/test/model/method", l.Params)
 
@@ -113,8 +107,6 @@ func TestHTTPPostResponses(t *testing.T) {
 			} else {
 				hresp.AssertBody(t, l.Expected)
 			}
-
-			panicked = false
 		})
 	}
 }
@@ -154,14 +146,7 @@ func TestHTTPPostNewResponses(t *testing.T) {
 	}
 
 	for i, l := range tbl {
-		runTest(t, func(s *Session) {
-			panicked := true
-			defer func() {
-				if panicked {
-					t.Logf("Error in test %d", i)
-				}
-			}()
-
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
 			// Send HTTP post request
 			hreq := s.HTTPRequest("POST", "/api/test/collection/new", l.Params)
 
@@ -200,8 +185,6 @@ func TestHTTPPostNewResponses(t *testing.T) {
 				hresp.AssertBody(t, l.Expected)
 			}
 			hresp.AssertHeaders(t, l.ExpectedHeaders)
-
-			panicked = false
 		})
 	}
 }
@@ -224,14 +207,7 @@ func TestHTTPPostInvalidURLs(t *testing.T) {
 	}
 
 	for i, l := range tbl {
-		runTest(t, func(s *Session) {
-			panicked := true
-			defer func() {
-				if panicked {
-					t.Logf("Error in test %d", i)
-				}
-			}()
-
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
 			hreq := s.HTTPRequest("POST", l.URL, nil)
 			hresp := hreq.
 				GetResponse(t).
@@ -246,8 +222,6 @@ func TestHTTPPostInvalidURLs(t *testing.T) {
 					hresp.AssertBody(t, l.Expected)
 				}
 			}
-
-			panicked = false
 		})
 	}
 }

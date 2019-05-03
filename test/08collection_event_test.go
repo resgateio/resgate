@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 )
 
@@ -38,14 +39,7 @@ func TestAddRemoveEventsOnCachedCollection(t *testing.T) {
 
 	for i, l := range tbl {
 		for sameClient := true; sameClient; sameClient = false {
-			runTest(t, func(s *Session) {
-				panicked := true
-				defer func() {
-					if panicked {
-						t.Logf("Error in test %d with same client being %+v", i, sameClient)
-					}
-				}()
-
+			runNamedTest(t, fmt.Sprintf("#%d with the same client being %+v", i+1, sameClient), func(s *Session) {
 				var creq *ClientRequest
 
 				c := s.Connect()
@@ -70,8 +64,6 @@ func TestAddRemoveEventsOnCachedCollection(t *testing.T) {
 
 				// Validate client response
 				creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"collections":{"test.collection":`+l.ExpectedCollection+`}}`))
-
-				panicked = false
 			})
 		}
 	}

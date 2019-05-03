@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/jirenius/resgate/server/codec"
-	"github.com/jirenius/resgate/server/httpapi"
 	"github.com/jirenius/resgate/server/rescache"
 	"github.com/jirenius/resgate/server/reserr"
 	"github.com/jirenius/resgate/server/rpc"
@@ -258,56 +257,6 @@ func (s *Subscription) GetRPCResources() *rpc.Resources {
 	r := &rpc.Resources{}
 	s.populateResources(r)
 	return r
-}
-
-// GetHTTPResource returns an empty interface of either a httpapi.Model or a httpapi.Collection object.
-// It will lock the subscription and queue any events until ReleaseRPCResources is called.
-func (s *Subscription) GetHTTPResource(apiPath string, path []string) *httpapi.Resource {
-	if s.state == stateDisposed {
-		return &httpapi.Resource{APIPath: apiPath, RID: s.rid, Error: errDisposedSubscription}
-	}
-
-	// Check for cyclic reference
-	if containsString(path, s.rid) {
-		return &httpapi.Resource{APIPath: apiPath, RID: s.rid}
-	}
-	path = append(path, s.rid)
-
-	if s.err != nil {
-		return &httpapi.Resource{APIPath: apiPath, RID: s.rid, Error: s.err}
-	}
-
-	var resource *httpapi.Resource
-
-	switch s.typ {
-	case rescache.TypeCollection:
-		vals := s.collection.Values
-		c := make([]interface{}, len(vals))
-		for i, v := range vals {
-			if v.Type == codec.ValueTypeResource {
-				sc := s.refs[v.RID]
-				c[i] = sc.sub.GetHTTPResource(apiPath, path)
-			} else {
-				c[i] = v.RawMessage
-			}
-		}
-		resource = &httpapi.Resource{APIPath: apiPath, RID: s.rid, Collection: c}
-
-	case rescache.TypeModel:
-		vals := s.model.Values
-		m := make(map[string]interface{}, len(vals))
-		for k, v := range vals {
-			if v.Type == codec.ValueTypeResource {
-				sc := s.refs[v.RID]
-				m[k] = sc.sub.GetHTTPResource(apiPath, path)
-			} else {
-				m[k] = v.RawMessage
-			}
-		}
-		resource = &httpapi.Resource{APIPath: apiPath, RID: s.rid, Model: m}
-	}
-
-	return resource
 }
 
 // ReleaseRPCResources will unlock all resources locked by GetRPCResource

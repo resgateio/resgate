@@ -23,11 +23,11 @@ type Session struct {
 	l     *logger.MemLogger
 }
 
-func setup(t *testing.T) *Session {
+func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 	l := logger.NewMemLogger(true, true)
 
 	c := NewNATSTestClient(l)
-	serv := server.NewService(c, TestConfig())
+	serv := server.NewService(c, TestConfig(cfgs...))
 	serv.SetLogger(l)
 
 	s := &Session{
@@ -114,23 +114,33 @@ func teardown(s *Session) {
 }
 
 // TestConfig returns a default server configuration used for testing
-func TestConfig() server.Config {
+func TestConfig(cfgs ...func(*server.Config)) server.Config {
 	var cfg server.Config
 	cfg.SetDefault()
 	cfg.NoHTTP = true
+	for _, cb := range cfgs {
+		cb(&cfg)
+	}
 	return cfg
 }
 
-func runTest(t *testing.T, cb func(*Session)) {
+func runTest(t *testing.T, cb func(*Session), cfgs ...func(*server.Config)) {
+	runNamedTest(t, "", cb, cfgs...)
+}
+
+func runNamedTest(t *testing.T, name string, cb func(*Session), cfgs ...func(*server.Config)) {
 	var s *Session
 	panicked := true
 	defer func() {
 		if panicked {
+			if name != "" {
+				t.Logf("Failed test %s", name)
+			}
 			t.Logf("Trace log:\n%s", s.l)
 		}
 	}()
 
-	s = setup(t)
+	s = setup(t, cfgs...)
 	cb(s)
 	teardown(s)
 

@@ -2,10 +2,12 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/jirenius/resgate/server"
 	"github.com/jirenius/resgate/server/reserr"
 )
 
@@ -267,14 +269,7 @@ func TestHTTPGetInvalidURLs(t *testing.T) {
 	}
 
 	for i, l := range tbl {
-		runTest(t, func(s *Session) {
-			panicked := true
-			defer func() {
-				if panicked {
-					t.Logf("Error in test %d", i)
-				}
-			}()
-
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
 			hreq := s.HTTPRequest("GET", l.URL, nil)
 			hresp := hreq.
 				GetResponse(t).
@@ -289,14 +284,12 @@ func TestHTTPGetInvalidURLs(t *testing.T) {
 					hresp.AssertBody(t, l.Expected)
 				}
 			}
-
-			panicked = false
 		})
 	}
 }
 
 // Test handle HTTP get requests with cyclic data
-func TestCyclicHTTPGetTest(t *testing.T) {
+func TestCyclicHTTPGet(t *testing.T) {
 	// The following cyclic groups exist
 	// a -> a
 
@@ -323,14 +316,6 @@ func TestCyclicHTTPGetTest(t *testing.T) {
 
 		"example.g": `{"e":{"rid":"example.e"},"f":{"rid":"example.f"}}`,
 		"example.h": `{"e":{"rid":"example.e"}}`,
-	}
-
-	responses := map[string]string{
-		"example.a": `{"a":{"href":"/api/example/a"}}`,
-		"example.b": `{"c":{"href":"/api/example/c","model":{"b":{"href":"/api/example/b"}}}}`,
-		"example.d": `{"e":{"href":"/api/example/e","model":{"d":{"href":"/api/example/d"}}},"f":{"href":"/api/example/f","model":{"d":{"href":"/api/example/d"}}}}`,
-		"example.g": `{"e":{"href":"/api/example/e","model":{"d":{"href":"/api/example/d","model":{"e":{"href":"/api/example/e"},"f":{"href":"/api/example/f","model":{"d":{"href":"/api/example/d"}}}}}}},"f":{"href":"/api/example/f","model":{"d":{"href":"/api/example/d","model":{"e":{"href":"/api/example/e","model":{"d":{"href":"/api/example/d"}}},"f":{"href":"/api/example/f"}}}}}}`,
-		"example.h": `{"e":{"href":"/api/example/e","model":{"d":{"href":"/api/example/d","model":{"e":{"href":"/api/example/e"},"f":{"href":"/api/example/f","model":{"d":{"href":"/api/example/d"}}}}}}}}`,
 	}
 
 	tbl := [][]struct {
@@ -381,36 +366,66 @@ func TestCyclicHTTPGetTest(t *testing.T) {
 		},
 	}
 
-	for _, l := range tbl {
-		runTest(t, func(s *Session) {
-			var hreq *HTTPRequest
-			var req *Request
+	encodings := []struct {
+		APIEncoding string
+		Responses   map[string]string
+	}{
+		{
+			"json",
+			map[string]string{
+				"example.a": `{"a":{"href":"/api/example/a"}}`,
+				"example.b": `{"c":{"href":"/api/example/c","model":{"b":{"href":"/api/example/b"}}}}`,
+				"example.d": `{"e":{"href":"/api/example/e","model":{"d":{"href":"/api/example/d"}}},"f":{"href":"/api/example/f","model":{"d":{"href":"/api/example/d"}}}}`,
+				"example.g": `{"e":{"href":"/api/example/e","model":{"d":{"href":"/api/example/d","model":{"e":{"href":"/api/example/e"},"f":{"href":"/api/example/f","model":{"d":{"href":"/api/example/d"}}}}}}},"f":{"href":"/api/example/f","model":{"d":{"href":"/api/example/d","model":{"e":{"href":"/api/example/e","model":{"d":{"href":"/api/example/d"}}},"f":{"href":"/api/example/f"}}}}}}`,
+				"example.h": `{"e":{"href":"/api/example/e","model":{"d":{"href":"/api/example/d","model":{"e":{"href":"/api/example/e"},"f":{"href":"/api/example/f","model":{"d":{"href":"/api/example/d"}}}}}}}}`,
+			},
+		},
+		{
+			"jsonFlat",
+			map[string]string{
+				"example.a": `{"a":{"href":"/api/example/a"}}`,
+				"example.b": `{"c":{"b":{"href":"/api/example/b"}}}`,
+				"example.d": `{"e":{"d":{"href":"/api/example/d"}},"f":{"d":{"href":"/api/example/d"}}}`,
+				"example.g": `{"e":{"d":{"e":{"href":"/api/example/e"},"f":{"d":{"href":"/api/example/d"}}}},"f":{"d":{"e":{"d":{"href":"/api/example/d"}},"f":{"href":"/api/example/f"}}}}`,
+				"example.h": `{"e":{"d":{"e":{"href":"/api/example/e"},"f":{"d":{"href":"/api/example/d"}}}}}`,
+			},
+		},
+	}
 
-			hreqs := make(map[string]*HTTPRequest)
-			reqs := make(map[string]*Request)
+	for _, enc := range encodings {
+		for i, l := range tbl {
+			runNamedTest(t, fmt.Sprintf("#%d with APIEncoding %#v", i+1, enc.APIEncoding), func(s *Session) {
+				var hreq *HTTPRequest
+				var req *Request
 
-			for _, ev := range l {
-				switch ev.Event {
-				case "subscribe":
-					url := "/api/" + strings.Replace(ev.RID, ".", "/", -1)
-					hreqs[ev.RID] = s.HTTPRequest("GET", url, nil)
-				case "access":
-					for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
-						treq := s.GetRequest(t)
-						reqs[treq.Subject] = treq
+				hreqs := make(map[string]*HTTPRequest)
+				reqs := make(map[string]*Request)
+
+				for _, ev := range l {
+					switch ev.Event {
+					case "subscribe":
+						url := "/api/" + strings.Replace(ev.RID, ".", "/", -1)
+						hreqs[ev.RID] = s.HTTPRequest("GET", url, nil)
+					case "access":
+						for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
+							treq := s.GetRequest(t)
+							reqs[treq.Subject] = treq
+						}
+						req.RespondSuccess(json.RawMessage(`{"get":true}`))
+					case "get":
+						for req = reqs["get."+ev.RID]; req == nil; req = reqs["get."+ev.RID] {
+							req = s.GetRequest(t)
+							reqs[req.Subject] = req
+						}
+						req.RespondSuccess(json.RawMessage(`{"model":` + resources[ev.RID] + `}`))
+					case "response":
+						hreq = hreqs[ev.RID]
+						hreq.GetResponse(t).Equals(t, http.StatusOK, json.RawMessage(enc.Responses[ev.RID]))
 					}
-					req.RespondSuccess(json.RawMessage(`{"get":true}`))
-				case "get":
-					for req = reqs["get."+ev.RID]; req == nil; req = reqs["get."+ev.RID] {
-						req = s.GetRequest(t)
-						reqs[req.Subject] = req
-					}
-					req.RespondSuccess(json.RawMessage(`{"model":` + resources[ev.RID] + `}`))
-				case "response":
-					hreq = hreqs[ev.RID]
-					hreq.GetResponse(t).Equals(t, http.StatusOK, json.RawMessage(responses[ev.RID]))
 				}
-			}
-		})
+			}, func(c *server.Config) {
+				c.APIEncoding = enc.APIEncoding
+			})
+		}
 	}
 }

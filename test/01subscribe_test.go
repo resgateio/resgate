@@ -108,20 +108,13 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 		for _, method := range []string{"get", "subscribe"} {
 			// Run both orders for "get" and "access" response
 			for getFirst := true; getFirst; getFirst = false {
-				runTest(t, func(s *Session) {
-					panicked := true
-					defer func() {
-						if panicked {
-							s := fmt.Sprintf("Error in test %d when using %#v", i, method)
-							if getFirst {
-								s += " with get response sent first"
-							} else {
-								s += " with access response sent first"
-							}
-							t.Logf("%s", s)
-						}
-					}()
-
+				s := fmt.Sprintf("#%d when using %#v", i+1, method)
+				if getFirst {
+					s += " with get response sent first"
+				} else {
+					s += " with access response sent first"
+				}
+				runNamedTest(t, s, func(s *Session) {
 					c := s.Connect()
 					var creq *ClientRequest
 					switch method {
@@ -182,8 +175,6 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 					} else {
 						cresp.AssertResult(t, l.Expected)
 					}
-
-					panicked = false
 				})
 			}
 		}
