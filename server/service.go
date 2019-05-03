@@ -31,18 +31,30 @@ type Service struct {
 }
 
 // NewService creates a new Service
-func NewService(mq mq.Client, cfg Config) *Service {
+func NewService(mq mq.Client, cfg Config) (*Service, error) {
 	s := &Service{
 		cfg: cfg,
 		mq:  mq,
 	}
 
-	s.cfg.prepare()
-	s.initHTTPServer()
-	s.initWSHandler()
-	s.initAPIHandler()
-	s.initMQClient()
-	return s
+	err := s.cfg.prepare()
+	if err == nil {
+		err = s.initHTTPServer()
+	}
+	if err == nil {
+		err = s.initWSHandler()
+	}
+	if err == nil {
+		err = s.initAPIHandler()
+	}
+	if err == nil {
+		s.initMQClient()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 // SetLogger sets the logger

@@ -18,8 +18,9 @@ var upgrader = websocket.Upgrader{
 
 var wsDisconnectTimeout = 3 * time.Second
 
-func (s *Service) initWSHandler() {
+func (s *Service) initWSHandler() error {
 	s.conns = make(map[string]*wsConn)
+	return nil
 }
 
 // GetWSHandlerFunc returns the websocket http.Handler

@@ -187,11 +187,14 @@ func main() {
 		l.Logf("[DEPRECATED] ", "Request timeout should be in milliseconds.\nChange your requestTimeout from %d to %d, and you won't be bothered anymore.", cfg.RequestTimeout, cfg.RequestTimeout*1000)
 		cfg.RequestTimeout *= 1000
 	}
-	serv := server.NewService(&nats.Client{
+	serv, err := server.NewService(&nats.Client{
 		URL:            cfg.NatsURL,
 		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Millisecond,
 		Logger:         l,
 	}, cfg.Config)
+	if err != nil {
+		printAndDie(err.Error(), false)
+	}
 	serv.SetLogger(l)
 
 	if err := serv.Start(); err != nil {

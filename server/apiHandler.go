@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -11,8 +12,17 @@ import (
 	"github.com/jirenius/resgate/server/reserr"
 )
 
-func (s *Service) initAPIHandler() {
-	s.enc = apiEncoderFactories[s.cfg.APIEncoding](s.cfg)
+func (s *Service) initAPIHandler() error {
+	f := apiEncoderFactories[s.cfg.APIEncoding]
+	if f == nil {
+		keys := make([]string, 0, len(apiEncoderFactories))
+		for k := range apiEncoderFactories {
+			keys = append(keys, k)
+		}
+		return fmt.Errorf("invalid apiEncoding setting (%s) - available encodings: %s", s.cfg.APIEncoding, strings.Join(keys, ", "))
+	}
+	s.enc = f(s.cfg)
+	return nil
 }
 
 func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {

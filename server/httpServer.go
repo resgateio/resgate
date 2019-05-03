@@ -7,7 +7,9 @@ import (
 	"time"
 )
 
-func (s *Service) initHTTPServer() {}
+func (s *Service) initHTTPServer() error {
+	return nil
+}
 
 // startHTTPServer initializes the server and starts a goroutine with a http server
 // Service.mu is held when called
