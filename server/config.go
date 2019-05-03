@@ -14,8 +14,8 @@ type Config struct {
 	Port        uint16  `json:"port"`
 	WSPath      string  `json:"wsPath"`
 	APIPath     string  `json:"apiPath"`
-	HeaderAuth  *string `json:"headerAuth"`
 	APIEncoding string  `json:"apiEncoding"`
+	HeaderAuth  *string `json:"headerAuth"`
 
 	TLS     bool   `json:"tls"`
 	TLSCert string `json:"certFile"`

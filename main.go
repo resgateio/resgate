@@ -25,13 +25,13 @@ Server Options:
     -i  --addr <host>                Bind to HOST address (default: 0.0.0.0)
     -p, --port <port>                HTTP port for client connections (default: 8080)
     -w, --wspath <path>              WebSocket path for clients (default: /)
-    -a, --apipath <path>             Web API path for clients (default: /api/)
+    -a, --apipath <path>             Web resource path for clients (default: /api/)
     -r, --reqtimeout <milliseconds>  Timeout duration for NATS requests (default: 3000)
     -u, --headauth <method>          Resource method for header authentication
         --tls                        Enable TLS for HTTP (default: false)
         --tlscert <file>             HTTP server certificate file
-		--tlskey <file>              Private key for HTTP server certificate
-		--encoding <type>            Encoding for web API: json, jsonFlat (default: json)
+        --tlskey <file>              Private key for HTTP server certificate
+        --apiencoding <type>         Encoding for web resources: json, jsonflat (default: json)
     -c, --config <file>              Configuration file
 
 Common Options:
@@ -87,7 +87,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.BoolVar(&c.TLS, "tls", false, "Enable TLS for HTTP.")
 	fs.StringVar(&c.TLSCert, "tlscert", "", "HTTP server certificate file.")
 	fs.StringVar(&c.TLSKey, "tlskey", "", "Private key for HTTP server certificate.")
-	fs.StringVar(&c.APIEncoding, "encoding", "", "Encoding for web API.")
+	fs.StringVar(&c.APIEncoding, "apiencoding", "", "Encoding for web resources.")
 	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout in milliseconds for NATS requests.")
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
 

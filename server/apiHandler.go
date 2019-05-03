@@ -13,7 +13,7 @@ import (
 )
 
 func (s *Service) initAPIHandler() error {
-	f := apiEncoderFactories[s.cfg.APIEncoding]
+	f := apiEncoderFactories[strings.ToLower(s.cfg.APIEncoding)]
 	if f == nil {
 		keys := make([]string, 0, len(apiEncoderFactories))
 		for k := range apiEncoderFactories {

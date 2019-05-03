@@ -127,7 +127,7 @@ func init() {
 		return &encoderJSON{apiPath: cfg.APIPath, notFoundBytes: b}
 
 	})
-	RegisterAPIEncoderFactory("jsonFlat", func(cfg Config) APIEncoder {
+	RegisterAPIEncoderFactory("jsonflat", func(cfg Config) APIEncoder {
 		return &encoderJSONFlat{apiPath: cfg.APIPath, notFoundBytes: b}
 	})
 }
