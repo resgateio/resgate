@@ -16,7 +16,7 @@ func TestSystemResetEvent(t *testing.T) {
 // Test that a system.reset event triggers get requests on matching model
 func TestSystemResetTriggersGetRequestOnModel(t *testing.T) {
 	runTest(t, func(s *Session) {
-		model := resource["test.model"]
+		model := resourceData("test.model")
 
 		c := s.Connect()
 
@@ -37,7 +37,7 @@ func TestSystemResetTriggersGetRequestOnModel(t *testing.T) {
 // Test that a system.reset event triggers get requests on matching collection
 func TestSystemResetTriggersGetRequestOnCollection(t *testing.T) {
 	runTest(t, func(s *Session) {
-		collection := resource["test.collection"]
+		collection := resourceData("test.collection")
 
 		c := s.Connect()
 

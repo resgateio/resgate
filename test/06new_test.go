@@ -12,11 +12,11 @@ import (
 // Test responses to client new requests
 func TestNewOnResource(t *testing.T) {
 
-	model := resource["test.model"]
+	model := resourceData("test.model")
 	params := json.RawMessage(`{"value":42}`)
 	callResponse := json.RawMessage(`{"rid":"test.model"}`)
 	modelGetResponse := json.RawMessage(`{"model":` + model + `}`)
-	modelClientResponse := json.RawMessage(`{"rid":"test.model","models":{"test.model":` + resource["test.model"] + `}}`)
+	modelClientResponse := json.RawMessage(`{"rid":"test.model","models":{"test.model":` + resourceData("test.model") + `}}`)
 	modelClientInvalidParamsResponse := json.RawMessage(`{"rid":"test.model","errors":{"test.model":{"code":"system.invalidParams","message":"Invalid parameters"}}}`)
 	modelClientRequestTimeoutResponse := json.RawMessage(`{"rid":"test.model","errors":{"test.model":{"code":"system.timeout","message":"Request timeout"}}}`)
 	modelClientRequestAccessDeniedResponse := json.RawMessage(`{"rid":"test.model","errors":{"test.model":{"code":"system.accessDenied","message":"Access denied"}}}`)

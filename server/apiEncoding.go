@@ -144,16 +144,17 @@ func (e *encoderJSON) ContentType() string {
 }
 
 func (e *encoderJSON) EncodeGET(s *Subscription) ([]byte, error) {
-	// Init buffer and path
-	e.b = bytes.Buffer{}
-	e.path = e.path[:0]
+	// Clone encoder for concurrency safety
+	ec := encoderJSON{
+		apiPath:       e.apiPath,
+		notFoundBytes: e.notFoundBytes,
+	}
 
-	err := e.encodeSubscription(s, false)
+	err := ec.encodeSubscription(s, false)
 	if err != nil {
 		return nil, err
 	}
-	b := e.b.Bytes()
-	return json.RawMessage(b), nil
+	return json.RawMessage(ec.b.Bytes()), nil
 }
 
 func (e *encoderJSON) EncodePOST(r json.RawMessage) ([]byte, error) {
@@ -276,16 +277,17 @@ func (e *encoderJSONFlat) ContentType() string {
 }
 
 func (e *encoderJSONFlat) EncodeGET(s *Subscription) ([]byte, error) {
-	// Init buffer and path
-	e.b = bytes.Buffer{}
-	e.path = e.path[:0]
+	// Clone encoder for concurrency safety
+	ec := encoderJSONFlat{
+		apiPath:       e.apiPath,
+		notFoundBytes: e.notFoundBytes,
+	}
 
-	err := e.encodeSubscription(s)
+	err := ec.encodeSubscription(s)
 	if err != nil {
 		return nil, err
 	}
-	b := e.b.Bytes()
-	return json.RawMessage(b), nil
+	return json.RawMessage(ec.b.Bytes()), nil
 }
 
 func (e *encoderJSONFlat) EncodePOST(r json.RawMessage) ([]byte, error) {

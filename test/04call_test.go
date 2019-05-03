@@ -12,7 +12,7 @@ import (
 // Test responses to client call requests
 func TestCallOnResource(t *testing.T) {
 
-	model := resource["test.model"]
+	model := resourceData("test.model")
 	params := json.RawMessage(`{"value":42}`)
 	successResponse := json.RawMessage(`{"foo":"bar"}`)
 	// Access responses

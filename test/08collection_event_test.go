@@ -71,7 +71,7 @@ func TestAddRemoveEventsOnCachedCollection(t *testing.T) {
 
 // Test add event with new resource reference
 func TestAddEventWithNewResourceReference(t *testing.T) {
-	model := resource["test.model"]
+	model := resourceData("test.model")
 	customEvent := json.RawMessage(`{"foo":"bar"}`)
 
 	runTest(t, func(s *Session) {

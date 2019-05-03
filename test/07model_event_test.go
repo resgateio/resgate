@@ -22,7 +22,7 @@ func TestChangeEventOnSubscribedResource(t *testing.T) {
 // Test that change events sent prior to a get response is discarded
 func TestChangeEventPriorToGetResponseIsDiscarded(t *testing.T) {
 	runTest(t, func(s *Session) {
-		model := resource["test.model"]
+		model := resourceData("test.model")
 
 		c := s.Connect()
 
@@ -106,7 +106,7 @@ func TestChangeEventOnCachedModel(t *testing.T) {
 
 // Test change event with new resource reference
 func TestChangeEventWithNewResourceReference(t *testing.T) {
-	collection := resource["test.collection"]
+	collection := resourceData("test.collection")
 	customEvent := json.RawMessage(`{"foo":"bar"}`)
 
 	runTest(t, func(s *Session) {
@@ -154,7 +154,7 @@ func TestChangeEventWithRemovedResourceReference(t *testing.T) {
 
 // Test change event with new resource reference
 func TestChangeEventWithChangedResourceReference(t *testing.T) {
-	collection := resource["test.collection"]
+	collection := resourceData("test.collection")
 	customEvent := json.RawMessage(`{"foo":"bar"}`)
 
 	runTest(t, func(s *Session) {
