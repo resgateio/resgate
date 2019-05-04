@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/jirenius/resgate/server/codec"
-	"github.com/jirenius/resgate/server/httpapi"
 	"github.com/jirenius/resgate/server/reserr"
 )
 
@@ -64,7 +63,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		rid, action := httpapi.PathToRIDAction(path, r.URL.RawQuery, apiPath)
+		rid, action := PathToRIDAction(path, r.URL.RawQuery, apiPath)
 		if !codec.IsValidRID(rid, true) || !codec.IsValidRID(action, false) {
 			notFoundHandler(w, r, s.enc)
 			return

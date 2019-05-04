@@ -9,7 +9,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/jirenius/resgate/server/codec"
-	"github.com/jirenius/resgate/server/httpapi"
 	"github.com/jirenius/resgate/server/mq"
 	"github.com/jirenius/resgate/server/rescache"
 	"github.com/jirenius/resgate/server/reserr"
@@ -348,7 +347,7 @@ func (c *wsConn) NewHTTPResource(rid, prefix string, params interface{}, cb func
 			if err != nil {
 				cb("", err)
 			} else {
-				cb(httpapi.RIDToPath(newRID, prefix), nil)
+				cb(RIDToPath(newRID, prefix), nil)
 			}
 		})
 	})
