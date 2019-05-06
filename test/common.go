@@ -8,7 +8,7 @@ import (
 // subscribeToTestModel makes a successful subscription to test.model
 // Returns the connection ID (cid)
 func subscribeToTestModel(t *testing.T, s *Session, c *Conn) string {
-	model := resource["test.model"]
+	model := resourceData("test.model")
 
 	// Send subscribe request
 	creq := c.Request("subscribe.test.model", nil)
@@ -29,26 +29,42 @@ func subscribeToTestModel(t *testing.T, s *Session, c *Conn) string {
 // subscribeToTestModelParent makes a successful subscription to test.model.parent
 // Returns the connection ID (cid)
 func subscribeToTestModelParent(t *testing.T, s *Session, c *Conn, childIsSubscribed bool) string {
-	model := resource["test.model"]
-	modelParent := resource["test.model.parent"]
+	return subscribeToTestModelParentExt(t, s, c, childIsSubscribed, false)
+}
+
+// subscribeToTestModelParentExt makes a successful subscription to test.model.parent
+// and allows to delay access response.
+// Returns the connection ID (cid)
+func subscribeToTestModelParentExt(t *testing.T, s *Session, c *Conn, childIsSubscribed bool, delayAccess bool) string {
+	var cid string
+	model := resourceData("test.model")
+	modelParent := resourceData("test.model.parent")
 
 	// Send subscribe request
 	creq := c.Request("subscribe.test.model.parent", nil)
 
 	// Handle parent get and access request
-	mreqs := s.GetParallelRequests(t, 2)
-	mreqs.GetRequest(t, "get.test.model.parent").RespondSuccess(json.RawMessage(`{"model":` + modelParent + `}`))
-	req := mreqs.GetRequest(t, "access.test.model.parent")
-	cid := req.PathPayload(t, "cid").(string)
-	req.RespondSuccess(json.RawMessage(`{"get":true}`))
+	mreqs1 := s.GetParallelRequests(t, 2)
+	mreqs1.GetRequest(t, "get.test.model.parent").RespondSuccess(json.RawMessage(`{"model":` + modelParent + `}`))
+	if !delayAccess || childIsSubscribed {
+		req := mreqs1.GetRequest(t, "access.test.model.parent")
+		cid = req.PathPayload(t, "cid").(string)
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+	}
 
 	if childIsSubscribed {
 		// Get client response
 		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model.parent":`+modelParent+`}}`))
 	} else {
 		// Handle child get request and validate
-		mreqs = s.GetParallelRequests(t, 1)
-		mreqs.GetRequest(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+		mreqs2 := s.GetParallelRequests(t, 1)
+		mreqs2.GetRequest(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+
+		if delayAccess {
+			req := mreqs1.GetRequest(t, "access.test.model.parent")
+			cid = req.PathPayload(t, "cid").(string)
+			req.RespondSuccess(json.RawMessage(`{"get":true}`))
+		}
 
 		// Get client response and validate
 		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model":`+model+`,"test.model.parent":`+modelParent+`}}`))
@@ -60,7 +76,7 @@ func subscribeToTestModelParent(t *testing.T, s *Session, c *Conn, childIsSubscr
 // subscribeToTestCollection makes a successful subscription to test.collection
 // Returns the connection ID (cid) of the access request
 func subscribeToTestCollection(t *testing.T, s *Session, c *Conn) string {
-	collection := resource["test.collection"]
+	collection := resourceData("test.collection")
 
 	// Send subscribe request
 	creq := c.Request("subscribe.test.collection", nil)
@@ -81,8 +97,8 @@ func subscribeToTestCollection(t *testing.T, s *Session, c *Conn) string {
 // subscribeToTestCollectionParent makes a successful subscription to test.collection.parent
 // Returns the connection ID (cid)
 func subscribeToTestCollectionParent(t *testing.T, s *Session, c *Conn, childIsSubscribed bool) string {
-	collection := resource["test.collection"]
-	collectionParent := resource["test.collection.parent"]
+	collection := resourceData("test.collection")
+	collectionParent := resourceData("test.collection.parent")
 
 	// Send subscribe request
 	creq := c.Request("subscribe.test.collection.parent", nil)
@@ -123,7 +139,7 @@ func getCID(t *testing.T, s *Session, c *Conn) string {
 // subscribeToTestQueryModel makes a successful subscription to test.model
 // with a query and the normalized query. Returns the connection ID (cid)
 func subscribeToTestQueryModel(t *testing.T, s *Session, c *Conn, q, normq string) string {
-	model := resource["test.model"]
+	model := resourceData("test.model")
 
 	normqj, err := json.Marshal(normq)
 	if err != nil {
@@ -157,7 +173,7 @@ func subscribeToTestQueryModel(t *testing.T, s *Session, c *Conn, q, normq strin
 // subscribeToTestQueryCollection makes a successful subscription to test.collection
 // with a query and the normalized query. Returns the connection ID (cid)
 func subscribeToTestQueryCollection(t *testing.T, s *Session, c *Conn, q, normq string) string {
-	collection := resource["test.collection"]
+	collection := resourceData("test.collection")
 
 	normqj, err := json.Marshal(normq)
 	if err != nil {

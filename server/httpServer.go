@@ -7,7 +7,9 @@ import (
 	"time"
 )
 
-func (s *Service) initHTTPServer() {}
+func (s *Service) initHTTPServer() error {
+	return nil
+}
 
 // startHTTPServer initializes the server and starts a goroutine with a http server
 // Service.mu is held when called
@@ -17,11 +19,11 @@ func (s *Service) startHTTPServer() {
 	}
 
 	s.Logf("Starting HTTP server")
-	h := &http.Server{Addr: s.cfg.portString, Handler: s}
+	h := &http.Server{Addr: s.cfg.netAddr, Handler: s}
 	s.h = h
 
 	go func() {
-		s.Logf("Listening on %s://%s%s", s.cfg.scheme, "0.0.0.0", s.cfg.portString)
+		s.Logf("Listening on %s://%s", s.cfg.scheme, s.cfg.netAddr)
 
 		var err error
 		if s.cfg.TLS {
@@ -76,6 +78,6 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(r.URL.Path, s.cfg.APIPath):
 		s.apiHandler(w, r)
 	default:
-		notFoundHandler(w, r)
+		notFoundHandler(w, r, s.enc)
 	}
 }

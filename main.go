@@ -22,6 +22,7 @@ Usage: resgate [options]
 
 Server Options:
     -n, --nats <url>                 NATS Server URL (default: nats://127.0.0.1:4222)
+    -i  --addr <host>                Bind to HOST address (default: 0.0.0.0)
     -p, --port <port>                HTTP port for client connections (default: 8080)
     -w, --wspath <path>              WebSocket path for clients (default: /)
     -a, --apipath <path>             Web resource path for clients (default: /api/)
@@ -30,6 +31,7 @@ Server Options:
         --tls                        Enable TLS for HTTP (default: false)
         --tlscert <file>             HTTP server certificate file
         --tlskey <file>              Private key for HTTP server certificate
+        --apiencoding <type>         Encoding for web resources: json, jsonflat (default: json)
     -c, --config <file>              Configuration file
 
 Common Options:
@@ -63,6 +65,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 		configFile string
 		port       uint
 		headauth   string
+		addr       string
 	)
 
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
@@ -71,6 +74,8 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&configFile, "config", "", "Configuration file.")
 	fs.StringVar(&c.NatsURL, "n", "", "NATS Server URL.")
 	fs.StringVar(&c.NatsURL, "nats", "", "NATS Server URL.")
+	fs.StringVar(&addr, "i", "", "Bind to HOST address.")
+	fs.StringVar(&addr, "addr", "", "Bind to HOST address.")
 	fs.UintVar(&port, "p", 0, "HTTP port for client connections.")
 	fs.UintVar(&port, "port", 0, "HTTP port for client connections.")
 	fs.StringVar(&c.WSPath, "w", "", "WebSocket path for clients.")
@@ -82,6 +87,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.BoolVar(&c.TLS, "tls", false, "Enable TLS for HTTP.")
 	fs.StringVar(&c.TLSCert, "tlscert", "", "HTTP server certificate file.")
 	fs.StringVar(&c.TLSKey, "tlskey", "", "Private key for HTTP server certificate.")
+	fs.StringVar(&c.APIEncoding, "apiencoding", "", "Encoding for web resources.")
 	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout in milliseconds for NATS requests.")
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
 
@@ -137,6 +143,10 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 			} else {
 				c.HeaderAuth = &headauth
 			}
+		case "i":
+			fallthrough
+		case "addr":
+			c.Addr = &addr
 		}
 	})
 
@@ -177,11 +187,14 @@ func main() {
 		l.Logf("[DEPRECATED] ", "Request timeout should be in milliseconds.\nChange your requestTimeout from %d to %d, and you won't be bothered anymore.", cfg.RequestTimeout, cfg.RequestTimeout*1000)
 		cfg.RequestTimeout *= 1000
 	}
-	serv := server.NewService(&nats.Client{
+	serv, err := server.NewService(&nats.Client{
 		URL:            cfg.NatsURL,
 		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Millisecond,
 		Logger:         l,
 	}, cfg.Config)
+	if err != nil {
+		printAndDie(err.Error(), false)
+	}
 	serv.SetLogger(l)
 
 	if err := serv.Start(); err != nil {

@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 )
 
@@ -21,7 +22,7 @@ func TestChangeEventOnSubscribedResource(t *testing.T) {
 // Test that change events sent prior to a get response is discarded
 func TestChangeEventPriorToGetResponseIsDiscarded(t *testing.T) {
 	runTest(t, func(s *Session) {
-		model := resource["test.model"]
+		model := resourceData("test.model")
 
 		c := s.Connect()
 
@@ -69,14 +70,7 @@ func TestChangeEventOnCachedModel(t *testing.T) {
 
 	for i, l := range tbl {
 		for sameClient := true; sameClient; sameClient = false {
-			runTest(t, func(s *Session) {
-				panicked := true
-				defer func() {
-					if panicked {
-						t.Logf("Error in test %d with same client being %+v", i, sameClient)
-					}
-				}()
-
+			runNamedTest(t, fmt.Sprintf("#%d with the same client being %+v", i+1, sameClient), func(s *Session) {
 				var creq *ClientRequest
 
 				c := s.Connect()
@@ -105,8 +99,6 @@ func TestChangeEventOnCachedModel(t *testing.T) {
 
 				// Validate client response
 				creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model":`+l.ExpectedModel+`}}`))
-
-				panicked = false
 			})
 		}
 	}
@@ -114,7 +106,7 @@ func TestChangeEventOnCachedModel(t *testing.T) {
 
 // Test change event with new resource reference
 func TestChangeEventWithNewResourceReference(t *testing.T) {
-	collection := resource["test.collection"]
+	collection := resourceData("test.collection")
 	customEvent := json.RawMessage(`{"foo":"bar"}`)
 
 	runTest(t, func(s *Session) {
@@ -162,7 +154,7 @@ func TestChangeEventWithRemovedResourceReference(t *testing.T) {
 
 // Test change event with new resource reference
 func TestChangeEventWithChangedResourceReference(t *testing.T) {
-	collection := resource["test.collection"]
+	collection := resourceData("test.collection")
 	customEvent := json.RawMessage(`{"foo":"bar"}`)
 
 	runTest(t, func(s *Session) {

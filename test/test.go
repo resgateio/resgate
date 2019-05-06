@@ -16,20 +16,25 @@ const timeoutSeconds = 1
 
 // Session represents a test session with a resgate server
 type Session struct {
+	t *testing.T
 	*NATSTestClient
 	s     *server.Service
 	conns map[*Conn]struct{}
 	l     *logger.MemLogger
 }
 
-func setup() *Session {
+func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 	l := logger.NewMemLogger(true, true)
 
 	c := NewNATSTestClient(l)
-	serv := server.NewService(c, TestConfig())
+	serv, err := server.NewService(c, TestConfig(cfgs...))
+	if err != nil {
+		t.Fatalf("error creating new service: %s", err)
+	}
 	serv.SetLogger(l)
 
 	s := &Session{
+		t:              t,
 		NATSTestClient: c,
 		s:              serv,
 		conns:          make(map[*Conn]struct{}),
@@ -52,7 +57,9 @@ func (s *Session) ConnectWithChannel(evs chan *ClientEvent) *Conn {
 		panic(err)
 	}
 
-	return NewConn(s, d, c, evs)
+	conn := NewConn(s, d, c, evs)
+	s.conns[conn] = struct{}{}
+	return conn
 }
 
 // Connect makes a new mock client websocket connection
@@ -90,7 +97,14 @@ func (s *Session) HTTPRequest(method, url string, body []byte) *HTTPRequest {
 
 func teardown(s *Session) {
 	for conn := range s.conns {
+		err := conn.Error()
+		if err != nil {
+			panic(err.Error())
+		}
 		conn.Disconnect()
+		if s.t != nil {
+			conn.AssertClosed(s.t)
+		}
 	}
 	st := s.s.StopChannel()
 	go s.s.Stop(nil)
@@ -103,23 +117,33 @@ func teardown(s *Session) {
 }
 
 // TestConfig returns a default server configuration used for testing
-func TestConfig() server.Config {
+func TestConfig(cfgs ...func(*server.Config)) server.Config {
 	var cfg server.Config
 	cfg.SetDefault()
 	cfg.NoHTTP = true
+	for _, cb := range cfgs {
+		cb(&cfg)
+	}
 	return cfg
 }
 
-func runTest(t *testing.T, cb func(s *Session)) {
+func runTest(t *testing.T, cb func(*Session), cfgs ...func(*server.Config)) {
+	runNamedTest(t, "", cb, cfgs...)
+}
+
+func runNamedTest(t *testing.T, name string, cb func(*Session), cfgs ...func(*server.Config)) {
 	var s *Session
 	panicked := true
 	defer func() {
 		if panicked {
+			if name != "" {
+				t.Logf("Failed test %s", name)
+			}
 			t.Logf("Trace log:\n%s", s.l)
 		}
 	}()
 
-	s = setup()
+	s = setup(t, cfgs...)
 	cb(s)
 	teardown(s)
 

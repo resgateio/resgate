@@ -8,7 +8,7 @@ import (
 // Test responses to query model subscribe requests
 func TestSendingQueryToNonQueryModel(t *testing.T) {
 	runTest(t, func(s *Session) {
-		model := resource["test.model"]
+		model := resourceData("test.model")
 		event := json.RawMessage(`{"foo":"bar"}`)
 
 		c := s.Connect()
@@ -67,7 +67,7 @@ func TestSubscribingToQueryModelWithNormalization(t *testing.T) {
 // Test subscribing to query model
 func TestQueryModelIsFetchedFromCache(t *testing.T) {
 	runTest(t, func(s *Session) {
-		model := resource["test.model"]
+		model := resourceData("test.model")
 		event := json.RawMessage(`{"foo":"bar"}`)
 
 		c := s.Connect()
@@ -105,7 +105,7 @@ func TestQueryModelIsFetchedFromCache(t *testing.T) {
 // Test subscribing to query model
 func TestQueryModelIsFetchedFromCacheAfterQueryNormalization(t *testing.T) {
 	runTest(t, func(s *Session) {
-		model := resource["test.model"]
+		model := resourceData("test.model")
 		event := json.RawMessage(`{"foo":"bar"}`)
 
 		c := s.Connect()

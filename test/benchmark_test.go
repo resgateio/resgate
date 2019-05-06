@@ -6,10 +6,10 @@ import (
 )
 
 func BenchmarkCallRequestWithNilParamsOnSubscribedModel(b *testing.B) {
-	s := setup()
+	s := setup(nil)
 	c := s.Connect()
 
-	model := resource["test.model"]
+	model := resourceData("test.model")
 	// Subscribe to resource
 	creq := c.Request("subscribe.test.model", nil)
 	// Handle model get and access request
@@ -35,10 +35,10 @@ func BenchmarkCallRequestWithNilParamsOnSubscribedModel(b *testing.B) {
 }
 
 func BenchmarkCallRequestWithNilParamsOnSubscribedModelParallel(b *testing.B) {
-	s := setup()
+	s := setup(nil)
 	c := s.Connect()
 
-	model := resource["test.model"]
+	model := resourceData("test.model")
 	// Subscribe to resource
 	creq := c.Request("subscribe.test.model", nil)
 	// Handle model get and access request

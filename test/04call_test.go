@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/jirenius/resgate/server/mq"
@@ -11,7 +12,7 @@ import (
 // Test responses to client call requests
 func TestCallOnResource(t *testing.T) {
 
-	model := resource["test.model"]
+	model := resourceData("test.model")
 	params := json.RawMessage(`{"value":42}`)
 	successResponse := json.RawMessage(`{"foo":"bar"}`)
 	// Access responses
@@ -66,14 +67,7 @@ func TestCallOnResource(t *testing.T) {
 	}
 
 	for i, l := range tbl {
-		runTest(t, func(s *Session) {
-			panicked := true
-			defer func() {
-				if panicked {
-					t.Logf("Error in test %d", i)
-				}
-			}()
-
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
 			c := s.Connect()
 			var creq *ClientRequest
 
@@ -157,8 +151,6 @@ func TestCallOnResource(t *testing.T) {
 			} else {
 				cresp.AssertResult(t, l.Expected)
 			}
-
-			panicked = false
 		})
 	}
 }
@@ -192,14 +184,7 @@ func TestCallOnResourceAfterAccessError(t *testing.T) {
 
 	for i, l := range tbl {
 		for subscribe := true; subscribe; subscribe = false {
-			runTest(t, func(s *Session) {
-				panicked := true
-				defer func() {
-					if panicked {
-						t.Logf("Error in test %d", i)
-					}
-				}()
-
+			runNamedTest(t, fmt.Sprintf("#%d where subscribe is %+v", i+1, subscribe), func(s *Session) {
 				c := s.Connect()
 				var creq *ClientRequest
 
@@ -251,8 +236,6 @@ func TestCallOnResourceAfterAccessError(t *testing.T) {
 					expectCall = l.SecondExpectCall
 					expected = l.SecondExpected
 				}
-
-				panicked = false
 			})
 		}
 	}

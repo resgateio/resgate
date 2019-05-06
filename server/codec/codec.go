@@ -11,9 +11,9 @@ import (
 
 var (
 	noQueryGetRequest  = []byte(`{}`)
-	errMissingResult   = reserr.InternalError(errors.New("Response missing result"))
-	errInvalidResponse = reserr.InternalError(errors.New("Invalid service response"))
-	errInvalidValue    = reserr.InternalError(errors.New("Invalid value"))
+	errMissingResult   = reserr.InternalError(errors.New("response missing result"))
+	errInvalidResponse = reserr.InternalError(errors.New("invalid service response"))
+	errInvalidValue    = reserr.InternalError(errors.New("invalid value"))
 )
 
 const (

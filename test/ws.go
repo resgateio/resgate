@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -23,6 +24,7 @@ type Conn struct {
 	evs     chan *ClientEvent
 	mu      sync.Mutex
 	closeCh chan struct{}
+	err     error
 }
 
 type clientRequest struct {
@@ -84,6 +86,10 @@ func (c *Conn) Request(method string, params interface{}) *ClientRequest {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if c.err != nil {
+		panic(c.err)
+	}
+
 	id := clientRequestID
 	clientRequestID++
 	err := c.ws.WriteJSON(clientRequest{
@@ -112,10 +118,18 @@ func (c *Conn) Disconnect() {
 	c.ws.Close()
 }
 
+func (c *Conn) PanicOnError() {
+	err := c.Error()
+	if err != nil {
+		panic(err)
+	}
+}
+
 // GetEvent gets a pending event that is sent to the client.
 // If no event is received within a set amount of time,
 // it will log it as a fatal error.
 func (c *Conn) GetEvent(t *testing.T) *ClientEvent {
+	c.PanicOnError()
 	select {
 	case ev := <-c.evs:
 		return ev
@@ -127,6 +141,7 @@ func (c *Conn) GetEvent(t *testing.T) *ClientEvent {
 
 // GetParallelEvents gets n number of events where the order is uncertain.
 func (c *Conn) GetParallelEvents(t *testing.T, n int) ParallelEvents {
+	c.PanicOnError()
 	pev := make(ParallelEvents, n)
 	for i := 0; i < n; i++ {
 		pev[i] = c.GetEvent(t)
@@ -136,6 +151,7 @@ func (c *Conn) GetParallelEvents(t *testing.T, n int) ParallelEvents {
 
 // AssertNoEvent assert that no events are queued
 func (c *Conn) AssertNoEvent(t *testing.T, rid string) {
+	c.PanicOnError()
 	// Quick check if an event already exists
 	select {
 	case ev := <-c.evs:
@@ -162,6 +178,7 @@ func (c *Conn) AssertNoEvent(t *testing.T, rid string) {
 
 // AssertNoNATSRequest assert that no request are queued on NATS
 func (c *Conn) AssertNoNATSRequest(t *testing.T, rid string) {
+	c.PanicOnError()
 	// Flush out requests by sending an auth on the resource
 	// and validate it is the request next in queue.
 	creq := c.Request("auth."+rid+".foo", nil)
@@ -178,6 +195,7 @@ func (c *Conn) listen() {
 	var err error
 
 	// Loop until an error is returned when reading
+Loop:
 	for {
 		if _, in, err = c.ws.ReadMessage(); err != nil {
 			break
@@ -186,7 +204,8 @@ func (c *Conn) listen() {
 		cr := clientResponse{}
 		err := json.Unmarshal(in, &cr)
 		if err != nil {
-			panic("test: error unmarshaling client response: " + err.Error())
+			c.setError(errors.New("test: error unmarshaling client response: " + err.Error()))
+			break Loop
 		}
 
 		c.mu.Lock()
@@ -201,7 +220,8 @@ func (c *Conn) listen() {
 			req, ok := c.reqs[cr.ID]
 			if !ok {
 				c.mu.Unlock()
-				panic("test: response without matching request")
+				c.setError(errors.New("test: response without matching request"))
+				break Loop
 			}
 			delete(c.reqs, cr.ID)
 			c.mu.Unlock()
@@ -211,11 +231,24 @@ func (c *Conn) listen() {
 				Error:  cr.Error,
 			}:
 			default:
-				panic("test: failed to write client response")
+				c.setError(err)
+				break Loop
 			}
 		}
 	}
 	close(c.closeCh)
+}
+
+func (c *Conn) setError(err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.err = err
+}
+
+func (c *Conn) Error() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.err
 }
 
 // GetResponse awaits for a response and returns it.

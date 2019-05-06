@@ -9,7 +9,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/jirenius/resgate/server/codec"
-	"github.com/jirenius/resgate/server/httpapi"
 	"github.com/jirenius/resgate/server/mq"
 	"github.com/jirenius/resgate/server/rescache"
 	"github.com/jirenius/resgate/server/reserr"
@@ -211,7 +210,7 @@ func (c *wsConn) Send(data []byte) {
 }
 
 func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)) {
-	sub, err := c.Subscribe(rid, true, nil)
+	sub, err := c.Subscribe(rid, true)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -224,7 +223,7 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 			return
 		}
 
-		sub.OnLoaded(func(sub *Subscription) {
+		sub.OnReady(func() {
 			err := sub.Error()
 			if err != nil {
 				cb(nil, err)
@@ -238,8 +237,8 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 	})
 }
 
-func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interface{}, err error)) {
-	sub, err := c.Subscribe(rid, true, nil)
+func (c *wsConn) GetSubscription(rid string, cb func(sub *Subscription, err error)) {
+	sub, err := c.Subscribe(rid, true)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -252,39 +251,21 @@ func (c *wsConn) GetHTTPResource(rid string, prefix string, cb func(data interfa
 			return
 		}
 
-		sub.OnLoaded(func(sub *Subscription) {
-			c.outputHTTPResource(prefix, sub, cb)
+		sub.OnReady(func() {
+			err := sub.Error()
+			if err != nil {
+				cb(nil, err)
+				return
+			}
+			cb(sub, nil)
+			sub.ReleaseRPCResources()
 			c.Unsubscribe(sub, true, 1, true)
 		})
 	})
 }
 
-func (c *wsConn) outputHTTPResource(prefix string, sub *Subscription, cb func(data interface{}, err error)) {
-	err := sub.Error()
-	if err != nil {
-		cb(nil, err)
-		return
-	}
-
-	r := sub.GetHTTPResource(prefix, make([]string, 0, 32))
-
-	// Select which part of the httpapi.Resource
-	// that is to be sent in the response.
-	var data interface{}
-	switch {
-	case r.Model != nil:
-		data = r.Model
-	case r.Collection != nil:
-		data = r.Collection
-	default:
-		data = r
-	}
-	cb(data, nil)
-	sub.ReleaseRPCResources()
-}
-
 func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err error)) {
-	sub, err := c.Subscribe(rid, true, nil)
+	sub, err := c.Subscribe(rid, true)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -297,7 +278,7 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 			return
 		}
 
-		sub.OnLoaded(func(sub *Subscription) {
+		sub.OnReady(func() {
 			err := sub.Error()
 			if err != nil {
 				cb(nil, err)
@@ -311,7 +292,7 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 	})
 }
 
-func (c *wsConn) CallResource(rid, action string, params interface{}, callback func(result interface{}, err error)) {
+func (c *wsConn) CallResource(rid, action string, params interface{}, callback func(result json.RawMessage, err error)) {
 	c.call(rid, action, params, callback)
 }
 
@@ -323,7 +304,7 @@ func (c *wsConn) NewResource(rid string, params interface{}, cb func(result *rpc
 				return
 			}
 
-			sub, err := c.Subscribe(newRID, true, nil)
+			sub, err := c.Subscribe(newRID, true)
 			if err != nil {
 				cb(nil, err)
 				return
@@ -346,7 +327,7 @@ func (c *wsConn) NewResource(rid string, params interface{}, cb func(result *rpc
 					return
 				}
 
-				sub.OnLoaded(func(sub *Subscription) {
+				sub.OnReady(func() {
 					// Respond with success even if subscription contains errors,
 					// as the call to 'new' atleast succeeded.
 					cb(&rpc.NewResult{
@@ -366,17 +347,17 @@ func (c *wsConn) NewHTTPResource(rid, prefix string, params interface{}, cb func
 			if err != nil {
 				cb("", err)
 			} else {
-				cb(httpapi.RIDToPath(newRID, prefix), nil)
+				cb(RIDToPath(newRID, prefix), nil)
 			}
 		})
 	})
 }
 
-func (c *wsConn) AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error)) {
+func (c *wsConn) AuthResource(rid, action string, params interface{}, cb func(result json.RawMessage, err error)) {
 	rname, query := parseRID(c.ExpandCID(rid))
 	c.serv.cache.Auth(c, rname, query, action, c.token, params, func(result json.RawMessage, err error) {
 		c.Enqueue(func() {
-			callback(result, err)
+			cb(result, err)
 		})
 	})
 }
@@ -385,10 +366,10 @@ func (c *wsConn) UnsubscribeResource(rid string, cb func(ok bool)) {
 	cb(c.UnsubscribeByRID(rid))
 }
 
-func (c *wsConn) call(rid, action string, params interface{}, cb func(result interface{}, err error)) {
+func (c *wsConn) call(rid, action string, params interface{}, cb func(result json.RawMessage, err error)) {
 	sub, ok := c.subs[rid]
 	if !ok {
-		sub = NewSubscription(c, rid, nil)
+		sub = NewSubscription(c, rid)
 	}
 
 	sub.CanCall(action, func(err error) {
@@ -407,7 +388,7 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result int
 func (c *wsConn) callNew(rid string, params interface{}, cb func(newRID string, err error)) {
 	sub, ok := c.subs[rid]
 	if !ok {
-		sub = NewSubscription(c, rid, nil)
+		sub = NewSubscription(c, rid)
 	}
 
 	sub.CanCall("new", func(err error) {
@@ -420,7 +401,7 @@ func (c *wsConn) callNew(rid string, params interface{}, cb func(newRID string, 
 	})
 }
 
-func (c *wsConn) subscribe(rid string, direct bool, path []string) (*Subscription, error) {
+func (c *wsConn) subscribe(rid string, direct bool) (*Subscription, error) {
 
 	sub, ok := c.subs[rid]
 	if ok {
@@ -428,7 +409,7 @@ func (c *wsConn) subscribe(rid string, direct bool, path []string) (*Subscriptio
 		return sub, err
 	}
 
-	sub = NewSubscription(c, rid, path)
+	sub = NewSubscription(c, rid)
 	_ = c.addCount(sub, direct)
 	c.serv.cache.Subscribe(sub)
 
@@ -438,12 +419,12 @@ func (c *wsConn) subscribe(rid string, direct bool, path []string) (*Subscriptio
 
 // subscribe gets existing subscription or creates a new one to cache
 // Will return error if number of allowed subscriptions for the resource is exceeded
-func (c *wsConn) Subscribe(rid string, direct bool, path []string) (*Subscription, error) {
+func (c *wsConn) Subscribe(rid string, direct bool) (*Subscription, error) {
 	if c.disposing {
 		return nil, reserr.ErrDisposing
 	}
 
-	return c.subscribe(rid, direct, path)
+	return c.subscribe(rid, direct)
 }
 
 // unsubscribe counts down the subscription counter
