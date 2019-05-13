@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jirenius/resgate/logger"
-	"github.com/jirenius/resgate/server/mq"
+	"github.com/resgateio/resgate/logger"
+	"github.com/resgateio/resgate/server/mq"
 	"github.com/jirenius/timerqueue"
 	nats "github.com/nats-io/go-nats"
 )

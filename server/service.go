@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/jirenius/resgate/logger"
-	"github.com/jirenius/resgate/server/mq"
-	"github.com/jirenius/resgate/server/rescache"
+	"github.com/resgateio/resgate/logger"
+	"github.com/resgateio/resgate/server/mq"
+	"github.com/resgateio/resgate/server/rescache"
 )
 
 // Service is a RES gateway implementation

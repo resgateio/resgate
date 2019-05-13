@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jirenius/resgate/server/reserr"
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // HTTPRequest represents a HTTP requests made to the gateway

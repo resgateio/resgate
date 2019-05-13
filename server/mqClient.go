@@ -3,7 +3,7 @@ package server
 import (
 	"errors"
 
-	"github.com/jirenius/resgate/server/rescache"
+	"github.com/resgateio/resgate/server/rescache"
 )
 
 const mqWorkers = 10

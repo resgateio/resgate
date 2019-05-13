@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jirenius/resgate/logger"
-	"github.com/jirenius/resgate/nats"
-	"github.com/jirenius/resgate/server"
+	"github.com/resgateio/resgate/logger"
+	"github.com/resgateio/resgate/nats"
+	"github.com/resgateio/resgate/server"
 )
 
 var stopTimeout = 10 * time.Second

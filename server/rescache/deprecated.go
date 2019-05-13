@@ -38,7 +38,7 @@ func (c *Cache) deprecated(rid string, typ featureType) {
 	var msg string
 	switch typ {
 	case deprecatedModelChangeEvent:
-		msg = "model change event v1.0 detected\n    Legacy support will be removed after 2020-03-31. For more information:\n    https://github.com/jirenius/resgate/blob/master/docs/res-protocol-v1.1-update.md"
+		msg = "model change event v1.0 detected\n    Legacy support will be removed after 2020-03-31. For more information:\n    https://github.com/resgateio/resgate/blob/master/docs/res-protocol-v1.1-update.md"
 	default:
 		c.Logf("Invalid deprecation feature type: %d", typ)
 		return

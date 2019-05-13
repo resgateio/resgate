@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jirenius/resgate/server/mq"
-	"github.com/jirenius/resgate/server/reserr"
+	"github.com/resgateio/resgate/server/mq"
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // Test responses to client call requests
