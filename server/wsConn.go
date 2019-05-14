@@ -8,11 +8,11 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/jirenius/resgate/server/codec"
-	"github.com/jirenius/resgate/server/mq"
-	"github.com/jirenius/resgate/server/rescache"
-	"github.com/jirenius/resgate/server/reserr"
-	"github.com/jirenius/resgate/server/rpc"
+	"github.com/resgateio/resgate/server/codec"
+	"github.com/resgateio/resgate/server/mq"
+	"github.com/resgateio/resgate/server/rescache"
+	"github.com/resgateio/resgate/server/reserr"
+	"github.com/resgateio/resgate/server/rpc"
 	"github.com/rs/xid"
 )
 

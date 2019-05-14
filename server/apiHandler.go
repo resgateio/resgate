@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jirenius/resgate/server/codec"
-	"github.com/jirenius/resgate/server/reserr"
+	"github.com/resgateio/resgate/server/codec"
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 func (s *Service) initAPIHandler() error {

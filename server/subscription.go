@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jirenius/resgate/server/codec"
-	"github.com/jirenius/resgate/server/rescache"
-	"github.com/jirenius/resgate/server/reserr"
-	"github.com/jirenius/resgate/server/rpc"
+	"github.com/resgateio/resgate/server/codec"
+	"github.com/resgateio/resgate/server/rescache"
+	"github.com/resgateio/resgate/server/reserr"
+	"github.com/resgateio/resgate/server/rpc"
 )
 
 type subscriptionState byte

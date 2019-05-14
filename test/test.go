@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jirenius/resgate/logger"
-	"github.com/jirenius/resgate/server"
 	"github.com/posener/wstest"
+	"github.com/resgateio/resgate/logger"
+	"github.com/resgateio/resgate/server"
 )
 
 const timeoutSeconds = 1

@@ -6,9 +6,9 @@
 
 <p align="center">
 <a href="http://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
-<a href="http://goreportcard.com/report/jirenius/resgate"><img src="http://goreportcard.com/badge/github.com/jirenius/resgate" alt="Report Card"></a>
-<a href="https://travis-ci.org/jirenius/resgate"><img src="https://travis-ci.org/jirenius/resgate.svg?branch=master" alt="Build Status"></a>
-<a href="https://coveralls.io/github/jirenius/resgate?branch=master"><img src="https://coveralls.io/repos/github/jirenius/resgate/badge.svg?branch=master" alt="Coverage"></a>
+<a href="http://goreportcard.com/report/resgateio/resgate"><img src="http://goreportcard.com/badge/github.com/resgateio/resgate" alt="Report Card"></a>
+<a href="https://travis-ci.com/resgateio/resgate"><img src="https://travis-ci.com/resgateio/resgate.svg?branch=master" alt="Build Status"></a>
+<a href="https://coveralls.io/github/resgateio/resgate?branch=master"><img src="https://coveralls.io/repos/github/resgateio/resgate/badge.svg?branch=master" alt="Coverage"></a>
 </p>
 
 <p align="center">Visit <a href="https://resgate.io">Resgate.io</a> for <a href="https://resgate.io/docs/get-started/introduction/">guides</a>, <a href="https://resgate.io/demo/">live demos</a>, and <a href="https://resgate.io/docs/get-started/resources/">resources</a>.</p>
@@ -37,7 +37,7 @@ Whenever there is a change to the data, the responsible micro-service sends an e
 ### Download
 The recommended way to install *Resgate* and *NATS Server* is to download one of the pre-built binaries:
 * [Download](https://nats.io/download/nats-io/gnatsd/) and run NATS Server
-* [Download](https://github.com/jirenius/resgate/releases/latest) and run Resgate
+* [Download](https://github.com/resgateio/resgate/releases/latest) and run Resgate
 
 ### Building
 
@@ -52,7 +52,7 @@ go get github.com/nats-io/gnatsd
 gnatsd
 ```
 ```bash
-go get github.com/jirenius/resgate
+go get github.com/resgateio/resgate
 resgate
 ```
 
@@ -79,7 +79,7 @@ For more in depth information on the protocol:
 
 * [RES protocol](docs/res-protocol.md) - Introduction and general terminology
 * [RES-Service protocol](docs/res-service-protocol.md) - How to write services
-* [RES-Client protocol](docs/res-client-protocol.md) - How to write client libraries, if [ResClient](https://github.com/jirenius/resclient) doesn't fit your needs
+* [RES-Client protocol](docs/res-client-protocol.md) - How to write client libraries, if [ResClient](https://github.com/resgateio/resclient) doesn't fit your needs
 
 ## Usage
 ```
@@ -180,6 +180,6 @@ If you'd like help out, please consider:
 
 Any feedback on the protocol and its implementation is highly appreciated!
 
-If you find any issues with the protocol or the gateway, feel free to [report them](https://github.com/jirenius/resgate/issues/new).
+If you find any issues with the protocol or the gateway, feel free to [report them](https://github.com/resgateio/resgate/issues/new).
 
 If you have created a service library, a client library, or some other tool or utility, please contact me to have it added to [the list of resources](https://resgate.io/docs/get-started/resources/).

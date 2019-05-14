@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jirenius/resgate/server"
-	"github.com/jirenius/resgate/server/reserr"
+	"github.com/resgateio/resgate/server"
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // Test invalid urls for HTTP get requests
