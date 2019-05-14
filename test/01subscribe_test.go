@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jirenius/resgate/server/mq"
-	"github.com/jirenius/resgate/server/reserr"
+	"github.com/resgateio/resgate/server/mq"
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // Test that a get- and access-request are sent to NATS on client subscribe

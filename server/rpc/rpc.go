@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/jirenius/resgate/server/codec"
-	"github.com/jirenius/resgate/server/reserr"
+	"github.com/resgateio/resgate/server/codec"
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // Requester has the methods required to perform a rpc request
@@ -21,7 +21,7 @@ type Requester interface {
 }
 
 // Request represent a RES-client request
-// https://github.com/jirenius/resgate/blob/master/docs/res-client-protocol.md#requests
+// https://github.com/resgateio/resgate/blob/master/docs/res-client-protocol.md#requests
 type Request struct {
 	Method string          `json:"method"`
 	Params json.RawMessage `json:"params"`
@@ -35,7 +35,7 @@ type Response struct {
 }
 
 // Event represent a RES-client event object
-// https://github.com/jirenius/resgate/blob/master/docs/res-client-protocol.md#event-object
+// https://github.com/resgateio/resgate/blob/master/docs/res-client-protocol.md#event-object
 type Event struct {
 	Event string      `json:"event"`
 	Data  interface{} `json:"data,omitempty"`
@@ -55,7 +55,7 @@ type Resources struct {
 }
 
 // AddEvent represents a RES-client collection add event
-// https://github.com/jirenius/resgate/blob/master/docs/res-client-protocol.md#collection-add-event
+// https://github.com/resgateio/resgate/blob/master/docs/res-client-protocol.md#collection-add-event
 type AddEvent struct {
 	Idx   int         `json:"idx"`
 	Value interface{} `json:"value"`
@@ -63,14 +63,14 @@ type AddEvent struct {
 }
 
 // ChangeEvent represents a RES-client model change event
-// https://github.com/jirenius/resgate/blob/master/docs/res-client-protocol.md#model-change-event
+// https://github.com/resgateio/resgate/blob/master/docs/res-client-protocol.md#model-change-event
 type ChangeEvent struct {
 	Values interface{} `json:"values"`
 	*Resources
 }
 
 // UnsubscribeEvent represents a RES-client unsubscribe event
-// https://github.com/jirenius/resgate/blob/master/docs/res-client-protocol.md#unsubscribe-event
+// https://github.com/resgateio/resgate/blob/master/docs/res-client-protocol.md#unsubscribe-event
 type UnsubscribeEvent struct {
 	Reason *reserr.Error `json:"reason"`
 }

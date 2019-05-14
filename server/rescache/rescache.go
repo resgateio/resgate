@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jirenius/resgate/logger"
-	"github.com/jirenius/resgate/server/codec"
-	"github.com/jirenius/resgate/server/mq"
-	"github.com/jirenius/resgate/server/reserr"
 	"github.com/jirenius/timerqueue"
+	"github.com/resgateio/resgate/logger"
+	"github.com/resgateio/resgate/server/codec"
+	"github.com/resgateio/resgate/server/mq"
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // Cache is an in memory resource cache.

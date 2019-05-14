@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/jirenius/resgate/server/codec"
+	"github.com/resgateio/resgate/server/codec"
 )
 
 type subscriptionState byte
@@ -20,7 +20,7 @@ const (
 var errQueryResourceOnNonQueryRequest = errors.New("query resource on non-query request")
 
 // Model represents a RES model
-// https://github.com/jirenius/resgate/blob/master/docs/res-protocol.md#models
+// https://github.com/resgateio/resgate/blob/master/docs/res-protocol.md#models
 type Model struct {
 	Values map[string]codec.Value
 	data   []byte
@@ -39,7 +39,7 @@ func (m *Model) MarshalJSON() ([]byte, error) {
 }
 
 // Collection represents a RES collection
-// https://github.com/jirenius/resgate/blob/master/docs/res-protocol.md#collections
+// https://github.com/resgateio/resgate/blob/master/docs/res-protocol.md#collections
 type Collection struct {
 	Values []codec.Value
 	data   []byte

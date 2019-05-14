@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jirenius/resgate/server/reserr"
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // Test responses to invalid client requests

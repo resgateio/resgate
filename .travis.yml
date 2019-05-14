@@ -18,4 +18,4 @@ script:
 - go test -i $PACKAGES
 - if [[ "$TRAVIS_GO_VERSION" =~ ^1\.12\. ]]; then ./scripts/cover.sh TRAVIS; else go test -v -race $PACKAGES; fi
 after_success:
-- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.12\. ]] && [ "$TRAVIS_TAG" != "" ]; then ghr --owner jirenius --token $GITHUB_TOKEN --draft --replace $TRAVIS_TAG pkg/; fi
+- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.12\. ]] && [ "$TRAVIS_TAG" != "" ]; then ghr --owner resgateio --token $GITHUB_TOKEN --draft --replace $TRAVIS_TAG pkg/; fi

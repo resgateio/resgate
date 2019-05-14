@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/jirenius/resgate/server/codec"
+	"github.com/resgateio/resgate/server/codec"
 )
 
 // Config holds server configuration

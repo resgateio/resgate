@@ -3,7 +3,7 @@ package test
 import (
 	"encoding/json"
 
-	"github.com/jirenius/resgate/server/reserr"
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // The following cyclic groups exist
