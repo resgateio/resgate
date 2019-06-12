@@ -15,7 +15,6 @@ func (s *Service) initMQClient() {
 // startMQClients creates a connection to the messaging system.
 // Service.mu is held when called
 func (s *Service) startMQClient() error {
-	s.Logf("Connecting to messaging system")
 	if err := s.mq.Connect(); err != nil {
 		return err
 	}
