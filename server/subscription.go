@@ -259,8 +259,8 @@ func (s *Subscription) GetRPCResources() *rpc.Resources {
 	return r
 }
 
-// ReleaseRPCResources will unlock all resources locked by GetRPCResource
-// and will mark the subscription as sent.
+// ReleaseRPCResources will unlock all resources locked by GetRPCResource,
+// unqueue any events, and mark the subscription as sent.
 func (s *Subscription) ReleaseRPCResources() {
 	if s.state == stateDisposed ||
 		s.state == stateSent ||
@@ -280,17 +280,17 @@ func (s *Subscription) queueEvents() {
 
 func (s *Subscription) unqueueEvents() {
 	s.isQueueing = false
+	eq := s.eventQueue
+	s.eventQueue = nil
 
-	for i, event := range s.eventQueue {
+	for i, event := range eq {
 		s.processEvent(event)
 		// Did one of the events activate queueing again?
 		if s.isQueueing {
-			s.eventQueue = s.eventQueue[i+1:]
+			s.eventQueue = append(eq[i+1:], s.eventQueue...)
 			return
 		}
 	}
-
-	s.eventQueue = nil
 }
 
 // populateResources iterates recursively down the subscription tree
@@ -389,7 +389,7 @@ func (s *Subscription) subscribeRef(v codec.Value) bool {
 }
 
 // collectRefs will wait for all references to be loaded
-// and call doneLoading() once completed.
+// and call the callback once completed.
 func (s *Subscription) collectRefs(rcb *readyCallback) {
 	for rid, ref := range s.refs {
 		// Don't wait for already ready references
