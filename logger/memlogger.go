@@ -43,18 +43,14 @@ func (l *MemLogger) Logf(prefix string, format string, v ...interface{}) {
 // Debugf writes a debug entry
 func (l *MemLogger) Debugf(prefix string, format string, v ...interface{}) {
 	if l.debug {
-		l.mu.Lock()
-		l.log.Print(prefix, fmt.Sprintf(format, v...))
-		l.mu.Unlock()
+		l.Logf(prefix, format, v...)
 	}
 }
 
 // Tracef writes a trace entry
 func (l *MemLogger) Tracef(prefix string, format string, v ...interface{}) {
 	if l.trace {
-		l.mu.Lock()
-		l.log.Print(prefix, fmt.Sprintf(format, v...))
-		l.mu.Unlock()
+		l.Logf(prefix, format, v...)
 	}
 }
 
