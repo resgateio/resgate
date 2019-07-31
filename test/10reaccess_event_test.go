@@ -101,7 +101,7 @@ func TestUnsubscribingParentTriggersAccessCall(t *testing.T) {
 		c.Request("unsubscribe.test.model.parent", nil).GetResponse(t)
 
 		// Assert we get a new access request on child model
-		req := s.GetRequest(t).AssertSubject(t, "access.test.model.parent")
+		req := s.GetRequest(t).AssertSubject(t, "access.test.model")
 
 		// Send event on model and validate no client event
 		s.ResourceEvent("test.model", "custom", event)

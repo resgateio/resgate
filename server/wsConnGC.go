@@ -32,7 +32,7 @@ func (c *wsConn) tryDelete(s *Subscription) {
 	refs[s.RID()] = rr
 
 	// Count down indirect references
-	c.traverse(s, gcStateRoot, func(s *Subscription, state gcState) gcState {
+	s.traverse(gcStateRoot, func(s *Subscription, state gcState) gcState {
 		if state == gcStateRoot {
 			return gcStateNone
 		}
@@ -55,7 +55,7 @@ func (c *wsConn) tryDelete(s *Subscription) {
 	}
 
 	// Mark for deletion
-	c.traverse(s, gcStateDelete, func(s *Subscription, state gcState) gcState {
+	s.traverse(gcStateDelete, func(s *Subscription, state gcState) gcState {
 		r := refs[s.RID()]
 
 		if r.state == gcStateKeep {
@@ -83,7 +83,7 @@ func (c *wsConn) tryDelete(s *Subscription) {
 	}
 }
 
-func (c *wsConn) traverse(s *Subscription, state gcState, cb traverseCallback) {
+func (s *Subscription) traverse(state gcState, cb traverseCallback) {
 	if s.direct > 0 {
 		return
 	}
@@ -94,6 +94,6 @@ func (c *wsConn) traverse(s *Subscription, state gcState, cb traverseCallback) {
 	}
 
 	for _, ref := range s.refs {
-		c.traverse(ref.sub, state, cb)
+		ref.sub.traverse(state, cb)
 	}
 }
