@@ -25,6 +25,7 @@ type ConnSubscriber interface {
 	Send(data []byte)
 	Enqueue(f func()) bool
 	ExpandCID(string) string
+	Disconnect(reason string)
 }
 
 // Subscription represents a resource subscription made by a client connection
@@ -44,15 +45,15 @@ type Subscription struct {
 	collection      *rescache.Collection
 	refs            map[string]*reference
 	err             error
-	isQueueing      bool
+	isQueueing      uint8
 	eventQueue      []*rescache.ResourceEvent
 	access          *rescache.Access
 	accessCallbacks []func(*rescache.Access)
 	accessCalled    bool
 
 	// Protected by conn
-	direct   int
-	indirect int
+	direct   int // Number of direct subscriptions
+	indirect int // Number of indirect subscriptions
 }
 
 type reference struct {
@@ -275,18 +276,26 @@ func (s *Subscription) ReleaseRPCResources() {
 }
 
 func (s *Subscription) queueEvents() {
-	s.isQueueing = true
+	// Health check, in case a bad client finds a way to cause excessive queueing.
+	// Normally the isQueueing counter should only max out at 2.
+	if s.isQueueing >= 16 {
+		s.c.Disconnect("Event queue counter exceeded")
+	}
+	s.isQueueing++
 }
 
 func (s *Subscription) unqueueEvents() {
-	s.isQueueing = false
+	s.isQueueing--
+	if s.isQueueing > 0 {
+		return
+	}
 	eq := s.eventQueue
 	s.eventQueue = nil
 
 	for i, event := range eq {
 		s.processEvent(event)
 		// Did one of the events activate queueing again?
-		if s.isQueueing {
+		if s.isQueueing > 0 {
 			s.eventQueue = append(eq[i+1:], s.eventQueue...)
 			return
 		}
@@ -454,6 +463,8 @@ func (s *Subscription) addReference(rid string) (*Subscription, error) {
 	return ref.sub, nil
 }
 
+// removeReference removes a reference from the subscription due to an
+// event such as collection remove or model change.
 func (s *Subscription) removeReference(rid string) {
 	ref := s.refs[rid]
 	ref.count--
@@ -471,7 +482,7 @@ func (s *Subscription) Event(event *rescache.ResourceEvent) {
 			return
 		}
 
-		if s.isQueueing {
+		if s.isQueueing > 0 {
 			s.eventQueue = append(s.eventQueue, event)
 			return
 		}
@@ -625,25 +636,44 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 
 func (s *Subscription) handleReaccess() {
 	s.access = nil
-	if s.direct == 0 {
+	s.ensureAccess()
+}
+
+func (s *Subscription) ensureAccess() {
+	if s.direct == 0 || s.indirect > 0 {
 		return
 	}
-	// Start queueing again
+
+	// If we already have an access instance set, use that one to test without queueing
+	if s.access != nil {
+		s.validateAccess(s.access)
+		return
+	}
+
 	s.queueEvents()
-
 	s.loadAccess(func(a *rescache.Access) {
-		err := a.CanGet()
-		if err != nil {
-			s.c.Unsubscribe(s, true, s.direct, true)
-			s.c.Send(rpc.NewEvent(s.rid, "unsubscribe", rpc.UnsubscribeEvent{Reason: reserr.RESError(err)}))
-		}
-
+		s.validateAccess(a)
 		s.unqueueEvents()
 	})
 }
 
-// unsubscribe removes any resourceSubscription
-func (s *Subscription) unsubscribe() {
+// validateAccess checks if subscription has get access, or else unsubscribes.
+func (s *Subscription) validateAccess(a *rescache.Access) {
+	err := a.CanGet()
+	if err != nil {
+		s.c.Unsubscribe(s, true, s.direct, true)
+		s.c.Send(rpc.NewEvent(s.rid, "unsubscribe", rpc.UnsubscribeEvent{Reason: reserr.RESError(err)}))
+	}
+}
+
+// EnsureAccess will make sure the subscription has get access, or will unsubscribe to it.
+func (s *Subscription) EnsureAccess() {
+	s.c.Enqueue(s.ensureAccess)
+}
+
+// Dispose removes any resourceSubscription and sets
+// the subscription state to stateDisposed
+func (s *Subscription) Dispose() {
 	if s.state == stateDisposed {
 		return
 	}
@@ -657,11 +687,6 @@ func (s *Subscription) unsubscribe() {
 		s.resourceSub.Unsubscribe(s)
 		s.resourceSub = nil
 	}
-}
-
-// Dispose obtains a lock and calls unsubscribe
-func (s *Subscription) Dispose() {
-	s.unsubscribe()
 }
 
 // doneLoading will decrease all loading counters for
@@ -692,7 +717,7 @@ func (s *Subscription) reaccess() {
 
 	event := &rescache.ResourceEvent{Event: "reaccess"}
 
-	if s.isQueueing {
+	if s.isQueueing > 0 {
 		s.eventQueue = append(s.eventQueue, event)
 		return
 	}
