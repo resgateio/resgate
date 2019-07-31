@@ -114,3 +114,25 @@ func TestUnsubscribingParentTriggersAccessCall(t *testing.T) {
 		c.GetEvent(t).Equals(t, "test.model.custom", event)
 	})
 }
+
+// Test that unsubscribing a parent resource to a child that was subscribed prior
+// to the parent resource will not trigger a new access call on the child.
+func TestUnsubscribingParentToPresubscribedChildDoesNotTriggerAccessCall(t *testing.T) {
+	runTest(t, func(s *Session) {
+		event := json.RawMessage(`{"foo":"bar"}`)
+
+		c := s.Connect()
+
+		// Get child model first
+		subscribeToTestModel(t, s, c)
+		// Get parent model afterwards
+		subscribeToTestModelParent(t, s, c, true)
+
+		// Call unsubscribe on parent
+		c.Request("unsubscribe.test.model.parent", nil).GetResponse(t)
+
+		// Send event on child model and validate client event
+		s.ResourceEvent("test.model", "custom", event)
+		c.GetEvent(t).Equals(t, "test.model.custom", event)
+	})
+}

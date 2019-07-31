@@ -51,9 +51,8 @@ type Subscription struct {
 	accessCalled    bool
 
 	// Protected by conn
-	direct           int // Number of direct subscriptions
-	indirect         int // Number of indirect subscriptions
-	indirectReaccess int // Number of indirect subscriptions currently under reaccess
+	direct   int // Number of direct subscriptions
+	indirect int // Number of indirect subscriptions
 }
 
 type reference struct {
