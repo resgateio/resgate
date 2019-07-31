@@ -25,6 +25,7 @@ type ConnSubscriber interface {
 	Send(data []byte)
 	Enqueue(f func()) bool
 	ExpandCID(string) string
+	Disconnect(reason string)
 }
 
 // Subscription represents a resource subscription made by a client connection
@@ -275,6 +276,11 @@ func (s *Subscription) ReleaseRPCResources() {
 }
 
 func (s *Subscription) queueEvents() {
+	// Health check, in case a bad client finds a way to cause excessive queueing.
+	// Normally the isQueueing counter should only max out at 2.
+	if s.isQueueing >= 16 {
+		s.c.Disconnect("Event queue counter exceeded")
+	}
 	s.isQueueing++
 }
 
