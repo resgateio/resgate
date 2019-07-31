@@ -23,7 +23,7 @@ func TestReaccessEvent(t *testing.T) {
 	})
 }
 
-// Test that a reaccess event triggers a re-access call on subscribed resources
+// Test that a reaccess event triggers a new access call on subscribed resources
 // and that the resource are still subscribed after given access
 func TestReaccessEventTriggersAccessCallOnSubscribedResources(t *testing.T) {
 	runTest(t, func(s *Session) {
@@ -53,8 +53,8 @@ func TestReaccessEventTriggersAccessCallOnSubscribedResources(t *testing.T) {
 	})
 }
 
-// Test that a reaccess event triggers a re-access call on subscribed resources
-// and that the resource are unsubscribed after being deniedn access
+// Test that a reaccess event triggers a new access call on subscribed resources
+// and that the resource are unsubscribed after being denied access
 func TestReaccessEventTriggersUnsubscribeOnDeniedAccessCall(t *testing.T) {
 	runTest(t, func(s *Session) {
 		event := json.RawMessage(`{"foo":"bar"}`)
@@ -81,5 +81,36 @@ func TestReaccessEventTriggersUnsubscribeOnDeniedAccessCall(t *testing.T) {
 		// Send event on model parent and validate client event
 		s.ResourceEvent("test.model.parent", "custom", event)
 		c.AssertNoEvent(t, "test.model.parent")
+	})
+}
+
+// Test that unsubscribing a parent resource triggers a new access call on the child.
+func TestUnsubscribingParentTriggersAccessCall(t *testing.T) {
+	runTest(t, func(s *Session) {
+		event := json.RawMessage(`{"foo":"bar"}`)
+
+		c := s.Connect()
+
+		// Get linked model
+		subscribeToTestModelParent(t, s, c, false)
+
+		// Subscribe to child
+		c.Request("subscribe.test.model", nil).GetResponse(t).AssertResult(t, json.RawMessage(`{}`))
+
+		// Call unsubscribe on parent
+		c.Request("unsubscribe.test.model.parent", nil).GetResponse(t)
+
+		// Assert we get a new access request on child model
+		req := s.GetRequest(t).AssertSubject(t, "access.test.model.parent")
+
+		// Send event on model and validate no client event
+		s.ResourceEvent("test.model", "custom", event)
+		c.AssertNoEvent(t, "test.model")
+
+		// Respond with access
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+
+		// Assert that the event is now sent
+		c.GetEvent(t).Equals(t, "test.model.custom", event)
 	})
 }
