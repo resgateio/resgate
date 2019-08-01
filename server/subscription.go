@@ -45,7 +45,7 @@ type Subscription struct {
 	collection      *rescache.Collection
 	refs            map[string]*reference
 	err             error
-	isQueueing      uint8
+	queueFlag       uint8
 	eventQueue      []*rescache.ResourceEvent
 	access          *rescache.Access
 	accessCallbacks []func(*rescache.Access)
@@ -74,6 +74,11 @@ const (
 	stateReady
 	stateToSend
 	stateSent
+)
+
+const (
+	queueReasonLoading uint8 = 1 << iota
+	queueReasonReaccess
 )
 
 const (
@@ -272,21 +277,16 @@ func (s *Subscription) ReleaseRPCResources() {
 	for _, sc := range s.refs {
 		sc.sub.ReleaseRPCResources()
 	}
-	s.unqueueEvents()
+	s.unqueueEvents(queueReasonLoading)
 }
 
-func (s *Subscription) queueEvents() {
-	// Health check, in case a bad client finds a way to cause excessive queueing.
-	// Normally the isQueueing counter should only max out at 2.
-	if s.isQueueing >= 16 {
-		s.c.Disconnect("Event queue counter exceeded")
-	}
-	s.isQueueing++
+func (s *Subscription) queueEvents(reason uint8) {
+	s.queueFlag |= reason
 }
 
-func (s *Subscription) unqueueEvents() {
-	s.isQueueing--
-	if s.isQueueing > 0 {
+func (s *Subscription) unqueueEvents(reason uint8) {
+	s.queueFlag &= ^reason
+	if s.queueFlag != 0 {
 		return
 	}
 	eq := s.eventQueue
@@ -295,7 +295,7 @@ func (s *Subscription) unqueueEvents() {
 	for i, event := range eq {
 		s.processEvent(event)
 		// Did one of the events activate queueing again?
-		if s.isQueueing > 0 {
+		if s.queueFlag != 0 {
 			s.eventQueue = append(eq[i+1:], s.eventQueue...)
 			return
 		}
@@ -348,7 +348,7 @@ func (s *Subscription) populateResources(r *rpc.Resources) {
 // setModel subscribes to all resource references in the model.
 func (s *Subscription) setModel() {
 	m := s.resourceSub.GetModel()
-	s.queueEvents()
+	s.queueEvents(queueReasonLoading)
 	s.resourceSub.Release()
 	for _, v := range m.Values {
 		if !s.subscribeRef(v) {
@@ -361,7 +361,7 @@ func (s *Subscription) setModel() {
 // setCollection subscribes to all resource references in the collection.
 func (s *Subscription) setCollection() {
 	c := s.resourceSub.GetCollection()
-	s.queueEvents()
+	s.queueEvents(queueReasonLoading)
 	s.resourceSub.Release()
 	for _, v := range c.Values {
 		if !s.subscribeRef(v) {
@@ -482,7 +482,7 @@ func (s *Subscription) Event(event *rescache.ResourceEvent) {
 			return
 		}
 
-		if s.isQueueing > 0 {
+		if s.queueFlag != 0 {
 			s.eventQueue = append(s.eventQueue, event)
 			return
 		}
@@ -530,7 +530,7 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 			}
 
 			// Start queueing again
-			s.queueEvents()
+			s.queueEvents(queueReasonLoading)
 
 			sub.OnReady(func() {
 				// Assert client is still subscribing
@@ -543,7 +543,7 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEvent{Idx: idx, Value: v.RawMessage, Resources: r}))
 				sub.ReleaseRPCResources()
 
-				s.unqueueEvents()
+				s.unqueueEvents(queueReasonLoading)
 			})
 		case codec.ValueTypePrimitive:
 			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEvent{Idx: idx, Value: v.RawMessage}))
@@ -602,7 +602,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 		}
 
 		// Start queueing again
-		s.queueEvents()
+		s.queueEvents(queueReasonLoading)
 		count := len(subs)
 		for _, sub := range subs {
 			sub.OnReady(func() {
@@ -625,7 +625,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 					sub.ReleaseRPCResources()
 				}
 
-				s.unqueueEvents()
+				s.unqueueEvents(queueReasonLoading)
 			})
 		}
 
@@ -650,10 +650,10 @@ func (s *Subscription) ensureAccess() {
 		return
 	}
 
-	s.queueEvents()
+	s.queueEvents(queueReasonReaccess)
 	s.loadAccess(func(a *rescache.Access) {
 		s.validateAccess(a)
-		s.unqueueEvents()
+		s.unqueueEvents(queueReasonReaccess)
 	})
 }
 
@@ -712,12 +712,12 @@ func (s *Subscription) reaccess() {
 	// Queue reaccess request if request is received prior to resourceSubscription
 	// being loaded or if it the subscription is disposed
 	if s.resourceSub == nil {
-		s.queueEvents()
+		s.queueEvents(queueReasonLoading)
 	}
 
 	event := &rescache.ResourceEvent{Event: "reaccess"}
 
-	if s.isQueueing > 0 {
+	if s.queueFlag != 0 {
 		s.eventQueue = append(s.eventQueue, event)
 		return
 	}

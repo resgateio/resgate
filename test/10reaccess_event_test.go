@@ -34,10 +34,10 @@ func TestReaccessEventTriggersAccessCallOnSubscribedResources(t *testing.T) {
 		// Get linked model
 		subscribeToTestModelParent(t, s, c, false)
 
-		// Change token
+		// Send reaccess event
 		s.ResourceEvent("test.model.parent", "reaccess", nil)
 
-		// Handle access requests with access denied
+		// Handle access requests with access granted
 		s.GetRequest(t).AssertSubject(t, "access.test.model.parent").RespondSuccess(json.RawMessage(`{"get":true}`))
 
 		// Validate no unsubscribe events are sent to client
@@ -134,5 +134,37 @@ func TestUnsubscribingParentToPresubscribedChildDoesNotTriggerAccessCall(t *test
 		// Send event on child model and validate client event
 		s.ResourceEvent("test.model", "custom", event)
 		c.GetEvent(t).Equals(t, "test.model.custom", event)
+	})
+}
+
+// Test that a reaccess event will queue any subsequent event for the direct
+// subscribed resource, but not for the indirect.
+// See issue for more information.
+func TestReaccessEventQueuesEvents(t *testing.T) {
+	runTest(t, func(s *Session) {
+		event := json.RawMessage(`{"foo":"bar"}`)
+
+		c := s.Connect()
+
+		// Get linked model
+		subscribeToTestModelParent(t, s, c, false)
+
+		// Send reaccess event
+		s.ResourceEvent("test.model.parent", "reaccess", nil)
+
+		// Handle access requests with access granted
+		req := s.GetRequest(t).AssertSubject(t, "access.test.model.parent")
+
+		// Send event on parent and model and validate only the model event was sent
+		s.ResourceEvent("test.model.parent", "custom", event)
+		s.ResourceEvent("test.model", "custom", event)
+		c.GetEvent(t).Equals(t, "test.model.custom", event)
+		c.AssertNoEvent(t, "test.model.parent")
+
+		// Respond with access
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+
+		// Assert that the parent event is now sent
+		c.GetEvent(t).Equals(t, "test.model.parent.custom", event)
 	})
 }
