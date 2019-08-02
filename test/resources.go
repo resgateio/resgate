@@ -149,7 +149,7 @@ var sequenceTable = [][]sequenceEvent{
 		{"event", "test.model.brokenchild"},
 		{"noevent", "test.err.notFound"},
 	},
-	// Cyclic tests
+	// Cyclic model tests
 	{
 		{"subscribe", "test.m.a"},
 		{"access", "test.m.a"},
@@ -241,7 +241,7 @@ var sequenceTable = [][]sequenceEvent{
 		{"event", "test.collection.brokenchild"},
 		{"noevent", "test.err.notFound"},
 	},
-	// Cyclic tests
+	// Cyclic collection tests
 	{
 		{"subscribe", "test.c.a"},
 		{"access", "test.c.a"},
@@ -283,5 +283,30 @@ var sequenceTable = [][]sequenceEvent{
 		{"get", "test.c.f"},
 		{"response", "test.c.d"},
 		{"response", "test.c.h"},
+	},
+	// Access test
+	{
+		{"subscribe", "test.model.parent"},
+		{"access", "test.model.parent"},
+		{"get", "test.model.parent"},
+		{"get", "test.model"},
+		{"response", "test.model.parent"},
+		{"subscribe", "test.model"},
+		{"access", "test.model"},
+		{"response", "test.model"},
+		{"event", "test.model.parent"},
+		{"event", "test.model"},
+	},
+	{
+		{"subscribe", "test.model.parent"},
+		{"access", "test.model.parent"},
+		{"get", "test.model.parent"},
+		{"get", "test.model"},
+		{"response", "test.model.parent"},
+		{"subscribe", "test.model"},
+		{"accessDenied", "test.model"},
+		{"errorResponse", "test.model"},
+		{"event", "test.model.parent"},
+		{"event", "test.model"},
 	},
 }

@@ -477,9 +477,6 @@ func (c *wsConn) removeCount(s *Subscription, direct bool, count int, tryDelete 
 		s.direct -= count
 	} else {
 		s.indirect -= count
-		// If we just removed the last indirect, while it is directly subscribed,
-		// the subscription might no longer have access. Time to ensure access.
-		s.EnsureAccess()
 	}
 
 	if tryDelete {

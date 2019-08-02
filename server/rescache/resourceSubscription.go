@@ -130,8 +130,9 @@ func (rs *ResourceSubscription) Unsubscribe(sub Subscriber) {
 }
 
 func (rs *ResourceSubscription) handleEvent(r *ResourceEvent) {
-	// Discard if event happened before resource was loaded
-	if rs.state <= stateRequested {
+	// Discard if event happened before resource was loaded,
+	// unless it is a reaccess. Then we let the event be passed further.
+	if rs.state <= stateRequested && r.Event != "reaccess" {
 		return
 	}
 

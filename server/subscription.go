@@ -49,7 +49,7 @@ type Subscription struct {
 	eventQueue      []*rescache.ResourceEvent
 	access          *rescache.Access
 	accessCallbacks []func(*rescache.Access)
-	accessCalled    bool
+	flags           uint8
 
 	// Protected by conn
 	direct   int // Number of direct subscriptions
@@ -82,6 +82,11 @@ const (
 )
 
 const (
+	flagAccessCalled uint8 = 1 << iota
+	flagReaccess
+)
+
+const (
 	subscriptionCountLimit = 256
 )
 
@@ -100,6 +105,7 @@ func NewSubscription(c ConnSubscriber, rid string) *Subscription {
 		resourceQuery: query,
 		c:             c,
 		state:         stateLoading,
+		queueFlag:     queueReasonLoading,
 	}
 
 	return sub
@@ -289,6 +295,15 @@ func (s *Subscription) unqueueEvents(reason uint8) {
 	if s.queueFlag != 0 {
 		return
 	}
+
+	// Start with reaccess calls
+	if s.flags&flagReaccess != 0 {
+		s.handleReaccess()
+		if s.queueFlag != 0 {
+			return
+		}
+	}
+
 	eq := s.eventQueue
 	s.eventQueue = nil
 
@@ -477,6 +492,11 @@ func (s *Subscription) removeReference(rid string) {
 // Event passes an event to the subscription to be processed.
 func (s *Subscription) Event(event *rescache.ResourceEvent) {
 	s.c.Enqueue(func() {
+		if event.Event == "reaccess" {
+			s.reaccess()
+			return
+		}
+
 		// Discard any event prior to resourceSubscription being loaded or disposed
 		if s.resourceSub == nil {
 			return
@@ -492,11 +512,6 @@ func (s *Subscription) Event(event *rescache.ResourceEvent) {
 }
 
 func (s *Subscription) processEvent(event *rescache.ResourceEvent) {
-	if event.Event == "reaccess" {
-		s.handleReaccess()
-		return
-	}
-
 	switch s.resourceSub.GetResourceType() {
 	case rescache.TypeCollection:
 		s.processCollectionEvent(event)
@@ -636,11 +651,9 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 
 func (s *Subscription) handleReaccess() {
 	s.access = nil
-	s.ensureAccess()
-}
+	s.flags &= ^flagReaccess
 
-func (s *Subscription) ensureAccess() {
-	if s.direct == 0 || s.indirect > 0 {
+	if s.direct == 0 {
 		return
 	}
 
@@ -664,11 +677,6 @@ func (s *Subscription) validateAccess(a *rescache.Access) {
 		s.c.Unsubscribe(s, true, s.direct, true)
 		s.c.Send(rpc.NewEvent(s.rid, "unsubscribe", rpc.UnsubscribeEvent{Reason: reserr.RESError(err)}))
 	}
-}
-
-// EnsureAccess will make sure the subscription has get access, or will unsubscribe to it.
-func (s *Subscription) EnsureAccess() {
-	s.c.Enqueue(s.ensureAccess)
 }
 
 // Dispose removes any resourceSubscription and sets
@@ -709,20 +717,16 @@ func (s *Subscription) Reaccess() {
 }
 
 func (s *Subscription) reaccess() {
-	// Queue reaccess request if request is received prior to resourceSubscription
-	// being loaded or if it the subscription is disposed
-	if s.resourceSub == nil {
-		s.queueEvents(queueReasonLoading)
-	}
-
-	event := &rescache.ResourceEvent{Event: "reaccess"}
-
-	if s.queueFlag != 0 {
-		s.eventQueue = append(s.eventQueue, event)
+	if s.state == stateDisposed {
 		return
 	}
 
-	s.processEvent(event)
+	if s.queueFlag != 0 {
+		s.flags |= flagReaccess
+		return
+	}
+
+	s.handleReaccess()
 }
 
 func parseRID(rid string) (name string, query string) {
@@ -742,11 +746,11 @@ func (s *Subscription) loadAccess(cb func(*rescache.Access)) {
 
 	s.accessCallbacks = append(s.accessCallbacks, cb)
 
-	if s.accessCalled {
+	if s.flags&flagAccessCalled != 0 {
 		return
 	}
 
-	s.accessCalled = true
+	s.flags |= flagAccessCalled
 
 	s.c.Access(s, func(access *rescache.Access) {
 		s.c.Enqueue(func() {
@@ -755,7 +759,7 @@ func (s *Subscription) loadAccess(cb func(*rescache.Access)) {
 			}
 
 			cbs := s.accessCallbacks
-			s.accessCalled = false
+			s.flags &= ^flagAccessCalled
 			// Only store in case of an actual result or system.accessDenied error
 			if access.Error == nil || access.Error.Code == reserr.CodeAccessDenied {
 				s.access = access
@@ -774,11 +778,6 @@ func (s *Subscription) loadAccess(cb func(*rescache.Access)) {
 // describing the reason. If access is granted, the callback will be called with
 // err being nil.
 func (s *Subscription) CanGet(cb func(err error)) {
-	if s.indirect > 0 {
-		cb(nil)
-		return
-	}
-
 	s.loadAccess(func(a *rescache.Access) {
 		cb(a.CanGet())
 	})
