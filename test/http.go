@@ -133,6 +133,21 @@ func (hr *HTTPResponse) AssertErrorCode(t *testing.T, code string) *HTTPResponse
 	return hr
 }
 
+// AssertIsError asserts that the response does not have status 200,
+// and that the body has an error code.
+func (hr *HTTPResponse) AssertIsError(t *testing.T) *HTTPResponse {
+	if hr.Code == http.StatusOK {
+		t.Fatalf("expected response code not to be 200, but it was")
+	}
+
+	var rerr reserr.Error
+	err := json.Unmarshal(hr.Body.Bytes(), &rerr)
+	if err != nil || rerr.Code == "" {
+		t.Fatalf("expected error response, but got body:\n%s", hr.Body.String())
+	}
+	return hr
+}
+
 // AssertHeaders asserts that the response includes the expected headers
 func (hr *HTTPResponse) AssertHeaders(t *testing.T, h map[string]string) *HTTPResponse {
 	for k, v := range h {

@@ -460,3 +460,29 @@ func TestQueryEventWithMultipleQueryRequestsQueuesOtherEventsUntilHandled(t *tes
 		c.GetEvent(t).Equals(t, "test.model.change", json.RawMessage(`{"values":{"string":"bar","int":-12}}`))
 	})
 }
+
+// Test query event discarded if sent prior to get response
+func TestQueryEventDiscardedWhenPrecedingGetResponse(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		model := resourceData("test.model")
+
+		// Send subscribe request
+		creq := c.Request("subscribe.test.model?foo=bar", nil)
+
+		// Handle model get and access request
+		mreqs := s.GetParallelRequests(t, 2)
+
+		// Send query event
+		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+
+		// Send get and access response
+		mreqs.GetRequest(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":` + model + `,"query":"foo=baz"}`))
+		mreqs.GetRequest(t, "access.test.model").RespondSuccess(json.RawMessage(`{"get":true}`))
+
+		// Validate client response and validate
+		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model?foo=bar":`+model+`}}`))
+
+		c.AssertNoEvent(t, "test.model")
+	})
+}

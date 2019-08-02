@@ -25,6 +25,7 @@ type ConnSubscriber interface {
 	Send(data []byte)
 	Enqueue(f func()) bool
 	ExpandCID(string) string
+	Disconnect(reason string)
 }
 
 // Subscription represents a resource subscription made by a client connection
@@ -44,15 +45,15 @@ type Subscription struct {
 	collection      *rescache.Collection
 	refs            map[string]*reference
 	err             error
-	isQueueing      bool
+	queueFlag       uint8
 	eventQueue      []*rescache.ResourceEvent
 	access          *rescache.Access
 	accessCallbacks []func(*rescache.Access)
-	accessCalled    bool
+	flags           uint8
 
 	// Protected by conn
-	direct   int
-	indirect int
+	direct   int // Number of direct subscriptions
+	indirect int // Number of indirect subscriptions
 }
 
 type reference struct {
@@ -76,6 +77,16 @@ const (
 )
 
 const (
+	queueReasonLoading uint8 = 1 << iota
+	queueReasonReaccess
+)
+
+const (
+	flagAccessCalled uint8 = 1 << iota
+	flagReaccess
+)
+
+const (
 	subscriptionCountLimit = 256
 )
 
@@ -94,6 +105,7 @@ func NewSubscription(c ConnSubscriber, rid string) *Subscription {
 		resourceQuery: query,
 		c:             c,
 		state:         stateLoading,
+		queueFlag:     queueReasonLoading,
 	}
 
 	return sub
@@ -259,8 +271,8 @@ func (s *Subscription) GetRPCResources() *rpc.Resources {
 	return r
 }
 
-// ReleaseRPCResources will unlock all resources locked by GetRPCResource
-// and will mark the subscription as sent.
+// ReleaseRPCResources will unlock all resources locked by GetRPCResource,
+// unqueue any events, and mark the subscription as sent.
 func (s *Subscription) ReleaseRPCResources() {
 	if s.state == stateDisposed ||
 		s.state == stateSent ||
@@ -271,26 +283,38 @@ func (s *Subscription) ReleaseRPCResources() {
 	for _, sc := range s.refs {
 		sc.sub.ReleaseRPCResources()
 	}
-	s.unqueueEvents()
+	s.unqueueEvents(queueReasonLoading)
 }
 
-func (s *Subscription) queueEvents() {
-	s.isQueueing = true
+func (s *Subscription) queueEvents(reason uint8) {
+	s.queueFlag |= reason
 }
 
-func (s *Subscription) unqueueEvents() {
-	s.isQueueing = false
+func (s *Subscription) unqueueEvents(reason uint8) {
+	s.queueFlag &= ^reason
+	if s.queueFlag != 0 {
+		return
+	}
 
-	for i, event := range s.eventQueue {
-		s.processEvent(event)
-		// Did one of the events activate queueing again?
-		if s.isQueueing {
-			s.eventQueue = s.eventQueue[i+1:]
+	// Start with reaccess calls
+	if s.flags&flagReaccess != 0 {
+		s.handleReaccess()
+		if s.queueFlag != 0 {
 			return
 		}
 	}
 
+	eq := s.eventQueue
 	s.eventQueue = nil
+
+	for i, event := range eq {
+		s.processEvent(event)
+		// Did one of the events activate queueing again?
+		if s.queueFlag != 0 {
+			s.eventQueue = append(eq[i+1:], s.eventQueue...)
+			return
+		}
+	}
 }
 
 // populateResources iterates recursively down the subscription tree
@@ -339,7 +363,7 @@ func (s *Subscription) populateResources(r *rpc.Resources) {
 // setModel subscribes to all resource references in the model.
 func (s *Subscription) setModel() {
 	m := s.resourceSub.GetModel()
-	s.queueEvents()
+	s.queueEvents(queueReasonLoading)
 	s.resourceSub.Release()
 	for _, v := range m.Values {
 		if !s.subscribeRef(v) {
@@ -352,7 +376,7 @@ func (s *Subscription) setModel() {
 // setCollection subscribes to all resource references in the collection.
 func (s *Subscription) setCollection() {
 	c := s.resourceSub.GetCollection()
-	s.queueEvents()
+	s.queueEvents(queueReasonLoading)
 	s.resourceSub.Release()
 	for _, v := range c.Values {
 		if !s.subscribeRef(v) {
@@ -389,7 +413,7 @@ func (s *Subscription) subscribeRef(v codec.Value) bool {
 }
 
 // collectRefs will wait for all references to be loaded
-// and call doneLoading() once completed.
+// and call the callback once completed.
 func (s *Subscription) collectRefs(rcb *readyCallback) {
 	for rid, ref := range s.refs {
 		// Don't wait for already ready references
@@ -454,6 +478,8 @@ func (s *Subscription) addReference(rid string) (*Subscription, error) {
 	return ref.sub, nil
 }
 
+// removeReference removes a reference from the subscription due to an
+// event such as collection remove or model change.
 func (s *Subscription) removeReference(rid string) {
 	ref := s.refs[rid]
 	ref.count--
@@ -466,12 +492,17 @@ func (s *Subscription) removeReference(rid string) {
 // Event passes an event to the subscription to be processed.
 func (s *Subscription) Event(event *rescache.ResourceEvent) {
 	s.c.Enqueue(func() {
+		if event.Event == "reaccess" {
+			s.reaccess()
+			return
+		}
+
 		// Discard any event prior to resourceSubscription being loaded or disposed
 		if s.resourceSub == nil {
 			return
 		}
 
-		if s.isQueueing {
+		if s.queueFlag != 0 {
 			s.eventQueue = append(s.eventQueue, event)
 			return
 		}
@@ -481,11 +512,6 @@ func (s *Subscription) Event(event *rescache.ResourceEvent) {
 }
 
 func (s *Subscription) processEvent(event *rescache.ResourceEvent) {
-	if event.Event == "reaccess" {
-		s.handleReaccess()
-		return
-	}
-
 	switch s.resourceSub.GetResourceType() {
 	case rescache.TypeCollection:
 		s.processCollectionEvent(event)
@@ -519,7 +545,7 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 			}
 
 			// Start queueing again
-			s.queueEvents()
+			s.queueEvents(queueReasonLoading)
 
 			sub.OnReady(func() {
 				// Assert client is still subscribing
@@ -532,7 +558,7 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEvent{Idx: idx, Value: v.RawMessage, Resources: r}))
 				sub.ReleaseRPCResources()
 
-				s.unqueueEvents()
+				s.unqueueEvents(queueReasonLoading)
 			})
 		case codec.ValueTypePrimitive:
 			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEvent{Idx: idx, Value: v.RawMessage}))
@@ -591,7 +617,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 		}
 
 		// Start queueing again
-		s.queueEvents()
+		s.queueEvents(queueReasonLoading)
 		count := len(subs)
 		for _, sub := range subs {
 			sub.OnReady(func() {
@@ -614,7 +640,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 					sub.ReleaseRPCResources()
 				}
 
-				s.unqueueEvents()
+				s.unqueueEvents(queueReasonLoading)
 			})
 		}
 
@@ -625,25 +651,37 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 
 func (s *Subscription) handleReaccess() {
 	s.access = nil
+	s.flags &= ^flagReaccess
+
 	if s.direct == 0 {
 		return
 	}
-	// Start queueing again
-	s.queueEvents()
 
+	// If we already have an access instance set, use that one to test without queueing
+	if s.access != nil {
+		s.validateAccess(s.access)
+		return
+	}
+
+	s.queueEvents(queueReasonReaccess)
 	s.loadAccess(func(a *rescache.Access) {
-		err := a.CanGet()
-		if err != nil {
-			s.c.Unsubscribe(s, true, s.direct, true)
-			s.c.Send(rpc.NewEvent(s.rid, "unsubscribe", rpc.UnsubscribeEvent{Reason: reserr.RESError(err)}))
-		}
-
-		s.unqueueEvents()
+		s.validateAccess(a)
+		s.unqueueEvents(queueReasonReaccess)
 	})
 }
 
-// unsubscribe removes any resourceSubscription
-func (s *Subscription) unsubscribe() {
+// validateAccess checks if subscription has get access, or else unsubscribes.
+func (s *Subscription) validateAccess(a *rescache.Access) {
+	err := a.CanGet()
+	if err != nil {
+		s.c.Unsubscribe(s, true, s.direct, true)
+		s.c.Send(rpc.NewEvent(s.rid, "unsubscribe", rpc.UnsubscribeEvent{Reason: reserr.RESError(err)}))
+	}
+}
+
+// Dispose removes any resourceSubscription and sets
+// the subscription state to stateDisposed
+func (s *Subscription) Dispose() {
 	if s.state == stateDisposed {
 		return
 	}
@@ -657,11 +695,6 @@ func (s *Subscription) unsubscribe() {
 		s.resourceSub.Unsubscribe(s)
 		s.resourceSub = nil
 	}
-}
-
-// Dispose obtains a lock and calls unsubscribe
-func (s *Subscription) Dispose() {
-	s.unsubscribe()
 }
 
 // doneLoading will decrease all loading counters for
@@ -684,20 +717,16 @@ func (s *Subscription) Reaccess() {
 }
 
 func (s *Subscription) reaccess() {
-	// Queue reaccess request if request is received prior to resourceSubscription
-	// being loaded or if it the subscription is disposed
-	if s.resourceSub == nil {
-		s.queueEvents()
-	}
-
-	event := &rescache.ResourceEvent{Event: "reaccess"}
-
-	if s.isQueueing {
-		s.eventQueue = append(s.eventQueue, event)
+	if s.state == stateDisposed {
 		return
 	}
 
-	s.processEvent(event)
+	if s.queueFlag != 0 {
+		s.flags |= flagReaccess
+		return
+	}
+
+	s.handleReaccess()
 }
 
 func parseRID(rid string) (name string, query string) {
@@ -717,11 +746,11 @@ func (s *Subscription) loadAccess(cb func(*rescache.Access)) {
 
 	s.accessCallbacks = append(s.accessCallbacks, cb)
 
-	if s.accessCalled {
+	if s.flags&flagAccessCalled != 0 {
 		return
 	}
 
-	s.accessCalled = true
+	s.flags |= flagAccessCalled
 
 	s.c.Access(s, func(access *rescache.Access) {
 		s.c.Enqueue(func() {
@@ -730,7 +759,7 @@ func (s *Subscription) loadAccess(cb func(*rescache.Access)) {
 			}
 
 			cbs := s.accessCallbacks
-			s.accessCalled = false
+			s.flags &= ^flagAccessCalled
 			// Only store in case of an actual result or system.accessDenied error
 			if access.Error == nil || access.Error.Code == reserr.CodeAccessDenied {
 				s.access = access
@@ -749,11 +778,6 @@ func (s *Subscription) loadAccess(cb func(*rescache.Access)) {
 // describing the reason. If access is granted, the callback will be called with
 // err being nil.
 func (s *Subscription) CanGet(cb func(err error)) {
-	if s.indirect > 0 {
-		cb(nil)
-		return
-	}
-
 	s.loadAccess(func(a *rescache.Access) {
 		cb(a.CanGet())
 	})
