@@ -25,7 +25,7 @@ resgate --headauth auth.jwtHeader
 ```
 ## Prerequisite
 
-* Have [NATS Server](https://nats.io/download/nats-io/gnatsd/) and [Resgate](https://github.com/resgateio/resgate) (with the *headauth* flag) running
+* Have [NATS Server](https://nats-io.github.io/docs/nats_server/installation.html) and [Resgate](https://github.com/resgateio/resgate) (with the *headauth* flag) running
 * Have [node.js](https://nodejs.org/en/download/) installed
 
 ## Install and run

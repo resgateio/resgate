@@ -98,7 +98,7 @@ The messaging system handles the communication between [services](#services) and
 * guarantee that the messages and responses sent by any one service will arrive in the same order as they were sent
 * guarantee any service or gateway is notified on connection loss, or any other disturbance that might have caused any message or response to not having been delivered.
 
-Resgate, the gateway implementation of the RES protocol, uses [NATS server](https://nats.io/documentation/server/gnatsd-intro/) as messaging system.
+Resgate, the gateway implementation of the RES protocol, uses [NATS server](https://nats.io/about/) as messaging system.
 
 ## Services
 
