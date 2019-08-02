@@ -36,8 +36,8 @@ Whenever there is a change to the data, the responsible micro-service sends an e
 
 ### Download
 The recommended way to install *Resgate* and *NATS Server* is to download one of the pre-built binaries:
-* [Download](https://nats.io/download/nats-io/gnatsd/) and run NATS Server
-* [Download](https://github.com/resgateio/resgate/releases/latest) and run Resgate
+* [Download](https://nats.io/download/nats-io/nats-server/) and run NATS Server
+* [Download](https://resgate.io/download/) and run Resgate
 
 ### Building
 
@@ -46,10 +46,10 @@ If you wish to build your own binaries, first make sure you have:
 * added `$GOPATH/bin` (where your binaries are stored) to your `PATH`
 * [installed node.js](https://nodejs.org/en/download/) (for the test app)
 
-Install and run [NATS server](https://nats.io/download/nats-io/gnatsd/) and Resgate:
+Install and run [NATS server](https://nats-io.github.io/docs/nats_server/installation.html) and Resgate:
 ```bash
-go get github.com/nats-io/gnatsd
-gnatsd
+go get github.com/nats-io/nats-server
+nats-server
 ```
 ```bash
 go get github.com/resgateio/resgate

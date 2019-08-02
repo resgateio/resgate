@@ -8,7 +8,7 @@ This is an example written in Javascript (Node.js) of a simple text field that c
 
 ## Prerequisite
 
-* Have [NATS Server](https://nats.io/download/nats-io/gnatsd/) and [Resgate](https://github.com/resgateio/resgate) running
+* Have [NATS Server](https://nats-io.github.io/docs/nats_server/installation.html) and [Resgate](https://resgate.io/docs/get-started/installation/) running
 * Have [node.js](https://nodejs.org/en/download/) installed
 
 ## Install and run
