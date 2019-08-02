@@ -258,6 +258,11 @@ func (e *EventSubscription) handleQueryEvent(subj string, payload []byte) {
 	e.lockEvents(l)
 
 	for q, rs := range e.queries {
+		// Do not include queries still being requested
+		if rs.state <= stateRequested {
+			go e.enqueueUnlock(func() {})
+			continue
+		}
 		payload := codec.CreateEventQueryRequest(q)
 		rs := rs
 		e.cache.mq.SendRequest(qe.Subject, payload, func(subj string, data []byte, err error) {
