@@ -128,6 +128,12 @@ func TestHTTPGet(t *testing.T) {
 							reqs[treq.Subject] = treq
 						}
 						req.RespondSuccess(json.RawMessage(`{"get":true}`))
+					case "accessDenied":
+						for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
+							treq := s.GetRequest(t)
+							reqs[treq.Subject] = treq
+						}
+						req.RespondSuccess(json.RawMessage(`{"get":false}`))
 					case "get":
 						for req = reqs["get."+ev.RID]; req == nil; req = reqs["get."+ev.RID] {
 							req = s.GetRequest(t)
@@ -145,6 +151,9 @@ func TestHTTPGet(t *testing.T) {
 					case "response":
 						hreq = hreqs[ev.RID]
 						hreq.GetResponse(t).Equals(t, http.StatusOK, json.RawMessage(enc.Responses[ev.RID]))
+					case "errorResponse":
+						hreq = hreqs[ev.RID]
+						hreq.GetResponse(t).AssertIsError(t)
 					}
 				}
 			}, func(c *server.Config) {

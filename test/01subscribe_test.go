@@ -233,6 +233,12 @@ func TestSubscribe(t *testing.T) {
 						reqs[treq.Subject] = treq
 					}
 					req.RespondSuccess(json.RawMessage(`{"get":true}`))
+				case "accessDenied":
+					for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
+						treq := s.GetRequest(t)
+						reqs[treq.Subject] = treq
+					}
+					req.RespondSuccess(json.RawMessage(`{"get":false}`))
 				case "get":
 					for req = reqs["get."+ev.RID]; req == nil; req = reqs["get."+ev.RID] {
 						req = s.GetRequest(t)
@@ -279,6 +285,9 @@ func TestSubscribe(t *testing.T) {
 						m["errors"] = errors
 					}
 					creq.GetResponse(t).AssertResult(t, m)
+				case "errorResponse":
+					creq = creqs[ev.RID]
+					creq.GetResponse(t).AssertIsError(t)
 				case "event":
 					s.ResourceEvent(ev.RID, "custom", event)
 					c.GetEvent(t).Equals(t, ev.RID+".custom", event)

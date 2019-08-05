@@ -73,6 +73,8 @@ func (c *Client) Connect() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	c.Logf("Connecting to NATS at %s", c.URL)
+
 	// No reconnects as all resources are instantly stale anyhow
 	nc, err := nats.Connect(c.URL, nats.NoReconnect())
 	if err != nil {
