@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/gorilla/websocket"
 	"github.com/resgateio/resgate/logger"
 	"github.com/resgateio/resgate/server/mq"
 	"github.com/resgateio/resgate/server/rescache"
@@ -26,8 +27,9 @@ type Service struct {
 	enc APIEncoder
 
 	// wsListener/wsConn
-	conns map[string]*wsConn // Connections by wsConn Id's
-	wg    sync.WaitGroup     // Wait for all connections to be disconnected
+	upgrader websocket.Upgrader
+	conns    map[string]*wsConn // Connections by wsConn Id's
+	wg       sync.WaitGroup     // Wait for all connections to be disconnected
 }
 
 // NewService creates a new Service

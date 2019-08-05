@@ -8,17 +8,17 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
 var wsDisconnectTimeout = 3 * time.Second
 
 func (s *Service) initWSHandler() error {
+	s.upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+		EnableCompression: s.cfg.WSCompression,
+	}
 	s.conns = make(map[string]*wsConn)
 	return nil
 }
@@ -31,7 +31,7 @@ func (s *Service) GetWSHandlerFunc() http.Handler {
 
 func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 	// Upgrade to gorilla websocket
-	ws, err := upgrader.Upgrade(w, r, nil)
+	ws, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		s.Debugf("Failed to upgrade connection from %s: %s", r.RemoteAddr, err.Error())
 		return
