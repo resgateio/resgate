@@ -36,6 +36,8 @@ Server Options:
 
 Common Options:
     -h, --help                       Show this message
+
+Configuration Documentation:         https://resgate.io/docs/get-started/configuration/
 `
 
 // Config holds server configuration
@@ -90,6 +92,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&c.APIEncoding, "apiencoding", "", "Encoding for web resources.")
 	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout in milliseconds for NATS requests.")
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
+	fs.BoolVar(&c.Debug, "debug", false, "Enable debugging.")
 
 	if err := fs.Parse(args); err != nil {
 		printAndDie(fmt.Sprintf("error parsing arguments: %s", err.Error()), true)
