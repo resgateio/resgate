@@ -150,7 +150,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 			} else {
 				c.HeaderAuth = &headauth
 			}
-		case "natscreds":
+		case "creds":
 			if natsCreds == "" {
 				c.NatsCreds = nil
 			} else {
