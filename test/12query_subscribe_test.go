@@ -34,6 +34,35 @@ func TestSendingQueryToNonQueryModel(t *testing.T) {
 	})
 }
 
+// Test query model response to non-query model subscribe requests
+func TestSendingNonQueryToQueryModel(t *testing.T) {
+	runTest(t, func(s *Session) {
+		model := resourceData("test.model")
+		event := json.RawMessage(`{"foo":"bar"}`)
+		query := "q=foo&f=bar"
+
+		c := s.Connect()
+
+		// Send subscribe request
+		creq := c.Request("subscribe.test.model", nil)
+
+		// Handle model get and access request
+		mreqs := s.GetParallelRequests(t, 2)
+		mreqs.
+			GetRequest(t, "get.test.model").
+			RespondSuccess(json.RawMessage(`{"model":` + model + `,"query":"` + query + `"}`))
+		mreqs.GetRequest(t, "access.test.model").RespondSuccess(json.RawMessage(`{"get":true}`))
+
+		// Validate client response and validate
+		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model":`+model+`}}`))
+
+		// Send event on model and validate client event
+		s.ResourceEvent("test.model", "custom", event)
+		c.AssertNoEvent(t, "test.model")
+		c.AssertNoNATSRequest(t, "test.model")
+	})
+}
+
 // Test subscribing to query model
 func TestSubscribingToQueryModel(t *testing.T) {
 	runTest(t, func(s *Session) {

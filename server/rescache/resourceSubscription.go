@@ -231,7 +231,7 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 	l := len(old)
 
 	if idx < 0 || idx > l {
-		rs.e.cache.Logf("Error processing event %s.%s: Idx %d not valid", rs.e.ResourceName, r.Event, idx)
+		rs.e.cache.Logf("Error processing event %s.%s: idx %d is out of bounds", rs.e.ResourceName, r.Event, idx)
 		return false
 	}
 
@@ -266,7 +266,7 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 	l := len(old)
 
 	if idx < 0 || idx >= l {
-		rs.e.cache.Logf("Error processing event %s.%s: Idx %d not valid", rs.e.ResourceName, r.Event, idx)
+		rs.e.cache.Logf("Error processing event %s.%s: idx %d is out of bounds", rs.e.ResourceName, r.Event, idx)
 		return false
 	}
 
@@ -309,7 +309,11 @@ func (rs *ResourceSubscription) unregister() {
 		delete(rs.e.queries, rs.query)
 	}
 	for _, q := range rs.links {
-		delete(rs.e.links, q)
+		if q == "" {
+			rs.e.base = nil
+		} else {
+			delete(rs.e.links, q)
+		}
 	}
 	rs.links = nil
 }
@@ -320,11 +324,6 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (n
 	// or an error in the service's response
 	if err == nil {
 		result, err = codec.DecodeGetResponse(payload)
-	}
-
-	// Assert a non-query request did not result in a query resource
-	if err == nil && rs.query == "" && result.Query != "" {
-		err = errQueryResourceOnNonQueryRequest
 	}
 
 	// Get request failed
@@ -356,12 +355,16 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (n
 	// Then we should create a link to the normalized query
 	if result.Query != rs.query {
 		nrs = rs.e.getResourceSubscription(result.Query)
-		// Replace resource subscription with the normalized version
-		if rs.e.links == nil {
-			rs.e.links = make(map[string]*ResourceSubscription)
+		if rs.query == "" {
+			rs.e.base = nrs
+		} else {
+			// Replace resource subscription with the normalized version
+			if rs.e.links == nil {
+				rs.e.links = make(map[string]*ResourceSubscription)
+			}
+			rs.e.links[rs.query] = nrs
+			delete(rs.e.queries, rs.query)
 		}
-		rs.e.links[rs.query] = nrs
-		delete(rs.e.queries, rs.query)
 		nrs.links = append(nrs.links, rs.query)
 
 		// Copy over all subscribers
