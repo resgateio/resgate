@@ -239,15 +239,17 @@ func (c *Client) parseMeta(msg *nats.Msg, rc responseCont) {
 	if v, ok := tag.Lookup("timeout"); ok {
 		timeout, err := strconv.Atoi(v)
 		if err == nil {
+			var removed bool
 			if rc.t == nil {
-				c.tq.Remove(msg.Sub)
+				removed = c.tq.Remove(msg.Sub)
 			} else {
-				rc.t.Stop()
+				removed = rc.t.Stop()
 			}
-			rc.t = time.AfterFunc(time.Duration(timeout)*time.Millisecond, func() {
-				c.onTimeout(msg.Sub)
-			})
-			c.mqReqs[msg.Sub] = rc
+			if removed {
+				rc.t = time.AfterFunc(time.Duration(timeout)*time.Millisecond, func() {
+					c.onTimeout(msg.Sub)
+				})
+			}
 		}
 	}
 }
