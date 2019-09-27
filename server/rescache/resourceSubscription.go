@@ -2,7 +2,6 @@ package rescache
 
 import (
 	"encoding/json"
-	"errors"
 
 	"github.com/resgateio/resgate/server/codec"
 )
@@ -16,8 +15,6 @@ const (
 	stateCollection
 	stateModel
 )
-
-var errQueryResourceOnNonQueryRequest = errors.New("query resource on non-query request")
 
 // Model represents a RES model
 // https://github.com/resgateio/resgate/blob/master/docs/res-protocol.md#models
