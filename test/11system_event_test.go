@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 )
 
@@ -167,4 +168,42 @@ func TestSystemResetEventTriggersUnsubscribeOnDeniedAccessCall(t *testing.T) {
 		s.ResourceEvent("test.collection", "custom", event)
 		c.GetEvent(t).Equals(t, "test.collection.custom", event)
 	})
+}
+
+// Test that a system.reset event triggers get requests on query model
+func TestSystemResetTriggersGetRequestOnQueryModel(t *testing.T) {
+	tbl := []struct {
+		Query      string
+		Normalized string
+	}{
+		{"foo=bar", "foo=bar"},
+		{"a=b&foo=bar", "foo=bar"},
+		{"", "foo=bar"},
+	}
+
+	for i, l := range tbl {
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
+			model := resourceData("test.model")
+
+			c := s.Connect()
+
+			// Get model
+			subscribeToTestQueryModel(t, s, c, l.Query, l.Normalized)
+
+			// Send system reset
+			s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+
+			// Validate a get request is sent
+			s.GetRequest(t).
+				AssertSubject(t, "get.test.model").
+				AssertPathPayload(t, "query", l.Normalized).
+				RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+
+			// Validate no more requests are sent to NATS
+			c.AssertNoNATSRequest(t, "test.model")
+
+			// Validate no events are sent to client
+			c.AssertNoEvent(t, "test.model")
+		})
+	}
 }

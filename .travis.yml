@@ -1,7 +1,7 @@
 language: go
 go:
-- 1.11.x
 - 1.12.x
+- 1.13.x
 install:
 - go get github.com/mattn/goveralls
 - go get honnef.co/go/tools/cmd/staticcheck
@@ -13,9 +13,9 @@ before_script:
 - $(exit $(go fmt $PACKAGES | wc -l))
 - misspell -error -locale US .
 - staticcheck $PACKAGES
-- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.12\. ]] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh $TRAVIS_TAG; fi
+- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.13\. ]] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh $TRAVIS_TAG; fi
 script:
 - go test -i $PACKAGES
-- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.12\. ]]; then ./scripts/cover.sh TRAVIS; else go test -v -race $PACKAGES; fi
+- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.13\. ]]; then ./scripts/cover.sh TRAVIS; else go test -v -race $PACKAGES; fi
 after_success:
-- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.12\. ]] && [ "$TRAVIS_TAG" != "" ]; then ghr --owner resgateio --token $GITHUB_TOKEN --draft --replace $TRAVIS_TAG pkg/; fi
+- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.13\. ]] && [ "$TRAVIS_TAG" != "" ]; then ghr --owner resgateio --token $GITHUB_TOKEN --draft --replace $TRAVIS_TAG pkg/; fi
