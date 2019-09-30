@@ -1,4 +1,6 @@
-# The RES-Client Protocol Specification v1.1
+# The RES-Client Protocol Specification
+
+*Version: [1.1.0](res-protocol-semver.md)*
 
 ## Table of contents
 - [Introduction](#introduction)
