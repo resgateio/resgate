@@ -188,7 +188,7 @@ MUST be an array of strings.
 **query**  
 Normalized query without the question mark separator.  
 Different queries (eg. `a=1&b=2` and `b=2&a=1`) that results in the same [query resource](#query-resources) should have the same normalized query (eg. `a=1&b=2`). The normalized query will be used by the gateway in [query requests](#query-request), and in get requests triggered by a [system reset event](#system-reset-event).  
-MUST be omitted if the request had no *query* parameter.  
+MAY be included even if the request had no *query* parameter.  
 MUST be omitted if the resource is not a [query resource](#query-resources).  
 MUST NOT be omitted if the resource is a [query resource](#query-resources).  
 MUST be a string.
