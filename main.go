@@ -15,6 +15,8 @@ import (
 	"github.com/resgateio/resgate/server"
 )
 
+// stopTimeout is the duration Resgate waits for all processes to
+// stop before forcefully exiting with an error and a stack trace.
 var stopTimeout = 10 * time.Second
 
 var usageStr = `
@@ -37,6 +39,7 @@ Server Options:
 
 Common Options:
     -h, --help                       Show this message
+    -v, --version                    Show version
 
 Configuration Documentation:         https://resgate.io/docs/get-started/configuration/
 `
@@ -65,12 +68,13 @@ func (c *Config) SetDefault() {
 // If no file exists, a new file with default settings is created
 func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	var (
-		showHelp   bool
-		configFile string
-		port       uint
-		headauth   string
-		addr       string
-		natsCreds  string
+		showHelp    bool
+		showVersion bool
+		configFile  string
+		port        uint
+		headauth    string
+		addr        string
+		natsCreds   string
 	)
 
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
@@ -97,6 +101,8 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
 	fs.StringVar(&natsCreds, "creds", "", "NATS User Credentials file.")
 	fs.BoolVar(&c.Debug, "debug", false, "Enable debugging.")
+	fs.BoolVar(&showVersion, "version", false, "Print version information.")
+	fs.BoolVar(&showVersion, "v", false, "Print version information.")
 
 	if err := fs.Parse(args); err != nil {
 		printAndDie(fmt.Sprintf("error parsing arguments: %s", err.Error()), true)
@@ -108,6 +114,10 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 
 	if showHelp {
 		usage()
+	}
+
+	if showVersion {
+		version()
 	}
 
 	if configFile != "" {
@@ -172,6 +182,12 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 // usage will print out the flag options for the server.
 func usage() {
 	fmt.Printf("%s\n", usageStr)
+	os.Exit(0)
+}
+
+// version will print out the current resgate and protocol version.
+func version() {
+	fmt.Printf("resgate  v%s\nprotocol v%s", server.Version, server.ProtocolVersion)
 	os.Exit(0)
 }
 

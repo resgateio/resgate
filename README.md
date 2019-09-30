@@ -100,6 +100,7 @@ resgate [options]
 | `    --apiencoding <type>` | Encoding for web resources: json, jsonflat |
 | `-c, --config <file>` | Configuration file |
 | `-h, --help` | Show usage message |
+| `-v, --version` | Show version |
 
 
 ## Configuration

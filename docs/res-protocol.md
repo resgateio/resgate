@@ -1,4 +1,6 @@
-# RES Protocol v1.1
+# RES Protocol
+
+*Version: [1.1.0](res-protocol-semver.md)*
 
 ## Table of contents
 - [Introduction](#introduction)

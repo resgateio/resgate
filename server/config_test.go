@@ -1,6 +1,7 @@
 package server
 
 import (
+	"os"
 	"testing"
 )
 
@@ -117,5 +118,20 @@ func TestNewServiceConfigError(t *testing.T) {
 		} else if err == nil && r.ServiceError {
 			t.Fatalf("expected an error, but got none, in test #%d", i+1)
 		}
+	}
+}
+
+// Test that the travis version tag (if existing) matches that
+// of the Version constant.
+func TestVersionMatchesTag(t *testing.T) {
+	tag := os.Getenv("TRAVIS_TAG")
+	if tag == "" {
+		t.SkipNow()
+	}
+	if tag[0] != 'v' {
+		t.Fatalf("Expected tag to start with `v`, got %+v", tag)
+	}
+	if Version != tag[1:] {
+		t.Fatalf("Expected version %+v, got %+v", Version, tag[1:])
 	}
 }

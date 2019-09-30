@@ -31,24 +31,23 @@ type Config struct {
 	headerAuthAction string
 }
 
-var defaultAddr = "0.0.0.0"
-
 // SetDefault sets the default values
 func (c *Config) SetDefault() {
 	if c.Addr == nil {
-		c.Addr = &defaultAddr
+		addr := DefaultAddr
+		c.Addr = &addr
 	}
 	if c.Port == 0 {
-		c.Port = 8080
+		c.Port = DefaultPort
 	}
 	if c.WSPath == "" {
-		c.WSPath = "/"
+		c.WSPath = DefaultWSPath
 	}
 	if c.APIPath == "" {
-		c.APIPath = "/api"
+		c.APIPath = DefaultAPIPath
 	}
 	if c.APIEncoding == "" {
-		c.APIEncoding = "json"
+		c.APIEncoding = DefaultAPIEncoding
 	}
 }
 
@@ -84,7 +83,7 @@ func (c *Config) prepare() error {
 			}
 		}
 	} else {
-		c.netAddr = defaultAddr
+		c.netAddr = DefaultAddr
 	}
 	c.netAddr += fmt.Sprintf(":%d", c.Port)
 

@@ -86,10 +86,6 @@ const (
 	flagReaccess
 )
 
-const (
-	subscriptionCountLimit = 256
-)
-
 var (
 	errSubscriptionLimitExceeded = &reserr.Error{Code: "system.subscriptionLimitExceeded", Message: "Subscription limit exceeded"}
 	errDisposedSubscription      = &reserr.Error{Code: "system.disposedSubscription", Message: "Resource subscription is disposed"}

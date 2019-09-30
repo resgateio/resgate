@@ -6,10 +6,8 @@ import (
 	"github.com/resgateio/resgate/server/rescache"
 )
 
-const mqWorkers = 10
-
 func (s *Service) initMQClient() {
-	s.cache = rescache.NewCache(s.mq, mqWorkers, s.logger)
+	s.cache = rescache.NewCache(s.mq, CacheWorkers, UnsubscribeDelay, s.logger)
 }
 
 // startMQClients creates a connection to the messaging system.
