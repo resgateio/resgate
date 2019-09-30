@@ -15,9 +15,10 @@ import (
 
 // Cache is an in memory resource cache.
 type Cache struct {
-	mq      mq.Client
-	logger  logger.Logger
-	workers int
+	mq               mq.Client
+	logger           logger.Logger
+	workers          int
+	unsubscribeDelay time.Duration
 
 	started    bool
 	eventSubs  map[string]*EventSubscription
@@ -47,14 +48,13 @@ type ResourceEvent struct {
 	OldValues map[string]codec.Value
 }
 
-const unsubscribeDelay = time.Second * 5
-
 // NewCache creates a new Cache instance
-func NewCache(mq mq.Client, workers int, l logger.Logger) *Cache {
+func NewCache(mq mq.Client, workers int, unsubscribeDelay time.Duration, l logger.Logger) *Cache {
 	return &Cache{
-		mq:      mq,
-		logger:  l,
-		workers: workers,
+		mq:               mq,
+		logger:           l,
+		workers:          workers,
+		unsubscribeDelay: unsubscribeDelay,
 	}
 }
 
@@ -71,7 +71,7 @@ func (c *Cache) Start() error {
 	}
 	inCh := make(chan *EventSubscription, 100)
 	c.eventSubs = make(map[string]*EventSubscription)
-	c.unsubQueue = timerqueue.New(c.mqUnsubscribe, unsubscribeDelay)
+	c.unsubQueue = timerqueue.New(c.mqUnsubscribe, c.unsubscribeDelay)
 	c.inCh = inCh
 
 	for i := 0; i < c.workers; i++ {

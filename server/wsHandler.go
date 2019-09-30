@@ -8,8 +8,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var wsDisconnectTimeout = 3 * time.Second
-
 func (s *Service) initWSHandler() error {
 	s.upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -69,7 +67,7 @@ func (s *Service) stopWSHandler() {
 	select {
 	case <-done:
 		s.Logf("All ws connections gracefully closed")
-	case <-time.After(wsDisconnectTimeout):
+	case <-time.After(WSTimeout):
 		// Time out
 
 		// Create string of deadlocked connections

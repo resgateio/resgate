@@ -33,9 +33,6 @@ type wsConn struct {
 	mu sync.Mutex
 }
 
-const wsConnWorkerQueueSize = 256
-const cidPlaceholder = "{cid}"
-
 func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request) *wsConn {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -53,7 +50,7 @@ func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request) *wsConn {
 		request: request,
 		serv:    s,
 		subs:    make(map[string]*Subscription),
-		queue:   make([]func(), 0, wsConnWorkerQueueSize),
+		queue:   make([]func(), 0, WSConnWorkerQueueSize),
 		work:    make(chan struct{}, 1),
 	}
 	conn.logPrefix = conn.String() + " "
@@ -453,7 +450,7 @@ func (c *wsConn) UnsubscribeByRID(rid string) bool {
 
 func (c *wsConn) addCount(s *Subscription, direct bool) error {
 	if direct {
-		if s.direct >= subscriptionCountLimit {
+		if s.direct >= SubscriptionCountLimit {
 			c.Debugf("Subscription %s: Subscription limit exceeded (%d)", s.RID(), s.direct)
 			return errSubscriptionLimitExceeded
 		}
@@ -514,8 +511,8 @@ func (c *wsConn) outputWorker() {
 			c.mu.Lock()
 		}
 
-		if cap(c.queue) > wsConnWorkerQueueSize {
-			c.queue = make([]func(), 0, wsConnWorkerQueueSize)
+		if cap(c.queue) > WSConnWorkerQueueSize {
+			c.queue = make([]func(), 0, WSConnWorkerQueueSize)
 		} else {
 			c.queue = c.queue[0:0]
 		}
@@ -567,5 +564,5 @@ func (c *wsConn) handleConnToken(payload []byte) {
 }
 
 func (c *wsConn) ExpandCID(rid string) string {
-	return strings.Replace(rid, cidPlaceholder, c.cid, -1)
+	return strings.Replace(rid, CIDPlaceholder, c.cid, -1)
 }

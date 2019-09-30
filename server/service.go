@@ -110,7 +110,7 @@ func (s *Service) start() error {
 		return errors.New("server is stopping")
 	}
 
-	s.Logf("Starting server")
+	s.Logf("Starting resgate version %s", Version)
 	s.stop = make(chan error, 1)
 
 	if err := s.startMQClient(); err != nil {
