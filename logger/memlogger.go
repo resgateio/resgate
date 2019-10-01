@@ -2,7 +2,6 @@ package logger
 
 import (
 	"bytes"
-	"fmt"
 	"log"
 	"sync"
 )
@@ -18,39 +17,44 @@ type MemLogger struct {
 
 // NewMemLogger returns a new logger that writes to a bytes buffer
 func NewMemLogger(debug bool, trace bool) *MemLogger {
-	logFlags := log.LstdFlags
-	if debug {
-		logFlags = log.Ltime
-	}
-
 	b := &bytes.Buffer{}
-
 	return &MemLogger{
-		log:   log.New(b, "", logFlags),
+		log:   log.New(b, "", log.Ltime|log.Lmicroseconds),
 		b:     b,
 		debug: debug,
 		trace: trace,
 	}
 }
 
-// Logf writes a log entry
-func (l *MemLogger) Logf(prefix string, format string, v ...interface{}) {
+// Log writes a log entry
+func (l *MemLogger) Log(s string) {
 	l.mu.Lock()
-	l.log.Print(prefix, fmt.Sprintf(format, v...))
+	l.log.Print("[INF] ", s)
 	l.mu.Unlock()
 }
 
-// Debugf writes a debug entry
-func (l *MemLogger) Debugf(prefix string, format string, v ...interface{}) {
+// Error writes an error entry
+func (l *MemLogger) Error(s string) {
+	l.mu.Lock()
+	l.log.Print("[ERR] ", s)
+	l.mu.Unlock()
+}
+
+// Debug writes a debug entry
+func (l *MemLogger) Debug(s string) {
 	if l.debug {
-		l.Logf(prefix, format, v...)
+		l.mu.Lock()
+		l.log.Print("[DBG] ", s)
+		l.mu.Unlock()
 	}
 }
 
-// Tracef writes a trace entry
-func (l *MemLogger) Tracef(prefix string, format string, v ...interface{}) {
+// Trace writes a trace entry
+func (l *MemLogger) Trace(s string) {
 	if l.trace {
-		l.Logf(prefix, format, v...)
+		l.mu.Lock()
+		l.log.Print("[TRC] ", s)
+		l.mu.Unlock()
 	}
 }
 

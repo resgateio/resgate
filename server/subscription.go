@@ -17,6 +17,7 @@ type subscriptionState byte
 type ConnSubscriber interface {
 	Logf(format string, v ...interface{})
 	Debugf(format string, v ...interface{})
+	Errorf(format string, v ...interface{})
 	CID() string
 	Token() json.RawMessage
 	Subscribe(rid string, direct bool) (*Subscription, error)
@@ -224,7 +225,7 @@ func (s *Subscription) setResource() {
 		s.setModel()
 	default:
 		err := fmt.Errorf("subscription %s: unknown resource type", s.rid)
-		s.c.Logf("%s", err)
+		s.c.Errorf("Error loading %s", err)
 		s.err = err
 	}
 }
@@ -514,7 +515,7 @@ func (s *Subscription) processEvent(event *rescache.ResourceEvent) {
 	case rescache.TypeModel:
 		s.processModelEvent(event)
 	default:
-		s.c.Debugf("Subscription %s: Unknown resource type: %d", s.rid, s.resourceSub.GetResourceType())
+		s.c.Errorf("Subscription %s: Unknown resource type: %d", s.rid, s.resourceSub.GetResourceType())
 	}
 }
 
@@ -529,7 +530,7 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 			rid := v.RID
 			sub, err := s.addReference(rid)
 			if err != nil {
-				s.c.Debugf("Subscription %s: Error subscribing to resource %s: %s", s.rid, v.RID, err)
+				s.c.Errorf("Subscription %s: Error subscribing to resource %s: %s", s.rid, v.RID, err)
 				// TODO send error value
 				return
 			}
@@ -585,7 +586,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 			if v.Type == codec.ValueTypeResource {
 				sub, err := s.addReference(v.RID)
 				if err != nil {
-					s.c.Debugf("Subscription %s: Error subscribing to resource %s: %s", s.rid, v.RID, err)
+					s.c.Errorf("Subscription %s: Error subscribing to resource %s: %s", s.rid, v.RID, err)
 					// TODO handle error properly
 					return
 				}

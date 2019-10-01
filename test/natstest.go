@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"runtime/pprof"
@@ -53,7 +54,7 @@ func (c *NATSTestClient) Logf(format string, v ...interface{}) {
 	if c.l == nil {
 		return
 	}
-	c.l.Logf("[NATS] ", format, v...)
+	c.l.Log(fmt.Sprintf(format, v...))
 }
 
 // Debugf writes a formatted debug message
@@ -61,7 +62,7 @@ func (c *NATSTestClient) Debugf(format string, v ...interface{}) {
 	if c.l == nil {
 		return
 	}
-	c.l.Debugf("[NATS] ", format, v...)
+	c.l.Debug(fmt.Sprintf(format, v...))
 }
 
 // Tracef writes a formatted trace message
@@ -69,7 +70,7 @@ func (c *NATSTestClient) Tracef(format string, v ...interface{}) {
 	if c.l == nil {
 		return
 	}
-	c.l.Tracef("[NATS] ", format, v...)
+	c.l.Trace(fmt.Sprintf(format, v...))
 }
 
 // Connect establishes a connection to the MQ
@@ -214,7 +215,7 @@ func (c *NATSTestClient) event(ns string, event string, payload interface{}) {
 
 	c.mu.Unlock()
 	subj := ns + "." + event
-	c.Tracef("E=> %s: %s", subj, data)
+	c.Tracef("=>> %s: %s", subj, data)
 	s.cb(subj, data, nil)
 }
 
@@ -231,7 +232,7 @@ func (s *Subscription) Unsubscribe() error {
 		panic("test: subscription inconsistency")
 	}
 
-	s.c.Tracef("<=U %s", s.ns)
+	s.c.Tracef("U=> %s", s.ns)
 	delete(s.c.subs, s.ns)
 	return nil
 }

@@ -1,6 +1,7 @@
 package nats
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 	"sync"
@@ -16,8 +17,6 @@ const (
 	natsChannelSize = 256
 )
 
-const logPrefix = "[NATS] "
-
 // Client holds a client connection to a nats server.
 type Client struct {
 	RequestTimeout time.Duration
@@ -25,12 +24,13 @@ type Client struct {
 	Creds          *string
 	Logger         logger.Logger
 
-	mq      *nats.Conn
-	mqCh    chan *nats.Msg
-	mqReqs  map[*nats.Subscription]responseCont
-	tq      *timerqueue.Queue
-	mu      sync.Mutex
-	stopped chan struct{}
+	mq           *nats.Conn
+	mqCh         chan *nats.Msg
+	mqReqs       map[*nats.Subscription]responseCont
+	tq           *timerqueue.Queue
+	mu           sync.Mutex
+	closeHandler func(error)
+	stopped      chan struct{}
 }
 
 // Subscription implements the mq.Unsubscriber interface.
@@ -50,7 +50,7 @@ func (c *Client) Logf(format string, v ...interface{}) {
 	if c.Logger == nil {
 		return
 	}
-	c.Logger.Logf(logPrefix, format, v...)
+	c.Logger.Log(fmt.Sprintf(format, v...))
 }
 
 // Debugf writes a formatted debug message
@@ -58,7 +58,7 @@ func (c *Client) Debugf(format string, v ...interface{}) {
 	if c.Logger == nil {
 		return
 	}
-	c.Logger.Debugf(logPrefix, format, v...)
+	c.Logger.Debug(fmt.Sprintf(format, v...))
 }
 
 // Tracef writes a formatted trace message
@@ -66,7 +66,7 @@ func (c *Client) Tracef(format string, v ...interface{}) {
 	if c.Logger == nil {
 		return
 	}
-	c.Logger.Tracef(logPrefix, format, v...)
+	c.Logger.Trace(fmt.Sprintf(format, v...))
 }
 
 // Connect creates a connection to the nats server.
@@ -77,7 +77,7 @@ func (c *Client) Connect() error {
 	c.Logf("Connecting to NATS at %s", c.URL)
 
 	// Create connection options
-	opts := []nats.Option{nats.NoReconnect()}
+	opts := []nats.Option{nats.NoReconnect(), nats.ClosedHandler(c.onClose)}
 	if c.Creds != nil {
 		opts = append(opts, nats.UserCredentials(*c.Creds))
 	}
@@ -120,9 +120,12 @@ func (c *Client) Close() {
 	}
 
 	if !c.mq.IsClosed() {
+		c.Debugf("Closing NATS connection...")
 		c.mq.Close()
+		c.Debugf("NATS connection closed")
 	}
 
+	c.Debugf("Stopping NATS listener...")
 	close(c.mqCh)
 	c.mqCh = nil
 
@@ -139,13 +142,19 @@ func (c *Client) Close() {
 	c.mu.Unlock()
 
 	<-stopped
+	c.Debugf("NATS listener stopped")
 }
 
 // SetClosedHandler sets the handler when the connection is closed
 func (c *Client) SetClosedHandler(cb func(error)) {
-	c.mq.SetClosedHandler(func(conn *nats.Conn) {
-		cb(conn.LastError())
-	})
+	c.closeHandler = cb
+}
+
+func (c *Client) onClose(conn *nats.Conn) {
+	if c.closeHandler != nil {
+		err := conn.LastError()
+		c.closeHandler(fmt.Errorf("lost NATS connection: %s", err))
+	}
 }
 
 // SendRequest sends a request to the MQ.
@@ -161,7 +170,7 @@ func (c *Client) SendRequest(subj string, payload []byte, cb mq.Response) {
 		return
 	}
 
-	c.Tracef("<== %s: %s", subj, payload)
+	c.Tracef("<== (%s) %s: %s", inboxSubstr(inbox), subj, payload)
 
 	err = c.mq.PublishRequest(subj, inbox, payload)
 	if err != nil {
@@ -185,6 +194,8 @@ func (c *Client) Subscribe(namespace string, cb mq.Response) (mq.Unsubscriber, e
 		return nil, err
 	}
 
+	c.Tracef("S=> %s", sub.Subject)
+
 	c.mqReqs[sub] = responseCont{f: cb}
 
 	us := &Subscription{c: c, sub: sub}
@@ -195,6 +206,8 @@ func (c *Client) Subscribe(namespace string, cb mq.Response) (mq.Unsubscriber, e
 func (s *Subscription) Unsubscribe() error {
 	s.c.mu.Lock()
 	defer s.c.mu.Unlock()
+
+	s.c.Tracef("U=> %s", s.sub.Subject)
 
 	delete(s.c.mqReqs, s.sub)
 	return s.sub.Unsubscribe()
@@ -210,7 +223,7 @@ func (c *Client) listener(ch chan *nats.Msg, stopped chan struct{}) {
 			if len(msg.Data) > 0 && (msg.Data[0]|32)-'a' < 26 {
 				c.parseMeta(msg, rc)
 				c.mu.Unlock()
-				c.Tracef("==> %s: %s", msg.Subject, msg.Data)
+				c.Tracef("==> (%s): %s", inboxSubstr(msg.Subject), msg.Data)
 				continue
 			}
 
@@ -224,7 +237,11 @@ func (c *Client) listener(ch chan *nats.Msg, stopped chan struct{}) {
 		c.mu.Unlock()
 
 		if ok {
-			c.Tracef("==> %s: %s", msg.Subject, msg.Data)
+			if rc.isReq {
+				c.Tracef("==> (%s): %s", inboxSubstr(msg.Subject), msg.Data)
+			} else {
+				c.Tracef("=>> %s: %s", msg.Subject, msg.Data)
+			}
 			rc.f(msg.Subject, msg.Data, nil)
 		}
 	}
@@ -271,6 +288,14 @@ func (c *Client) onTimeout(v interface{}) {
 	}
 	sub.Unsubscribe()
 
-	c.Tracef("x=> Request timeout")
+	c.Tracef("x=> (%s) Request timeout", inboxSubstr(sub.Subject))
 	rc.f("", nil, mq.ErrRequestTimeout)
+}
+
+func inboxSubstr(s string) string {
+	l := len(s)
+	if l <= 6 {
+		return s
+	}
+	return s[l-6:]
 }

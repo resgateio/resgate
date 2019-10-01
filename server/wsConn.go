@@ -22,10 +22,10 @@ type wsConn struct {
 	request   *http.Request
 	token     json.RawMessage
 	serv      *Service
-	logPrefix string
 	subs      map[string]*Subscription
 	disposing bool
 	mqSub     mq.Unsubscriber
+	connStr   string
 
 	queue []func()
 	work  chan struct{}
@@ -53,7 +53,7 @@ func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request) *wsConn {
 		queue:   make([]func(), 0, WSConnWorkerQueueSize),
 		work:    make(chan struct{}, 1),
 	}
-	conn.logPrefix = conn.String() + " "
+	conn.connStr = "[" + conn.cid + "]"
 
 	s.conns[conn.cid] = conn
 	s.wg.Add(1)
@@ -80,8 +80,6 @@ func (c *wsConn) HTTPRequest() *http.Request {
 }
 
 func (c *wsConn) listen() {
-	c.Tracef("Connected")
-
 	var in []byte
 	var err error
 
@@ -140,7 +138,7 @@ func (c *wsConn) Dispose() {
 }
 
 func (c *wsConn) String() string {
-	return fmt.Sprintf("[%s]", c.cid)
+	return c.connStr
 }
 
 // Logf writes a formatted log message
@@ -148,7 +146,15 @@ func (c *wsConn) Logf(format string, v ...interface{}) {
 	if c.serv.logger == nil {
 		return
 	}
-	c.serv.logger.Logf(c.logPrefix, format, v...)
+	c.serv.logger.Log(c.connStr + " " + fmt.Sprintf(format, v...))
+}
+
+// Errorf writes a formatted log message
+func (c *wsConn) Errorf(format string, v ...interface{}) {
+	if c.serv.logger == nil {
+		return
+	}
+	c.serv.logger.Error(c.connStr + " " + fmt.Sprintf(format, v...))
 }
 
 // Debugf writes a formatted log message
@@ -156,7 +162,7 @@ func (c *wsConn) Debugf(format string, v ...interface{}) {
 	if c.serv.logger == nil {
 		return
 	}
-	c.serv.logger.Debugf(c.logPrefix, format, v...)
+	c.serv.logger.Debug(c.connStr + " " + fmt.Sprintf(format, v...))
 }
 
 // Tracef writes a formatted trace message
@@ -164,13 +170,13 @@ func (c *wsConn) Tracef(format string, v ...interface{}) {
 	if c.serv.logger == nil {
 		return
 	}
-	c.serv.logger.Tracef(c.logPrefix, format, v...)
+	c.serv.logger.Trace(c.connStr + " " + fmt.Sprintf(format, v...))
 }
 
 // Disconnect closes the websocket connection.
 func (c *wsConn) Disconnect(reason string) {
 	if c.ws != nil {
-		c.Debugf("Disconnecting - %s", reason)
+		c.Tracef("Disconnecting - %s", reason)
 		c.ws.Close()
 	}
 }
@@ -200,6 +206,13 @@ func (c *wsConn) enqueue(f func()) {
 }
 
 func (c *wsConn) Send(data []byte) {
+	if c.ws != nil {
+		c.Tracef("<<- %s", data)
+		c.ws.WriteMessage(websocket.TextMessage, data)
+	}
+}
+
+func (c *wsConn) Reply(data []byte) {
 	if c.ws != nil {
 		c.Tracef("<-- %s", data)
 		c.ws.WriteMessage(websocket.TextMessage, data)
@@ -527,7 +540,7 @@ func (c *wsConn) subscribeConn() {
 		c.Enqueue(func() {
 			idx := len(c.cid) + 6 // Length of "conn." + "."
 			if idx >= len(subj) {
-				c.Debugf("Error processing conn event %s: malformed event subject", subj)
+				c.Errorf("Error processing conn event %s: malformed event subject", subj)
 				return
 			}
 
@@ -541,7 +554,7 @@ func (c *wsConn) subscribeConn() {
 	})
 
 	if err != nil {
-		c.Logf("Error subscribing to conn events: %s", err)
+		c.Errorf("Error subscribing to conn events: %s", err)
 	}
 
 	c.mqSub = mqSub
@@ -556,7 +569,7 @@ func (c *wsConn) unsubscribeConn() {
 func (c *wsConn) handleConnToken(payload []byte) {
 	te, err := codec.DecodeConnTokenEvent(payload)
 	if err != nil {
-		c.Debugf("Error processing conn event: malformed event payload: %s", err)
+		c.Errorf("Error processing token event: malformed event payload: %s", err)
 		return
 	}
 
