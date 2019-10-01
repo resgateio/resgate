@@ -101,6 +101,7 @@ Code                    | Message            | Meaning
 ----------------------- | ------------------ | ----------------------------------------
 `system.notFound`       | Not found          | The resource was not found
 `system.invalidParams`  | Invalid parameters | Invalid parameters in method call
+`system.invalidQuery`   | Invalid query      | Invalid query or query parameters
 `system.internalError`  | Internal error     | Internal error
 `system.methodNotFound` | Method not found   | Resource method not found
 `system.accessDenied`   | Access denied      | Access to a resource or method is denied
@@ -157,7 +158,8 @@ Value may be a single asterisk character (`"*"`) if client is allowed to call an
 ### Error
 
 Any error response will be treated as if the client has no access to the resource.  
-A `system.notFound` error MAY be sent if the resource ID doesn't exist.
+A `system.notFound` error MAY be sent if the resource ID doesn't exist.  
+A `system.invalidQuery` error MAY be sent if the query is malformed or invalid.
 
 ## Get request
 
@@ -186,7 +188,7 @@ MUST be an array of strings.
 **query**  
 Normalized query without the question mark separator.  
 Different queries (eg. `a=1&b=2` and `b=2&a=1`) that results in the same [query resource](#query-resources) should have the same normalized query (eg. `a=1&b=2`). The normalized query will be used by the gateway in [query requests](#query-request), and in get requests triggered by a [system reset event](#system-reset-event).  
-MUST be omitted if the request had no *query* parameter.  
+MAY be included even if the request had no *query* parameter.  
 MUST be omitted if the resource is not a [query resource](#query-resources).  
 MUST NOT be omitted if the resource is a [query resource](#query-resources).  
 MUST be a string.
@@ -194,7 +196,8 @@ MUST be a string.
 ### Error
 
 Any error response will be treated as if the resource is currently unavailable.  
-A `system.notFound` error SHOULD be sent if the resource ID doesn't exist.
+A `system.notFound` error SHOULD be sent if the resource ID doesn't exist.  
+A `system.invalidQuery` error SHOULD be sent if the query is malformed or invalid.
 
 ## Call request
 
@@ -231,7 +234,8 @@ The result is defined by the service, or by the appropriate [pre-defined call me
 Any error response indicates that the method call failed and had no effect.  
 A `system.notFound` error SHOULD be sent if the resource ID does not exist.  
 A `system.methodNotFound` error SHOULD be sent if the method does not exist.  
-A `system.invalidParams` error SHOULD be sent if any required parameter is missing, or any parameter is invalid.
+A `system.invalidParams` error SHOULD be sent if any required parameter is missing, or any parameter is invalid.  
+A `system.invalidQuery` error SHOULD be sent if the query is malformed or invalid.
 
 ## Auth request
 
@@ -290,7 +294,8 @@ Any error response indicates that the authentication failed and had no effect. A
 
 A `system.notFound` error SHOULD be sent if the resource ID does not exist.  
 A `system.methodNotFound` error SHOULD be sent if the method does not exist.  
-A `system.invalidParams` error SHOULD be sent if any required parameter is missing, or any parameter is invalid.
+A `system.invalidParams` error SHOULD be sent if any required parameter is missing, or any parameter is invalid.  
+A `system.invalidQuery` error SHOULD be sent if the query is malformed or invalid.
 
 
 # Pre-defined call methods
