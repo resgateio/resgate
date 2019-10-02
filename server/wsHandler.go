@@ -52,7 +52,7 @@ func (s *Service) stopWSHandler() {
 		s.mu.Unlock()
 		return
 	}
-	s.Debugf("Closing %d WebSocket connections...", len(s.conns))
+	s.Debugf("Closing %d WebSocket connection(s)...", len(s.conns))
 	// Disconnecting all ws connections
 	for _, conn := range s.conns {
 		conn.Disconnect("Server is shutting down")

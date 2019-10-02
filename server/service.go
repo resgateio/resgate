@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"runtime"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -68,33 +69,25 @@ func (s *Service) SetLogger(l logger.Logger) *Service {
 
 // Logf writes a formatted log message
 func (s *Service) Logf(format string, v ...interface{}) {
-	if s.logger == nil {
-		return
-	}
 	s.logger.Log(fmt.Sprintf(format, v...))
 }
 
 // Debugf writes a formatted debug message
 func (s *Service) Debugf(format string, v ...interface{}) {
-	if s.logger == nil {
-		return
+	if s.logger.IsDebug() {
+		s.logger.Debug(fmt.Sprintf(format, v...))
 	}
-	s.logger.Debug(fmt.Sprintf(format, v...))
 }
 
 // Tracef writes a formatted trace message
 func (s *Service) Tracef(format string, v ...interface{}) {
-	if s.logger == nil {
-		return
+	if s.logger.IsTrace() {
+		s.logger.Trace(fmt.Sprintf(format, v...))
 	}
-	s.logger.Trace(fmt.Sprintf(format, v...))
 }
 
 // Errorf writes a formatted error message
 func (s *Service) Errorf(format string, v ...interface{}) {
-	if s.logger == nil {
-		return
-	}
 	s.logger.Error(fmt.Sprintf(format, v...))
 }
 
@@ -120,6 +113,7 @@ func (s *Service) start() error {
 	}
 
 	s.Logf("Starting resgate version %s", Version)
+	s.Debugf("Go runtime version %s", runtime.Version())
 	s.stop = make(chan error, 1)
 
 	if err := s.startMQClient(); err != nil {

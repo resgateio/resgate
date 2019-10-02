@@ -47,26 +47,21 @@ type responseCont struct {
 
 // Logf writes a formatted log message
 func (c *Client) Logf(format string, v ...interface{}) {
-	if c.Logger == nil {
-		return
-	}
 	c.Logger.Log(fmt.Sprintf(format, v...))
 }
 
 // Debugf writes a formatted debug message
 func (c *Client) Debugf(format string, v ...interface{}) {
-	if c.Logger == nil {
-		return
+	if c.Logger.IsDebug() {
+		c.Logger.Debug(fmt.Sprintf(format, v...))
 	}
-	c.Logger.Debug(fmt.Sprintf(format, v...))
 }
 
 // Tracef writes a formatted trace message
 func (c *Client) Tracef(format string, v ...interface{}) {
-	if c.Logger == nil {
-		return
+	if c.Logger.IsTrace() {
+		c.Logger.Trace(fmt.Sprintf(format, v...))
 	}
-	c.Logger.Trace(fmt.Sprintf(format, v...))
 }
 
 // Connect creates a connection to the nats server.

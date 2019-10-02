@@ -98,17 +98,11 @@ func (c *Cache) Start() error {
 
 // Logf writes a formatted log message
 func (c *Cache) Logf(format string, v ...interface{}) {
-	if c.logger == nil {
-		return
-	}
 	c.logger.Log(fmt.Sprintf(format, v...))
 }
 
 // Errorf writes a formatted log message
 func (c *Cache) Errorf(format string, v ...interface{}) {
-	if c.logger == nil {
-		return
-	}
 	c.logger.Error(fmt.Sprintf(format, v...))
 }
 

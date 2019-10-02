@@ -51,26 +51,23 @@ func NewNATSTestClient(l logger.Logger) *NATSTestClient {
 
 // Logf writes a formatted log message
 func (c *NATSTestClient) Logf(format string, v ...interface{}) {
-	if c.l == nil {
-		return
+	if c.l != nil {
+		c.l.Log(fmt.Sprintf(format, v...))
 	}
-	c.l.Log(fmt.Sprintf(format, v...))
 }
 
 // Debugf writes a formatted debug message
 func (c *NATSTestClient) Debugf(format string, v ...interface{}) {
-	if c.l == nil {
-		return
+	if c.l != nil && c.l.IsDebug() {
+		c.l.Debug(fmt.Sprintf(format, v...))
 	}
-	c.l.Debug(fmt.Sprintf(format, v...))
 }
 
 // Tracef writes a formatted trace message
 func (c *NATSTestClient) Tracef(format string, v ...interface{}) {
-	if c.l == nil {
-		return
+	if c.l != nil && c.l.IsTrace() {
+		c.l.Trace(fmt.Sprintf(format, v...))
 	}
-	c.l.Trace(fmt.Sprintf(format, v...))
 }
 
 // Connect establishes a connection to the MQ

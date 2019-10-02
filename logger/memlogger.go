@@ -42,20 +42,16 @@ func (l *MemLogger) Error(s string) {
 
 // Debug writes a debug entry
 func (l *MemLogger) Debug(s string) {
-	if l.debug {
-		l.mu.Lock()
-		l.log.Print("[DBG] ", s)
-		l.mu.Unlock()
-	}
+	l.mu.Lock()
+	l.log.Print("[DBG] ", s)
+	l.mu.Unlock()
 }
 
 // Trace writes a trace entry
 func (l *MemLogger) Trace(s string) {
-	if l.trace {
-		l.mu.Lock()
-		l.log.Print("[TRC] ", s)
-		l.mu.Unlock()
-	}
+	l.mu.Lock()
+	l.log.Print("[TRC] ", s)
+	l.mu.Unlock()
 }
 
 // String returns the log
@@ -63,4 +59,14 @@ func (l *MemLogger) String() string {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.b.String()
+}
+
+// IsDebug returns true if debug logging is active
+func (l *MemLogger) IsDebug() bool {
+	return l.debug
+}
+
+// IsTrace returns true if trace logging is active
+func (l *MemLogger) IsTrace() bool {
+	return l.trace
 }

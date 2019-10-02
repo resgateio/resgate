@@ -143,34 +143,26 @@ func (c *wsConn) String() string {
 
 // Logf writes a formatted log message
 func (c *wsConn) Logf(format string, v ...interface{}) {
-	if c.serv.logger == nil {
-		return
-	}
-	c.serv.logger.Log(c.connStr + " " + fmt.Sprintf(format, v...))
+	c.serv.logger.Log(fmt.Sprintf(c.connStr+" "+format, v...))
 }
 
 // Errorf writes a formatted log message
 func (c *wsConn) Errorf(format string, v ...interface{}) {
-	if c.serv.logger == nil {
-		return
-	}
-	c.serv.logger.Error(c.connStr + " " + fmt.Sprintf(format, v...))
+	c.serv.logger.Error(fmt.Sprintf(c.connStr+" "+format, v...))
 }
 
 // Debugf writes a formatted log message
 func (c *wsConn) Debugf(format string, v ...interface{}) {
-	if c.serv.logger == nil {
-		return
+	if c.serv.logger.IsDebug() {
+		c.serv.logger.Debug(fmt.Sprintf(c.connStr+" "+format, v...))
 	}
-	c.serv.logger.Debug(c.connStr + " " + fmt.Sprintf(format, v...))
 }
 
 // Tracef writes a formatted trace message
 func (c *wsConn) Tracef(format string, v ...interface{}) {
-	if c.serv.logger == nil {
-		return
+	if c.serv.logger.IsTrace() {
+		c.serv.logger.Trace(fmt.Sprintf(c.connStr+" "+format, v...))
 	}
-	c.serv.logger.Trace(c.connStr + " " + fmt.Sprintf(format, v...))
 }
 
 // Disconnect closes the websocket connection.

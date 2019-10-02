@@ -18,6 +18,12 @@ type Logger interface {
 
 	// Trace writes a trace entry
 	Trace(s string)
+
+	// IsDebug returns true if debug logging is active
+	IsDebug() bool
+
+	// IsTrace returns true if trace logging is active
+	IsTrace() bool
 }
 
 // StdLogger writes log messages to os.Stderr
@@ -48,14 +54,20 @@ func (l *StdLogger) Error(s string) {
 
 // Trace writes a trace entry
 func (l *StdLogger) Trace(s string) {
-	if l.trace {
-		l.log.Print("[TRC] ", s)
-	}
+	l.log.Print("[TRC] ", s)
 }
 
 // Debug writes a debug entry
 func (l *StdLogger) Debug(s string) {
-	if l.debug {
-		l.log.Print("[DBG] ", s)
-	}
+	l.log.Print("[DBG] ", s)
+}
+
+// IsDebug returns true if debug logging is active
+func (l *StdLogger) IsDebug() bool {
+	return l.debug
+}
+
+// IsTrace returns true if trace logging is active
+func (l *StdLogger) IsTrace() bool {
+	return l.trace
 }
