@@ -1,20 +1,21 @@
-FROM golang:1.12.5-alpine3.9 as builder
+FROM golang:1.13.1-alpine3.10 as builder
 
 LABEL maintainer="Samuel Jirenius <samuel@jirenius.com>"
 
-WORKDIR $GOPATH/src/github.com/resgateio/resgate
+ENV GO111MODULE=on
 
-RUN apk add --update git
+WORKDIR /src/resgate
+
+COPY go.mod .
+COPY go.sum .
+
+RUN go mod download
 
 COPY . .
 
-RUN go get -d -v
-RUN GO111MODULE=off go build -v -ldflags "-s -w" -o /resgate
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -ldflags "-s -w" -o /resgate
 
-FROM alpine:3.9
-
-RUN apk add --update ca-certificates
-
+FROM alpine:3.10
 COPY --from=builder /resgate /bin/resgate
 
 EXPOSE 8080
