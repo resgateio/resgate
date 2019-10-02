@@ -30,6 +30,7 @@ const (
 	CodeAccessDenied   = "system.accessDenied"
 	CodeInternalError  = "system.internalError"
 	CodeInvalidParams  = "system.invalidParams"
+	CodeInvalidQuery   = "system.invalidQuery"
 	CodeMethodNotFound = "system.methodNotFound"
 	CodeNoSubscription = "system.noSubscription"
 	CodeNotFound       = "system.notFound"
@@ -49,6 +50,7 @@ var (
 	ErrDisposing      = &Error{Code: CodeInternalError, Message: "Internal error: disposing connection"}
 	ErrInternalError  = &Error{Code: CodeInternalError, Message: "Internal error"}
 	ErrInvalidParams  = &Error{Code: CodeInvalidParams, Message: "Invalid parameters"}
+	ErrInvalidQuery   = &Error{Code: CodeInvalidQuery, Message: "Invalid query"}
 	ErrMethodNotFound = &Error{Code: CodeMethodNotFound, Message: "Method not found"}
 	ErrNoSubscription = &Error{Code: CodeNoSubscription, Message: "No subscription"}
 	ErrNotFound       = &Error{Code: CodeNotFound, Message: "Not found"}

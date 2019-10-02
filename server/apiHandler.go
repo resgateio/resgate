@@ -162,6 +162,8 @@ func httpError(w http.ResponseWriter, err error, enc APIEncoder) {
 	switch rerr.Code {
 	case reserr.CodeNotFound:
 		fallthrough
+	case reserr.CodeMethodNotFound:
+		fallthrough
 	case reserr.CodeTimeout:
 		code = http.StatusNotFound
 	case reserr.CodeAccessDenied:

@@ -1,4 +1,6 @@
-# The RES-Client Protocol Specification v1.1
+# The RES-Client Protocol Specification
+
+*Version: [1.1.1](res-protocol-semver.md)*
 
 ## Table of contents
 - [Introduction](#introduction)
@@ -135,6 +137,7 @@ Code                    | Message            | Meaning
 ----------------------- | ------------------ | ----------------------------------------
 `system.notFound`       | Not found          | The resource was not found
 `system.invalidParams`  | Invalid parameters | Invalid parameters in method call
+`system.invalidQuery`   | Invalid query      | Invalid query or query parameters
 `system.internalError`  | Internal error     | Internal error
 `system.methodNotFound` | Method not found   | Resource method not found
 `system.accessDenied`   | Access denied      | Access to a resource or method is denied

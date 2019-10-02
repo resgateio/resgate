@@ -65,6 +65,7 @@ func TestHTTPPostResponses(t *testing.T) {
 		{nil, nil, noRequest, http.StatusNotFound, mq.ErrRequestTimeout},
 		// CallResponse variants
 		{nil, fullCallAccess, reserr.ErrInvalidParams, http.StatusBadRequest, reserr.ErrInvalidParams},
+		{nil, fullCallAccess, reserr.ErrMethodNotFound, http.StatusNotFound, reserr.ErrMethodNotFound},
 		{nil, fullCallAccess, nil, http.StatusNoContent, []byte{}},
 	}
 

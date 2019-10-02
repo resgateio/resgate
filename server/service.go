@@ -2,7 +2,9 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"runtime"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -39,21 +41,13 @@ func NewService(mq mq.Client, cfg Config) (*Service, error) {
 		mq:  mq,
 	}
 
-	err := s.cfg.prepare()
-	if err == nil {
-		err = s.initHTTPServer()
+	if err := s.cfg.prepare(); err != nil {
+		return nil, err
 	}
-	if err == nil {
-		err = s.initWSHandler()
-	}
-	if err == nil {
-		err = s.initAPIHandler()
-	}
-	if err == nil {
-		s.initMQClient()
-	}
-
-	if err != nil {
+	s.initHTTPServer()
+	s.initWSHandler()
+	s.initMQClient()
+	if err := s.initAPIHandler(); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -75,18 +69,26 @@ func (s *Service) SetLogger(l logger.Logger) *Service {
 
 // Logf writes a formatted log message
 func (s *Service) Logf(format string, v ...interface{}) {
-	if s.logger == nil {
-		return
-	}
-	s.logger.Logf("[Main] ", format, v...)
+	s.logger.Log(fmt.Sprintf(format, v...))
 }
 
 // Debugf writes a formatted debug message
 func (s *Service) Debugf(format string, v ...interface{}) {
-	if s.logger == nil {
-		return
+	if s.logger.IsDebug() {
+		s.logger.Debug(fmt.Sprintf(format, v...))
 	}
-	s.logger.Debugf("[Main] ", format, v...)
+}
+
+// Tracef writes a formatted trace message
+func (s *Service) Tracef(format string, v ...interface{}) {
+	if s.logger.IsTrace() {
+		s.logger.Trace(fmt.Sprintf(format, v...))
+	}
+}
+
+// Errorf writes a formatted error message
+func (s *Service) Errorf(format string, v ...interface{}) {
+	s.logger.Error(fmt.Sprintf(format, v...))
 }
 
 // Start connects the Service to the nats server
@@ -110,15 +112,16 @@ func (s *Service) start() error {
 		return errors.New("server is stopping")
 	}
 
-	s.Logf("Starting server")
+	s.Logf("Starting resgate version %s", Version)
+	s.Debugf("Go runtime version %s", runtime.Version())
 	s.stop = make(chan error, 1)
 
 	if err := s.startMQClient(); err != nil {
-		s.Logf("Failed to connect to messaging system: %s", err)
 		return err
 	}
 
 	s.startHTTPServer()
+	s.Logf("Server ready")
 
 	return nil
 }
@@ -133,6 +136,9 @@ func (s *Service) Stop(err error) {
 	s.stopping = true
 	s.mu.Unlock()
 
+	if err != nil {
+		s.Errorf("Problem encountered: %s", err)
+	}
 	s.Logf("Stopping server...")
 
 	s.stopWSHandler()
@@ -144,7 +150,7 @@ func (s *Service) Stop(err error) {
 	close(s.stop)
 	s.stop = nil
 	s.stopping = false
-	s.Logf("Service stopped")
+	s.Logf("Server stopped")
 	s.mu.Unlock()
 }
 

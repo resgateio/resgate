@@ -15,7 +15,17 @@ import (
 	"github.com/resgateio/resgate/server"
 )
 
-var stopTimeout = 10 * time.Second
+const (
+	// StopTimeout is the duration Resgate waits for all processes to
+	// stop before forcefully exiting with an error and a stack trace.
+	StopTimeout = 10 * time.Second
+
+	// DefaultNatsURL is the default NATS server to connect to.
+	DefaultNatsURL = "nats://127.0.0.1:4222"
+
+	// DefaultRequestTimeout is the timeout duration for NATS requests in milliseconds.
+	DefaultRequestTimeout = 3000
+)
 
 var usageStr = `
 Usage: resgate [options]
@@ -32,42 +42,54 @@ Server Options:
         --tlscert <file>             HTTP server certificate file
         --tlskey <file>              Private key for HTTP server certificate
         --apiencoding <type>         Encoding for web resources: json, jsonflat (default: json)
+        --creds <file>               NATS User Credentials file
     -c, --config <file>              Configuration file
+
+Logging Options:
+    -D, --debug                      Enable debugging output
+    -V, --trace                      Enable trace logging
+    -DV                              Debug and trace
 
 Common Options:
     -h, --help                       Show this message
+    -v, --version                    Show version
 
 Configuration Documentation:         https://resgate.io/docs/get-started/configuration/
 `
 
 // Config holds server configuration
 type Config struct {
-	NatsURL        string `json:"natsUrl"`
-	RequestTimeout int    `json:"requestTimeout"`
-	Debug          bool   `json:"debug,omitempty"`
+	NatsURL        string  `json:"natsUrl"`
+	NatsCreds      *string `json:"natsCreds"`
+	RequestTimeout int     `json:"requestTimeout"`
+	Debug          bool    `json:"debug"`
+	Trace          bool    `json:"trace"`
 	server.Config
 }
 
 // SetDefault sets the default values
 func (c *Config) SetDefault() {
 	if c.NatsURL == "" {
-		c.NatsURL = "nats://127.0.0.1:4222"
+		c.NatsURL = DefaultNatsURL
 	}
 	if c.RequestTimeout == 0 {
-		c.RequestTimeout = 3000
+		c.RequestTimeout = DefaultRequestTimeout
 	}
 	c.Config.SetDefault()
 }
 
 // Init takes a path to a json encoded file and loads the config
 // If no file exists, a new file with default settings is created
-func (c *Config) Init(fs *flag.FlagSet, args []string) error {
+func (c *Config) Init(fs *flag.FlagSet, args []string) {
 	var (
-		showHelp   bool
-		configFile string
-		port       uint
-		headauth   string
-		addr       string
+		showHelp    bool
+		showVersion bool
+		configFile  string
+		port        uint
+		headauth    string
+		addr        string
+		natsCreds   string
+		debugTrace  bool
 	)
 
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
@@ -92,39 +114,50 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&c.APIEncoding, "apiencoding", "", "Encoding for web resources.")
 	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout in milliseconds for NATS requests.")
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
-	fs.BoolVar(&c.Debug, "debug", false, "Enable debugging.")
+	fs.StringVar(&natsCreds, "creds", "", "NATS User Credentials file.")
+	fs.BoolVar(&c.Debug, "D", false, "Enable debugging output.")
+	fs.BoolVar(&c.Debug, "debug", false, "Enable debugging output.")
+	fs.BoolVar(&c.Trace, "V", false, "Enable trace logging.")
+	fs.BoolVar(&c.Trace, "trace", false, "Enable trace logging.")
+	fs.BoolVar(&debugTrace, "DV", false, "Enable debug and trace logging.")
+	fs.BoolVar(&showVersion, "version", false, "Print version information.")
+	fs.BoolVar(&showVersion, "v", false, "Print version information.")
 
 	if err := fs.Parse(args); err != nil {
-		printAndDie(fmt.Sprintf("error parsing arguments: %s", err.Error()), true)
+		printAndDie(fmt.Sprintf("Error parsing command arguments: %s", err.Error()), true)
 	}
 
 	if port >= 1<<16 {
-		printAndDie(fmt.Sprintf(`invalid port "%d": must be less than 65536`, port), true)
+		printAndDie(fmt.Sprintf(`Invalid port "%d": must be less than 65536`, port), true)
 	}
 
 	if showHelp {
 		usage()
 	}
 
+	if showVersion {
+		version()
+	}
+
 	if configFile != "" {
 		fin, err := ioutil.ReadFile(configFile)
 		if err != nil {
 			if !os.IsNotExist(err) {
-				return fmt.Errorf("error loading config file: %s", err)
+				printAndDie(fmt.Sprintf("Error loading config file: %s", err), false)
 			}
 
 			c.SetDefault()
 
 			fout, err := json.MarshalIndent(c, "", "\t")
 			if err != nil {
-				return fmt.Errorf("error encoding config: %s", err)
+				printAndDie(fmt.Sprintf("Error encoding config: %s", err), false)
 			}
 
 			ioutil.WriteFile(configFile, fout, os.FileMode(0664))
 		} else {
 			err = json.Unmarshal(fin, c)
 			if err != nil {
-				return fmt.Errorf("error parsing config file: %s", err)
+				printAndDie(fmt.Sprintf("Error parsing config file: %s", err), false)
 			}
 
 			// Overwrite configFile options with command line options
@@ -146,17 +179,24 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) error {
 			} else {
 				c.HeaderAuth = &headauth
 			}
+		case "creds":
+			if natsCreds == "" {
+				c.NatsCreds = nil
+			} else {
+				c.NatsCreds = &natsCreds
+			}
 		case "i":
 			fallthrough
 		case "addr":
 			c.Addr = &addr
+		case "DV":
+			c.Debug = true
+			c.Trace = true
 		}
 	})
 
 	// Any value not set, set it now
 	c.SetDefault()
-
-	return nil
 }
 
 // usage will print out the flag options for the server.
@@ -165,10 +205,16 @@ func usage() {
 	os.Exit(0)
 }
 
+// version will print out the current resgate and protocol version.
+func version() {
+	fmt.Printf("resgate  v%s\nprotocol v%s", server.Version, server.ProtocolVersion)
+	os.Exit(0)
+}
+
 func printAndDie(msg string, showUsage bool) {
-	fmt.Fprintf(os.Stderr, "%s\n", msg)
+	fmt.Fprintln(os.Stderr, msg)
 	if showUsage {
-		fmt.Fprintf(os.Stderr, "%s\n", usageStr)
+		fmt.Fprintln(os.Stderr, usageStr)
 	}
 	os.Exit(1)
 }
@@ -179,29 +225,28 @@ func main() {
 
 	var cfg Config
 
-	err := cfg.Init(fs, os.Args[1:])
-	if err != nil {
-		printAndDie(err.Error(), false)
-	}
+	cfg.Init(fs, os.Args[1:])
 
-	l := logger.NewStdLogger(cfg.Debug, cfg.Debug)
+	l := logger.NewStdLogger(cfg.Debug, cfg.Trace)
+
 	// Remove below if clause after release of version >= 1.3.x
 	if cfg.RequestTimeout <= 10 {
-		l.Logf("[DEPRECATED] ", "Request timeout should be in milliseconds.\nChange your requestTimeout from %d to %d, and you won't be bothered anymore.", cfg.RequestTimeout, cfg.RequestTimeout*1000)
+		fmt.Fprintf(os.Stderr, "[DEPRECATED] Request timeout should be in milliseconds.\nChange your requestTimeout from %d to %d, and you won't be bothered anymore.\n", cfg.RequestTimeout, cfg.RequestTimeout*1000)
 		cfg.RequestTimeout *= 1000
 	}
 	serv, err := server.NewService(&nats.Client{
 		URL:            cfg.NatsURL,
+		Creds:          cfg.NatsCreds,
 		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Millisecond,
 		Logger:         l,
 	}, cfg.Config)
 	if err != nil {
-		printAndDie(err.Error(), false)
+		printAndDie(fmt.Sprintf("Failed to initialize server: %s", err.Error()), false)
 	}
 	serv.SetLogger(l)
 
 	if err := serv.Start(); err != nil {
-		printAndDie(err.Error(), false)
+		printAndDie(fmt.Sprintf("Failed to start server: %s", err.Error()), false)
 	}
 
 	stop := make(chan os.Signal, 1)
@@ -215,7 +260,7 @@ func main() {
 	case <-stop:
 	case err := <-serv.StopChannel():
 		if err != nil {
-			printAndDie(err.Error(), false)
+			printAndDie(fmt.Sprintf("Server stopped with an error: %s", err.Error()), false)
 		}
 	}
 	// Await for waitGroup to be done
@@ -227,7 +272,7 @@ func main() {
 
 	select {
 	case <-done:
-	case <-time.After(stopTimeout):
+	case <-time.After(StopTimeout):
 		panic("Shutdown timed out")
 	}
 }

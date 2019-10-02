@@ -146,21 +146,29 @@ func subscribeToTestQueryModel(t *testing.T, s *Session, c *Conn, q, normq strin
 		panic("test: failed to marshal normalized query: " + err.Error())
 	}
 
-	qj, err := json.Marshal("test.model?" + q)
+	rid := "test.model"
+	if q != "" {
+		rid += "?" + q
+	}
+	qj, err := json.Marshal(rid)
 	if err != nil {
 		panic("test: failed to marshal query: " + err.Error())
 	}
 
 	// Send subscribe request
-	creq := c.Request("subscribe.test.model?"+q, nil)
+	creq := c.Request("subscribe."+rid, nil)
 
 	// Handle model get and access request
 	mreqs := s.GetParallelRequests(t, 2)
-	mreqs.
-		GetRequest(t, "get.test.model").
-		AssertPathPayload(t, "query", q).
-		RespondSuccess(json.RawMessage(`{"model":` + model + `,"query":` + string(normqj) + `}`))
-	req := mreqs.GetRequest(t, "access.test.model").AssertPathPayload(t, "query", q)
+	req := mreqs.GetRequest(t, "get.test.model")
+	if q != "" {
+		req.AssertPathPayload(t, "query", q)
+	}
+	req.RespondSuccess(json.RawMessage(`{"model":` + model + `,"query":` + string(normqj) + `}`))
+	req = mreqs.GetRequest(t, "access.test.model")
+	if q != "" {
+		req.AssertPathPayload(t, "query", q)
+	}
 	cid := req.PathPayload(t, "cid").(string)
 	req.RespondSuccess(json.RawMessage(`{"get":true}`))
 

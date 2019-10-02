@@ -34,8 +34,22 @@ Whenever there is a change to the data, the responsible micro-service sends an e
 
 ## Quickstart
 
+### Docker
+
+If you <a href="https://docs.docker.com/install/" target="_blank">install Docker</a>, it is easy to run both *NATS server* and *Resgate* as containers:
+
+```text
+docker network create res
+docker run -d --name nats -p 4222:4222 --net res nats
+docker run --name resgate -p 8080:8080 --net res resgateio/resgate --nats nats://nats:4222
+```
+
+Both images are small, less than 10 MB each.
+
 ### Download
-The recommended way to install *Resgate* and *NATS Server* is to download one of the pre-built binaries:
+
+Another way to install *Resgate* and *NATS Server* is to download one of the pre-built binaries:
+
 * [Download](https://nats.io/download/nats-io/nats-server/) and run NATS Server
 * [Download](https://resgate.io/download/) and run Resgate
 
@@ -58,7 +72,9 @@ resgate
 
 ## Examples
 
-While Resgate may be used with any language, the examples are written in Javascript for Node.js.
+While Resgate may be used with any language, the examples in this repository are written in Javascript for Node.js.
+
+For examples in other languages, visit [Resgate.io - Examples](https://resgate.io/docs/get-started/examples/).
 
 | Example | Description
 | --- | ---
@@ -100,6 +116,7 @@ resgate [options]
 | `    --apiencoding <type>` | Encoding for web resources: json, jsonflat |
 | `-c, --config <file>` | Configuration file |
 | `-h, --help` | Show usage message |
+| `-v, --version` | Show version |
 
 
 ## Configuration

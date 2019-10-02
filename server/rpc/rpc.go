@@ -11,7 +11,7 @@ import (
 
 // Requester has the methods required to perform a rpc request
 type Requester interface {
-	Send(data []byte)
+	Reply(data []byte)
 	GetResource(rid string, callback func(data *Resources, err error))
 	SubscribeResource(rid string, callback func(data *Resources, err error))
 	UnsubscribeResource(rid string, callback func(ok bool))
@@ -99,7 +99,7 @@ func HandleRequest(data []byte, req Requester) error {
 
 	idx := strings.IndexByte(r.Method, '.')
 	if idx < 0 {
-		req.Send(r.ErrorResponse(reserr.ErrInvalidRequest))
+		req.Reply(r.ErrorResponse(reserr.ErrInvalidRequest))
 		return nil
 	}
 
@@ -110,19 +110,19 @@ func HandleRequest(data []byte, req Requester) error {
 	if action == "call" || action == "auth" {
 		idx = strings.LastIndexByte(rid, '.')
 		if idx < 0 {
-			req.Send(r.ErrorResponse(reserr.ErrInvalidRequest))
+			req.Reply(r.ErrorResponse(reserr.ErrInvalidRequest))
 			return nil
 		}
 		method = rid[idx+1:]
 		if !codec.IsValidRID(method, false) {
-			req.Send(r.ErrorResponse(reserr.ErrInvalidRequest))
+			req.Reply(r.ErrorResponse(reserr.ErrInvalidRequest))
 			return nil
 		}
 		rid = rid[:idx]
 	}
 
 	if !codec.IsValidRID(rid, true) {
-		req.Send(r.ErrorResponse(reserr.ErrInvalidRequest))
+		req.Reply(r.ErrorResponse(reserr.ErrInvalidRequest))
 		return nil
 	}
 
@@ -130,56 +130,56 @@ func HandleRequest(data []byte, req Requester) error {
 	case "get":
 		req.GetResource(rid, func(data *Resources, err error) {
 			if err != nil {
-				req.Send(r.ErrorResponse(err))
+				req.Reply(r.ErrorResponse(err))
 			} else {
-				req.Send(r.SuccessResponse(data))
+				req.Reply(r.SuccessResponse(data))
 			}
 		})
 	case "subscribe":
 		req.SubscribeResource(rid, func(data *Resources, err error) {
 			if err != nil {
-				req.Send(r.ErrorResponse(err))
+				req.Reply(r.ErrorResponse(err))
 			} else {
-				req.Send(r.SuccessResponse(data))
+				req.Reply(r.SuccessResponse(data))
 			}
 		})
 	case "unsubscribe":
 		req.UnsubscribeResource(rid, func(ok bool) {
 			if ok {
-				req.Send(r.SuccessResponse(nil))
+				req.Reply(r.SuccessResponse(nil))
 			} else {
-				req.Send(r.ErrorResponse(reserr.ErrNoSubscription))
+				req.Reply(r.ErrorResponse(reserr.ErrNoSubscription))
 			}
 		})
 	case "call":
 		req.CallResource(rid, method, r.Params, func(result json.RawMessage, err error) {
 			if err != nil {
-				req.Send(r.ErrorResponse(err))
+				req.Reply(r.ErrorResponse(err))
 			} else {
-				req.Send(r.SuccessResponse(result))
+				req.Reply(r.SuccessResponse(result))
 			}
 		})
 
 	case "auth":
 		req.AuthResource(rid, method, r.Params, func(result json.RawMessage, err error) {
 			if err != nil {
-				req.Send(r.ErrorResponse(err))
+				req.Reply(r.ErrorResponse(err))
 			} else {
-				req.Send(r.SuccessResponse(result))
+				req.Reply(r.SuccessResponse(result))
 			}
 		})
 
 	case "new":
 		req.NewResource(rid, r.Params, func(data *NewResult, err error) {
 			if err != nil {
-				req.Send(r.ErrorResponse(err))
+				req.Reply(r.ErrorResponse(err))
 			} else {
-				req.Send(r.SuccessResponse(data))
+				req.Reply(r.SuccessResponse(data))
 			}
 		})
 
 	default:
-		req.Send(r.ErrorResponse(reserr.ErrInvalidRequest))
+		req.Reply(r.ErrorResponse(reserr.ErrInvalidRequest))
 	}
 
 	return nil

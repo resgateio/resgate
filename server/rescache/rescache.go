@@ -3,6 +3,7 @@ package rescache
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -15,9 +16,10 @@ import (
 
 // Cache is an in memory resource cache.
 type Cache struct {
-	mq      mq.Client
-	logger  logger.Logger
-	workers int
+	mq               mq.Client
+	logger           logger.Logger
+	workers          int
+	unsubscribeDelay time.Duration
 
 	started    bool
 	eventSubs  map[string]*EventSubscription
@@ -47,14 +49,13 @@ type ResourceEvent struct {
 	OldValues map[string]codec.Value
 }
 
-const unsubscribeDelay = time.Second * 5
-
 // NewCache creates a new Cache instance
-func NewCache(mq mq.Client, workers int, l logger.Logger) *Cache {
+func NewCache(mq mq.Client, workers int, unsubscribeDelay time.Duration, l logger.Logger) *Cache {
 	return &Cache{
-		mq:      mq,
-		logger:  l,
-		workers: workers,
+		mq:               mq,
+		logger:           l,
+		workers:          workers,
+		unsubscribeDelay: unsubscribeDelay,
 	}
 }
 
@@ -71,7 +72,7 @@ func (c *Cache) Start() error {
 	}
 	inCh := make(chan *EventSubscription, 100)
 	c.eventSubs = make(map[string]*EventSubscription)
-	c.unsubQueue = timerqueue.New(c.mqUnsubscribe, unsubscribeDelay)
+	c.unsubQueue = timerqueue.New(c.mqUnsubscribe, c.unsubscribeDelay)
 	c.inCh = inCh
 
 	for i := 0; i < c.workers; i++ {
@@ -97,10 +98,12 @@ func (c *Cache) Start() error {
 
 // Logf writes a formatted log message
 func (c *Cache) Logf(format string, v ...interface{}) {
-	if c.logger == nil {
-		return
-	}
-	c.logger.Logf("[Cache] ", format, v...)
+	c.logger.Log(fmt.Sprintf(format, v...))
+}
+
+// Errorf writes a formatted log message
+func (c *Cache) Errorf(format string, v ...interface{}) {
+	c.logger.Error(fmt.Sprintf(format, v...))
 }
 
 // Subscribe fetches a resource from the cache, and if it is
@@ -252,7 +255,7 @@ func (c *Cache) handleSystemReset(payload []byte) {
 
 	r, err := codec.DecodeSystemReset(payload)
 	if err != nil {
-		c.Logf("Error decoding system reset: %s", err)
+		c.Errorf("Error decoding system reset: %s", err)
 		return
 	}
 

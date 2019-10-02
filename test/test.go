@@ -86,9 +86,9 @@ func (s *Session) HTTPRequest(method, url string, body []byte) *HTTPRequest {
 	}
 
 	go func() {
-		s.l.Tracef("[HTTP] ", "--> %s %s: %s", method, url, body)
+		s.Tracef("H-> %s %s: %s", method, url, body)
 		s.s.ServeHTTP(rr, req)
-		s.l.Tracef("[HTTP] ", "<-- %s %s: %s", method, url, rr.Body.String())
+		s.Tracef("<-H %s %s: %s", method, url, rr.Body.String())
 		hr.ch <- &HTTPResponse{ResponseRecorder: rr}
 	}()
 

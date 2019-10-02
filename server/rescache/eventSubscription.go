@@ -222,7 +222,9 @@ func (e *EventSubscription) enqueueEvent(subj string, payload []byte) {
 			e.handleQueryEvent(subj, payload)
 		default:
 
-			if e.base == nil {
+			// Validate we have a base resource,
+			// and that it is not a link to a query resource.
+			if e.base == nil || e.base.query != "" {
 				return
 			}
 
@@ -315,7 +317,7 @@ func (e *EventSubscription) mqUnsubscribe() bool {
 
 func (e *EventSubscription) handleResetResource() {
 	e.Enqueue(func() {
-		if e.base != nil {
+		if e.base != nil && e.base.query == "" {
 			e.base.handleResetResource()
 		}
 
@@ -327,7 +329,7 @@ func (e *EventSubscription) handleResetResource() {
 
 func (e *EventSubscription) handleResetAccess() {
 	e.Enqueue(func() {
-		if e.base != nil {
+		if e.base != nil && e.base.query == "" {
 			e.base.handleResetAccess()
 		}
 

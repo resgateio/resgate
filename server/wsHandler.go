@@ -8,9 +8,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var wsDisconnectTimeout = 3 * time.Second
-
-func (s *Service) initWSHandler() error {
+func (s *Service) initWSHandler() {
 	s.upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -20,7 +18,6 @@ func (s *Service) initWSHandler() error {
 		EnableCompression: s.cfg.WSCompression,
 	}
 	s.conns = make(map[string]*wsConn)
-	return nil
 }
 
 // GetWSHandlerFunc returns the websocket http.Handler
@@ -41,6 +38,9 @@ func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 	if conn == nil {
 		return
 	}
+
+	conn.Tracef("Connected: %s", ws.RemoteAddr())
+
 	conn.listen()
 }
 
@@ -52,7 +52,7 @@ func (s *Service) stopWSHandler() {
 		s.mu.Unlock()
 		return
 	}
-	s.Logf("Disconnecting all ws connections...")
+	s.Debugf("Closing %d WebSocket connection(s)...", len(s.conns))
 	// Disconnecting all ws connections
 	for _, conn := range s.conns {
 		conn.Disconnect("Server is shutting down")
@@ -68,8 +68,8 @@ func (s *Service) stopWSHandler() {
 
 	select {
 	case <-done:
-		s.Logf("All ws connections gracefully closed")
-	case <-time.After(wsDisconnectTimeout):
+		s.Debugf("All connections gracefully closed")
+	case <-time.After(WSTimeout):
 		// Time out
 
 		// Create string of deadlocked connections
@@ -88,6 +88,6 @@ func (s *Service) stopWSHandler() {
 		buf := make([]byte, size)
 		buf = buf[:runtime.Stack(buf, true)]
 
-		s.Logf("Disconnecting %s timed out:\n%s", idStr, string(buf))
+		s.Errorf("Closing connection %s timed out:\n%s", idStr, string(buf))
 	}
 }
