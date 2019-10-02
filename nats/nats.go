@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jirenius/timerqueue"
-	nats "github.com/nats-io/go-nats"
+	nats "github.com/nats-io/nats.go"
 	"github.com/resgateio/resgate/logger"
 	"github.com/resgateio/resgate/server/mq"
 )
