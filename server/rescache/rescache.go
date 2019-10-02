@@ -3,6 +3,7 @@ package rescache
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -97,10 +98,12 @@ func (c *Cache) Start() error {
 
 // Logf writes a formatted log message
 func (c *Cache) Logf(format string, v ...interface{}) {
-	if c.logger == nil {
-		return
-	}
-	c.logger.Logf("[Cache] ", format, v...)
+	c.logger.Log(fmt.Sprintf(format, v...))
+}
+
+// Errorf writes a formatted log message
+func (c *Cache) Errorf(format string, v ...interface{}) {
+	c.logger.Error(fmt.Sprintf(format, v...))
 }
 
 // Subscribe fetches a resource from the cache, and if it is
@@ -252,7 +255,7 @@ func (c *Cache) handleSystemReset(payload []byte) {
 
 	r, err := codec.DecodeSystemReset(payload)
 	if err != nil {
-		c.Logf("Error decoding system reset: %s", err)
+		c.Errorf("Error decoding system reset: %s", err)
 		return
 	}
 

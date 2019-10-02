@@ -7,8 +7,7 @@ import (
 	"time"
 )
 
-func (s *Service) initHTTPServer() error {
-	return nil
+func (s *Service) initHTTPServer() {
 }
 
 // startHTTPServer initializes the server and starts a goroutine with a http server
@@ -18,13 +17,11 @@ func (s *Service) startHTTPServer() {
 		return
 	}
 
-	s.Logf("Starting HTTP server")
+	s.Logf("Listening on %s://%s", s.cfg.scheme, s.cfg.netAddr)
 	h := &http.Server{Addr: s.cfg.netAddr, Handler: s}
 	s.h = h
 
 	go func() {
-		s.Logf("Listening on %s://%s", s.cfg.scheme, s.cfg.netAddr)
-
 		var err error
 		if s.cfg.TLS {
 			err = h.ListenAndServeTLS(s.cfg.TLSCert, s.cfg.TLSKey)
@@ -33,7 +30,6 @@ func (s *Service) startHTTPServer() {
 		}
 
 		if err != nil {
-			s.Logf("%s", err)
 			s.Stop(err)
 		}
 	}()
@@ -48,7 +44,7 @@ func (s *Service) stopHTTPServer() {
 		return
 	}
 
-	s.Logf("Stopping HTTP server...")
+	s.Debugf("Stopping HTTP server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -57,9 +53,9 @@ func (s *Service) stopHTTPServer() {
 	s.h = nil
 
 	if ctx.Err() == context.DeadlineExceeded {
-		s.Logf("HTTP server forcefully stopped after timeout")
+		s.Errorf("HTTP server forcefully stopped after timeout")
 	} else {
-		s.Logf("HTTP server gracefully stopped")
+		s.Debugf("HTTP server gracefully stopped")
 	}
 }
 
