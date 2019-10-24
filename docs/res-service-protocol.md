@@ -183,7 +183,6 @@ MUST be omitted if *collection* is provided.
 **collection**  
 An ordered array containing the [values](res-protocol.md#values) of the collection.  
 MUST be omitted if *model* is provided.  
-MUST be an array of strings.
 
 **query**  
 Normalized query without the question mark separator.  
@@ -562,15 +561,33 @@ MUST be a string.
 **events**  
 An array of events for the query resource.  
 MUST be an array of [event query objects](#event-query-object)  
-May be omitted if there are no events.
+May be omitted if there are no events.  
+Must be omitted if *model* or *collection* is provided.
 
-**Example result payload**
+**model**  
+An object containing the named properties and [values](res-protocol.md#values) of the model.  
+Must be omitted if *events* or *collection* is provided.
+Must be omitted if the query resource is not a model.
+
+**collection**  
+An ordered array containing the [values](res-protocol.md#values) of the collection.  
+Must be omitted if *events* or *model* is provided.
+Must be omitted if the query resource is not a collection.
+
+**Example result payload with events**
 ```json
 {
   "events": [
     { "event": "remove", "data": { "idx": 24 }},
     { "event": "add", "data": { "value": "foo", "idx": 0 }},
   ]
+}
+```
+
+**Example result payload with collection**
+```json
+{
+  "collection": [ "first", "second", "third" ]
 }
 ```
 

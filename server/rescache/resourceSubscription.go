@@ -157,7 +157,7 @@ func (rs *ResourceSubscription) handleEvent(r *ResourceEvent) {
 
 func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 	if rs.state == stateCollection {
-		rs.e.cache.Logf("Error processing event %s.%s: change event on collection", rs.e.ResourceName, r.Event)
+		rs.e.cache.Errorf("Error processing event %s.%s: change event on collection", rs.e.ResourceName, r.Event)
 		return false
 	}
 
@@ -173,7 +173,7 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 	}
 
 	if err != nil {
-		rs.e.cache.Logf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
+		rs.e.cache.Errorf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
 	}
 
 	// Clone old map using old map size as capacity.
@@ -213,13 +213,13 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 
 func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 	if rs.state == stateModel {
-		rs.e.cache.Logf("Error processing event %s.%s: add event on model", rs.e.ResourceName, r.Event)
+		rs.e.cache.Errorf("Error processing event %s.%s: add event on model", rs.e.ResourceName, r.Event)
 		return false
 	}
 
 	params, err := codec.DecodeAddEvent(r.Payload)
 	if err != nil {
-		rs.e.cache.Logf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
+		rs.e.cache.Errorf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
 		return false
 	}
 
@@ -228,7 +228,7 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 	l := len(old)
 
 	if idx < 0 || idx > l {
-		rs.e.cache.Logf("Error processing event %s.%s: idx %d is out of bounds", rs.e.ResourceName, r.Event, idx)
+		rs.e.cache.Errorf("Error processing event %s.%s: idx %d is out of bounds", rs.e.ResourceName, r.Event, idx)
 		return false
 	}
 
@@ -248,13 +248,13 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 
 func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 	if rs.state == stateModel {
-		rs.e.cache.Logf("Error processing event %s.%s: remove event on model", rs.e.ResourceName, r.Event)
+		rs.e.cache.Errorf("Error processing event %s.%s: remove event on model", rs.e.ResourceName, r.Event)
 		return false
 	}
 
 	params, err := codec.DecodeRemoveEvent(r.Payload)
 	if err != nil {
-		rs.e.cache.Logf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
+		rs.e.cache.Errorf("Error processing event %s.%s: %s", rs.e.ResourceName, r.Event, err)
 		return false
 	}
 
@@ -263,7 +263,7 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 	l := len(old)
 
 	if idx < 0 || idx >= l {
-		rs.e.cache.Logf("Error processing event %s.%s: idx %d is out of bounds", rs.e.ResourceName, r.Event, idx)
+		rs.e.cache.Errorf("Error processing event %s.%s: idx %d is out of bounds", rs.e.ResourceName, r.Event, idx)
 		return false
 	}
 
@@ -436,7 +436,7 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 
 	// Get request failed
 	if err != nil {
-		rs.e.cache.Logf("Subscription %s: Reset get error - %s", rs.e.ResourceName, err)
+		rs.e.cache.Errorf("Subscription %s: Reset get error - %s", rs.e.ResourceName, err)
 		return
 	}
 
