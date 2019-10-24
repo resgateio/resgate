@@ -190,7 +190,7 @@ Resgate is an MIT-licensed open source project where development is made possibl
 If you'd like help out, please consider:
 
 - [Make a one-time donation via PayPal](https://paypal.me/jirenius)
-- [Become a backer on Patreon](https://www.patreon.com/jirenius)
+- [Become a backer via GitHub Sponsors](https://github.com/sponsors/jirenius)
 
 
 ## Contribution
