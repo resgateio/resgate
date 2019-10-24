@@ -111,7 +111,9 @@ type EventQueryResponse struct {
 // EventQueryResult represent the response's result part of a RES-service
 // query request
 type EventQueryResult struct {
-	Events []*EventQueryEvent `json:"events"`
+	Events     []*EventQueryEvent `json:"events"`
+	Model      map[string]Value   `json:"model"`
+	Collection []Value            `json:"collection"`
 }
 
 // EventQueryEvent represents an event in the response of a RES-server query request
@@ -321,16 +323,15 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 				return nil, errInvalidResponse
 			}
 		}
-	} else {
-		if res.Collection == nil {
-			return nil, errInvalidResponse
-		}
+	} else if res.Collection != nil {
 		// Assert collection only has proper values
 		for _, v := range res.Collection {
 			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
 				return nil, errInvalidResponse
 			}
 		}
+	} else {
+		return nil, errInvalidResponse
 	}
 
 	return r.Result, nil
@@ -367,7 +368,7 @@ func CreateEventQueryRequest(query string) []byte {
 }
 
 // DecodeEventQueryResponse decodes a JSON encoded RES-service event query response
-func DecodeEventQueryResponse(payload []byte) ([]*EventQueryEvent, error) {
+func DecodeEventQueryResponse(payload []byte) (*EventQueryResult, error) {
 	var r EventQueryResponse
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
@@ -382,7 +383,33 @@ func DecodeEventQueryResponse(payload []byte) ([]*EventQueryEvent, error) {
 		return nil, errMissingResult
 	}
 
-	return r.Result.Events, nil
+	// Assert we got either a model or a collection
+	res := r.Result
+	switch {
+	case res.Events != nil:
+		if res.Model != nil || res.Collection != nil {
+			return nil, errInvalidResponse
+		}
+	case res.Model != nil:
+		if res.Collection != nil {
+			return nil, errInvalidResponse
+		}
+		// Assert model only has proper values
+		for _, v := range res.Model {
+			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
+				return nil, errInvalidResponse
+			}
+		}
+	case res.Collection != nil:
+		// Assert collection only has proper values
+		for _, v := range res.Collection {
+			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
+				return nil, errInvalidResponse
+			}
+		}
+	}
+
+	return res, nil
 }
 
 // IsLegacyChangeEvent returns true if the model change event is detected as v1.0 legacy

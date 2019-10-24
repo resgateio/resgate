@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/posener/wstest"
-	"github.com/resgateio/resgate/logger"
 	"github.com/resgateio/resgate/server"
 )
 
@@ -20,11 +19,11 @@ type Session struct {
 	*NATSTestClient
 	s     *server.Service
 	conns map[*Conn]struct{}
-	l     *logger.MemLogger
+	*CountLogger
 }
 
 func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
-	l := logger.NewMemLogger(true, true)
+	l := NewCountLogger(true, true)
 
 	c := NewNATSTestClient(l)
 	serv, err := server.NewService(c, TestConfig(cfgs...))
@@ -38,7 +37,7 @@ func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 		NATSTestClient: c,
 		s:              serv,
 		conns:          make(map[*Conn]struct{}),
-		l:              l,
+		CountLogger:    l,
 	}
 
 	if err := serv.Start(); err != nil {
