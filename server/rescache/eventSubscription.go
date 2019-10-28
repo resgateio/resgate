@@ -5,6 +5,7 @@ import (
 
 	"github.com/resgateio/resgate/server/codec"
 	"github.com/resgateio/resgate/server/mq"
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // ResourceType is an enum representing a resource type
@@ -279,7 +280,14 @@ func (e *EventSubscription) handleQueryEvent(subj string, payload []byte) {
 
 				result, err := codec.DecodeEventQueryResponse(data)
 				if err != nil {
-					e.cache.Errorf("Error processing query event for %s?%s: malformed payload %s", e.ResourceName, rs.query, data)
+					// In case of a system.notFound error,
+					// a delete event is generated. Otherwise we
+					// just log the error.
+					if reserr.IsError(err, reserr.CodeNotFound) {
+						rs.handleEvent(&ResourceEvent{Event: "delete"})
+					} else {
+						e.cache.Errorf("Error processing query event for %s?%s: %s", e.ResourceName, rs.query, err)
+					}
 					return
 				}
 
