@@ -460,7 +460,8 @@ Zero-based index number of the value being removed.
 
 ## Custom event
 
-Custom events are defined by the services, and may have any event name except `change`, `add`, `remove`, `unsubscribe` and `reaccess`.  
+Custom events are defined by the services, and may have any event name except the following:  
+`add`, `change`, `create`, `delete`, `patch`, `reset`, `reaccess`, `remove` or `unsubscribe`.  
 Custom events MUST NOT be used to change the state of the resource.
 
 **event**  
@@ -499,3 +500,12 @@ The unsubscribe event object has the following parameter:
   }
 }
 ```
+
+## Delete event
+
+Delete events are sent to the client when the service considers the resource deleted.  
+The resource is still to be considered subscribed, but the client will not receive any more events on the resource.  
+The event has no payload.
+
+**event**  
+`<resourceID>.delete`

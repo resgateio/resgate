@@ -75,6 +75,7 @@ const (
 	stateReady
 	stateToSend
 	stateSent
+	stateDeleted
 )
 
 const (
@@ -570,6 +571,9 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 		}
 		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Payload))
 
+	case "delete":
+		s.state = stateDeleted
+		fallthrough
 	default:
 		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Payload))
 	}
@@ -640,7 +644,9 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 				s.unqueueEvents(queueReasonLoading)
 			})
 		}
-
+	case "delete":
+		s.state = stateDeleted
+		fallthrough
 	default:
 		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Payload))
 	}
@@ -683,13 +689,16 @@ func (s *Subscription) Dispose() {
 		return
 	}
 
+	state := s.state
 	s.state = stateDisposed
 	s.readyCallbacks = nil
 	s.eventQueue = nil
 
 	if s.resourceSub != nil {
 		s.unsubscribeRefs()
-		s.resourceSub.Unsubscribe(s)
+		if state != stateDeleted {
+			s.resourceSub.Unsubscribe(s)
+		}
 		s.resourceSub = nil
 	}
 }

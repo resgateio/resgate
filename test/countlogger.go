@@ -75,12 +75,14 @@ func (l *CountLogger) IsTrace() bool {
 }
 
 // AssertErrorsLogged asserts that some error has been logged
+// and clears the error count
 func (l *CountLogger) AssertErrorsLogged(t *testing.T, count int) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.errors != count {
 		t.Fatalf("expected logged errors to be %d, but got %d", count, l.errors)
 	}
+	l.errors = 0
 }
 
 // AssertNoErrorsLogged asserts that no error has been logged

@@ -23,15 +23,17 @@ type EventSubscription struct {
 	ResourceName string
 	cache        *Cache
 
+	// Protected by cache mutex
+	mqSub mq.Unsubscriber
+	count int64
+
 	// Protected by single goroutine
-	mqSub   mq.Unsubscriber
 	base    *ResourceSubscription
 	queries map[string]*ResourceSubscription
 	links   map[string]*ResourceSubscription
 
 	// Mutex protected
 	mu    sync.Mutex
-	count int64
 	queue []func()
 	locks []func()
 }
@@ -201,6 +203,8 @@ func (e *EventSubscription) addCount() {
 	e.count++
 }
 
+// removeCount decreases the subscription count, and puts the event subscription
+// in the unsubscribe queue if count reaches zero.
 func (e *EventSubscription) removeCount(n int64) {
 	e.count -= n
 	if e.count == 0 {

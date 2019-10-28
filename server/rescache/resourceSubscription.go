@@ -118,6 +118,7 @@ func (rs *ResourceSubscription) Unsubscribe(sub Subscriber) {
 			delete(rs.subs, sub)
 		}
 
+		// Directly unregister unsubscribed queries
 		if rs.query != "" && len(rs.subs) == 0 {
 			rs.unregister()
 		}
@@ -146,6 +147,11 @@ func (rs *ResourceSubscription) handleEvent(r *ResourceEvent) {
 		if rs.resetting || !rs.handleEventRemove(r) {
 			return
 		}
+	case "delete":
+		if !rs.resetting {
+			rs.handleEventDelete(r)
+		}
+		return
 	}
 
 	rs.e.mu.Unlock()
@@ -277,6 +283,20 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 	r.Idx = params.Idx
 
 	return true
+}
+
+func (rs *ResourceSubscription) handleEventDelete(r *ResourceEvent) {
+	subs := rs.subs
+	c := int64(len(subs))
+	rs.subs = nil
+	rs.unregister()
+	rs.e.removeCount(c)
+
+	rs.e.mu.Unlock()
+	for sub := range subs {
+		sub.Event(r)
+	}
+	rs.e.mu.Lock()
 }
 
 func (rs *ResourceSubscription) enqueueGetResponse(data []byte, err error) {
@@ -436,6 +456,7 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 
 	// Get request failed
 	if err != nil {
+		// [TODO] Delete the resource
 		rs.e.cache.Errorf("Subscription %s: Reset get error - %s", rs.e.ResourceName, err)
 		return
 	}

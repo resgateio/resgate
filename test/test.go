@@ -113,6 +113,9 @@ func teardown(s *Session) {
 	case <-time.After(3 * time.Second):
 		panic("test: failed to stop server: timeout")
 	}
+	if s.t != nil {
+		s.AssertNoErrorsLogged(s.t)
+	}
 }
 
 // TestConfig returns a default server configuration used for testing
