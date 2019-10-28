@@ -445,7 +445,7 @@ The event has no payload.
 `event.<resourceName>.delete`
 
 Delete events are sent when the resource is considered deleted.
-It will invalidate any previous get response recieved for the resource.  
+It will invalidate any previous get response received for the resource.  
 The event has no payload.
 
 ## Custom event
