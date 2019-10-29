@@ -6,7 +6,7 @@ All changes to the RES Protocol will be documented in this file.
 
 * #127 Resource response on query request.
 * #83 Added delete resource event.
-* #132 Addec create resource event.
+* #132 Added create resource event.
 
 ## v1.1.1 - [Resgate v1.3.0](compare/v1.2.2...v1.3.0) - 2019-10-02
 
