@@ -2,7 +2,6 @@ package rescache
 
 import (
 	"strings"
-	"sync"
 )
 
 type featureType int
@@ -10,11 +9,6 @@ type featureType int
 // deprecated feature types
 const (
 	deprecatedModelChangeEvent featureType = 1 << iota
-)
-
-var (
-	depMutex  sync.Mutex
-	depLogged = make(map[string]featureType)
 )
 
 // deprecated logs a deprecated error for each unique service name and feature
@@ -26,10 +20,10 @@ func (c *Cache) deprecated(rid string, typ featureType) {
 		name = rid[:idx]
 	}
 
-	depMutex.Lock()
-	defer depMutex.Unlock()
+	c.depMutex.Lock()
+	defer c.depMutex.Unlock()
 
-	s := depLogged[name]
+	s := c.depLogged[name]
 	if (s & typ) != 0 {
 		// Already logged
 		return
@@ -44,6 +38,6 @@ func (c *Cache) deprecated(rid string, typ featureType) {
 		return
 	}
 
-	depLogged[name] = s | typ
-	c.Errorf("Deprecated warning for service [%s] - %s", name, msg)
+	c.depLogged[name] = s | typ
+	c.Errorf("Deprecation warning for service [%s] - %s", name, msg)
 }

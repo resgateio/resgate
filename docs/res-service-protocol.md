@@ -427,7 +427,25 @@ MUST be a number that is zero or greater and less than the length of the collect
 **Subject**  
 `event.<resourceName>.reaccess`
 
-Reaccess events are sent when a resource's access permissions has changed. It will invalidate any previous access response received for the resource.  
+Reaccess events are sent when a resource's access permissions has changed.
+It will invalidate any previous access response received for the resource.  
+The event has no payload.
+
+## Create event
+
+**Subject**  
+`event.<resourceName>.create`
+
+Create events are sent when the resource is created.  
+The event has no payload.
+
+## Delete event
+
+**Subject**  
+`event.<resourceName>.delete`
+
+Delete events are sent when the resource is considered deleted.
+It will invalidate any previous get response received for the resource.  
 The event has no payload.
 
 ## Custom event
@@ -437,7 +455,7 @@ The event has no payload.
 
 Custom events are used to send information that does not affect the state of the resource.  
 The event name is case-sensitive and MUST be a non-empty alphanumeric string with no embedded whitespace. It MUST NOT be any of the following reserved event names:  
-`change`, `delete`, `add`, `remove`, `patch`, `reaccess` or `unsubscribe`.
+`add`, `change`, `create`, `delete`, `patch`, `reset`, `reaccess`, `remove` or `unsubscribe`.
 
 
 Payload is defined by the service, and will be passed to the client without alteration.

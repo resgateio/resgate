@@ -25,6 +25,15 @@ func InternalError(err error) *Error {
 	return &Error{Code: CodeInternalError, Message: "Internal error: " + err.Error()}
 }
 
+// IsError returns true if the error is an Error with the given error code.
+func IsError(err error, code string) bool {
+	rerr, ok := err.(*Error)
+	if !ok {
+		return false
+	}
+	return rerr.Code == code
+}
+
 // Pre-defined RES error codes
 const (
 	CodeAccessDenied   = "system.accessDenied"

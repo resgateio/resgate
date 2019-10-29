@@ -21,12 +21,16 @@ type Cache struct {
 	workers          int
 	unsubscribeDelay time.Duration
 
+	mu         sync.Mutex
 	started    bool
 	eventSubs  map[string]*EventSubscription
 	inCh       chan *EventSubscription
 	unsubQueue *timerqueue.Queue
 	resetSub   mq.Unsubscriber
-	mu         sync.Mutex
+
+	// Deprecated behavior logging
+	depMutex  sync.Mutex
+	depLogged map[string]featureType
 }
 
 // Subscriber interface represents a subscription made on a client connection
@@ -56,6 +60,7 @@ func NewCache(mq mq.Client, workers int, unsubscribeDelay time.Duration, l logge
 		logger:           l,
 		workers:          workers,
 		unsubscribeDelay: unsubscribeDelay,
+		depLogged:        make(map[string]featureType),
 	}
 }
 
@@ -250,14 +255,14 @@ func (c *Cache) mqUnsubscribe(v interface{}) {
 }
 
 func (c *Cache) handleSystemReset(payload []byte) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	r, err := codec.DecodeSystemReset(payload)
 	if err != nil {
 		c.Errorf("Error decoding system reset: %s", err)
 		return
 	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	c.forEachMatch(r.Resources, func(e *EventSubscription) {
 		e.handleResetResource()

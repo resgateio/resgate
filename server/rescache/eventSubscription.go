@@ -5,6 +5,7 @@ import (
 
 	"github.com/resgateio/resgate/server/codec"
 	"github.com/resgateio/resgate/server/mq"
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // ResourceType is an enum representing a resource type
@@ -23,15 +24,17 @@ type EventSubscription struct {
 	ResourceName string
 	cache        *Cache
 
+	// Protected by cache mutex
+	mqSub mq.Unsubscriber
+	count int64
+
 	// Protected by single goroutine
-	mqSub   mq.Unsubscriber
 	base    *ResourceSubscription
 	queries map[string]*ResourceSubscription
 	links   map[string]*ResourceSubscription
 
 	// Mutex protected
 	mu    sync.Mutex
-	count int64
 	queue []func()
 	locks []func()
 }
@@ -201,6 +204,8 @@ func (e *EventSubscription) addCount() {
 	e.count++
 }
 
+// removeCount decreases the subscription count, and puts the event subscription
+// in the unsubscribe queue if count reaches zero.
 func (e *EventSubscription) removeCount(n int64) {
 	e.count -= n
 	if e.count == 0 {
@@ -275,7 +280,14 @@ func (e *EventSubscription) handleQueryEvent(subj string, payload []byte) {
 
 				result, err := codec.DecodeEventQueryResponse(data)
 				if err != nil {
-					e.cache.Errorf("Error processing query event for %s?%s: malformed payload %s", e.ResourceName, rs.query, data)
+					// In case of a system.notFound error,
+					// a delete event is generated. Otherwise we
+					// just log the error.
+					if reserr.IsError(err, reserr.CodeNotFound) {
+						rs.handleEvent(&ResourceEvent{Event: "delete"})
+					} else {
+						e.cache.Errorf("Error processing query event for %s?%s: %s", e.ResourceName, rs.query, err)
+					}
 					return
 				}
 

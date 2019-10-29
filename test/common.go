@@ -5,6 +5,12 @@ import (
 	"testing"
 )
 
+type commonData struct{}
+
+var common = commonData{}
+
+func (c *commonData) CustomEvent() json.RawMessage { return json.RawMessage(`{"foo":"bar"}`) }
+
 // subscribeToTestModel makes a successful subscription to test.model
 // Returns the connection ID (cid)
 func subscribeToTestModel(t *testing.T, s *Session, c *Conn) string {

@@ -72,7 +72,6 @@ func TestAddRemoveEventsOnCachedCollection(t *testing.T) {
 // Test add event with new resource reference
 func TestAddEventWithNewResourceReference(t *testing.T) {
 	model := resourceData("test.model")
-	customEvent := json.RawMessage(`{"foo":"bar"}`)
 
 	runTest(t, func(s *Session) {
 
@@ -91,29 +90,27 @@ func TestAddEventWithNewResourceReference(t *testing.T) {
 		c.GetEvent(t).Equals(t, "test.collection.add", json.RawMessage(`{"idx":1,"value":{"rid":"test.model"},"models":{"test.model":`+model+`}}`))
 
 		// Send event on model and validate client event
-		s.ResourceEvent("test.model", "custom", customEvent)
-		c.GetEvent(t).Equals(t, "test.model.custom", customEvent)
+		s.ResourceEvent("test.model", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.model.custom", common.CustomEvent())
 	})
 }
 
 // Test remove event with removed resource reference
 func TestRemoveEventWithRemovedResourceReference(t *testing.T) {
-	customEvent := json.RawMessage(`{"foo":"bar"}`)
-
 	runTest(t, func(s *Session) {
 		c := s.Connect()
 		subscribeToTestCollectionParent(t, s, c, false)
 
 		// Send event on collection and validate client event
-		s.ResourceEvent("test.collection", "custom", customEvent)
-		c.GetEvent(t).Equals(t, "test.collection.custom", customEvent)
+		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.collection.custom", common.CustomEvent())
 
 		// Send event on collection and validate client event
 		s.ResourceEvent("test.collection.parent", "remove", json.RawMessage(`{"idx":1}`))
 		c.GetEvent(t).Equals(t, "test.collection.parent.remove", json.RawMessage(`{"idx":1}`))
 
 		// Send event on collection and validate client event is not sent to client
-		s.ResourceEvent("test.collection", "custom", customEvent)
+		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
 		c.AssertNoEvent(t, "test.collection")
 	})
 }
