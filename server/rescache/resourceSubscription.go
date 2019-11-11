@@ -461,10 +461,7 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 		// a delete event is generated. Otherwise we
 		// just log the error.
 		if reserr.IsError(err, reserr.CodeNotFound) {
-			r := &ResourceEvent{
-				Event: "delete",
-			}
-			rs.handleEvent(r)
+			rs.handleEvent(&ResourceEvent{ Event: "delete" })
 		} else {
 			rs.e.cache.Errorf("Subscription %s: Reset get error - %s", rs.e.ResourceName, err)
 		}
