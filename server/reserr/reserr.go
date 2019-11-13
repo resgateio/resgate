@@ -36,15 +36,16 @@ func IsError(err error, code string) bool {
 
 // Pre-defined RES error codes
 const (
-	CodeAccessDenied   = "system.accessDenied"
-	CodeInternalError  = "system.internalError"
-	CodeInvalidParams  = "system.invalidParams"
-	CodeInvalidQuery   = "system.invalidQuery"
-	CodeMethodNotFound = "system.methodNotFound"
-	CodeNoSubscription = "system.noSubscription"
-	CodeNotFound       = "system.notFound"
-	CodeTimeout        = "system.timeout"
-	CodeInvalidRequest = "system.invalidRequest"
+	CodeAccessDenied        = "system.accessDenied"
+	CodeInternalError       = "system.internalError"
+	CodeInvalidParams       = "system.invalidParams"
+	CodeInvalidQuery        = "system.invalidQuery"
+	CodeMethodNotFound      = "system.methodNotFound"
+	CodeNoSubscription      = "system.noSubscription"
+	CodeNotFound            = "system.notFound"
+	CodeTimeout             = "system.timeout"
+	CodeInvalidRequest      = "system.invalidRequest"
+	CodeUnsupportedProtocol = "system.unsupportedProtocol"
 	// HTTP only error codes
 	CodeBadRequest         = "system.badRequest"
 	CodeMethodNotAllowed   = "system.methodNotAllowed"
@@ -55,16 +56,17 @@ const (
 // https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#pre-defined-errors
 // https://github.com/resgateio/resgate/blob/master/docs/res-client-protocol.md#pre-defined-errors
 var (
-	ErrAccessDenied   = &Error{Code: CodeAccessDenied, Message: "Access denied"}
-	ErrDisposing      = &Error{Code: CodeInternalError, Message: "Internal error: disposing connection"}
-	ErrInternalError  = &Error{Code: CodeInternalError, Message: "Internal error"}
-	ErrInvalidParams  = &Error{Code: CodeInvalidParams, Message: "Invalid parameters"}
-	ErrInvalidQuery   = &Error{Code: CodeInvalidQuery, Message: "Invalid query"}
-	ErrMethodNotFound = &Error{Code: CodeMethodNotFound, Message: "Method not found"}
-	ErrNoSubscription = &Error{Code: CodeNoSubscription, Message: "No subscription"}
-	ErrNotFound       = &Error{Code: CodeNotFound, Message: "Not found"}
-	ErrTimeout        = &Error{Code: CodeTimeout, Message: "Request timeout"}
-	ErrInvalidRequest = &Error{Code: CodeInvalidRequest, Message: "Invalid request"}
+	ErrAccessDenied        = &Error{Code: CodeAccessDenied, Message: "Access denied"}
+	ErrDisposing           = &Error{Code: CodeInternalError, Message: "Internal error: disposing connection"}
+	ErrInternalError       = &Error{Code: CodeInternalError, Message: "Internal error"}
+	ErrInvalidParams       = &Error{Code: CodeInvalidParams, Message: "Invalid parameters"}
+	ErrInvalidQuery        = &Error{Code: CodeInvalidQuery, Message: "Invalid query"}
+	ErrMethodNotFound      = &Error{Code: CodeMethodNotFound, Message: "Method not found"}
+	ErrNoSubscription      = &Error{Code: CodeNoSubscription, Message: "No subscription"}
+	ErrNotFound            = &Error{Code: CodeNotFound, Message: "Not found"}
+	ErrTimeout             = &Error{Code: CodeTimeout, Message: "Request timeout"}
+	ErrInvalidRequest      = &Error{Code: CodeInvalidRequest, Message: "Invalid request"}
+	ErrUnsupportedProtocol = &Error{Code: CodeUnsupportedProtocol, Message: "Unsupported protocol"}
 	// HTTP only errors
 	ErrBadRequest         = &Error{Code: CodeBadRequest, Message: "Bad request"}
 	ErrMethodNotAllowed   = &Error{Code: CodeMethodNotAllowed, Message: "Method not allowed"}

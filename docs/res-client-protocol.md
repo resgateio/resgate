@@ -15,6 +15,7 @@
 - [Requests](#requests)
   * [Request method](#request-method)
 - [Request types](#request-types)
+  * [Version request](#version-request)
   * [Subscribe request](#subscribe-request)
   * [Unsubscribe request](#unsubscribe-request)
   * [Get request](#get-request)
@@ -133,17 +134,18 @@ It can be used to hold values for replacing placeholders in the message.
 
 There are a number of predefined errors.
 
-Code                    | Message            | Meaning
------------------------ | ------------------ | ----------------------------------------
-`system.notFound`       | Not found          | The resource was not found
-`system.invalidParams`  | Invalid parameters | Invalid parameters in method call
-`system.invalidQuery`   | Invalid query      | Invalid query or query parameters
-`system.internalError`  | Internal error     | Internal error
-`system.methodNotFound` | Method not found   | Resource method not found
-`system.accessDenied`   | Access denied      | Access to a resource or method is denied
-`system.timeout`        | Request timeout    | Request timed out
-`system.noSubscription` | No subscription    | The resource has no direct subscription
-`system.invalidRequest` | Invalid request    | Invalid request
+Code | Message | Meaning
+--- | --- | ---
+`system.notFound` | Not found | The resource was not found
+`system.invalidParams` | Invalid parameters | Invalid parameters in method call
+`system.invalidQuery` | Invalid query | Invalid query or query parameters
+`system.internalError` | Internal error | Internal error
+`system.methodNotFound` | Method not found | Resource method not found
+`system.accessDenied` | Access denied | Access to a resource or method is denied
+`system.timeout` | Request timeout | Request timed out
+`system.noSubscription` | No subscription | The resource has no direct subscription
+`system.invalidRequest` | Invalid request | Invalid request
+`system.unsupportedProtocol` | Unsupported protocol | RES protocol version is not supported
 
 
 # Requests
@@ -157,12 +159,15 @@ A request method has the following structure:
 
 `<type>.<resourceID>.<resourceMethod>`
 
-* type - the request type. May be either `subscribe`, `unsubscribe`, `get`, `call`, `auth`, or `new`.
-* resourceID - the [resource ID](res-protocol.md#resource-ids).
-* resourceMethod - the resource method. Only used for `call` or `auth` type requests. If not included, the separating dot (`.`) must also not be included.
+* type - the request type. May be either `version`, `subscribe`, `unsubscribe`, `get`, `call`, `auth`, or `new`.
+* resourceID - the [resource ID](res-protocol.md#resource-ids). Not used for `version` type requests.
+* resourceMethod - the resource method. Only used for `call` or `auth` type requests.
+
+Trailing separating dots (`.`) must not be included.
 
 **Examples**  
 
+* `version` - Version request
 * `subscribe.userService.users` - Subscribe request of a collection of users
 * `call.userService.user.42.set` - Call request to set properties on a user
 * `new.userService.users` - New request to create a new user
@@ -170,6 +175,36 @@ A request method has the following structure:
 
 
 # Request types
+
+## Version request
+
+**method**  
+`version`
+
+Version requests are sent by the client to tell which RES protocol version it supports, and to get information on what protocol version the gateway supports.
+
+The request SHOULD be the first request sent by the client after an established connection.
+
+If not sent, or if the **protocol** property is omitted in the request, the gateway SHOULD assume version v1.1.x.
+
+### Parameters
+The request parameters are optional.  
+It not omitted, the parameters object SHOULD have the following property:
+
+**protocol**  
+The RES protocol version supported by the client.  
+MUST be a string in the format `"[MAJOR].[MINOR].[PATCH]"`. Eg. `"1.2.3"`.
+
+### Result
+
+**protocol**  
+The RES protocol version supported by the gateway.  
+MUST be a string in the format `"[MAJOR].[MINOR].[PATCH]"`. Eg. `"1.2.3"`.
+
+### Error
+
+A `system.unsupportedProtocol` error response will be sent if the gateway cannot support the client protocol version.  
+A `system.invalidRequest` error response will be sent if the gateway only supports RES Protocol v1.1.1 or below, prior to the introduction of the [version request](#version-request).
 
 ## Subscribe request
 

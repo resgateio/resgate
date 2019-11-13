@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -17,21 +18,24 @@ import (
 )
 
 type wsConn struct {
-	cid       string
-	ws        *websocket.Conn
-	request   *http.Request
-	token     json.RawMessage
-	serv      *Service
-	subs      map[string]*Subscription
-	disposing bool
-	mqSub     mq.Unsubscriber
-	connStr   string
+	cid         string
+	ws          *websocket.Conn
+	request     *http.Request
+	token       json.RawMessage
+	serv        *Service
+	subs        map[string]*Subscription
+	disposing   bool
+	mqSub       mq.Unsubscriber
+	connStr     string
+	protocolVer int
 
 	queue []func()
 	work  chan struct{}
 
 	mu sync.Mutex
 }
+
+const legacyProtocol = 1001001 // MAJOR * 1000000 + MINOR * 1000 + PATCH
 
 func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request) *wsConn {
 	s.mu.Lock()
@@ -45,13 +49,14 @@ func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request) *wsConn {
 	cid := xid.New()
 
 	conn := &wsConn{
-		cid:     cid.String(),
-		ws:      ws,
-		request: request,
-		serv:    s,
-		subs:    make(map[string]*Subscription),
-		queue:   make([]func(), 0, WSConnWorkerQueueSize),
-		work:    make(chan struct{}, 1),
+		cid:         cid.String(),
+		ws:          ws,
+		request:     request,
+		serv:        s,
+		subs:        make(map[string]*Subscription),
+		queue:       make([]func(), 0, WSConnWorkerQueueSize),
+		work:        make(chan struct{}, 1),
+		protocolVer: legacyProtocol,
 	}
 	conn.connStr = "[" + conn.cid + "]"
 
@@ -77,6 +82,10 @@ func (c *wsConn) Token() json.RawMessage {
 
 func (c *wsConn) HTTPRequest() *http.Request {
 	return c.request
+}
+
+func (c *wsConn) ProtocolVersion() int {
+	return c.protocolVer
 }
 
 func (c *wsConn) listen() {
@@ -237,6 +246,36 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 			c.Unsubscribe(sub, true, 1, true)
 		})
 	})
+}
+
+func (c *wsConn) SetVersion(protocol string) (string, error) {
+	// Quick exit on empty protocol
+	if protocol == "" {
+		return ProtocolVersion, nil
+	}
+
+	parts := strings.Split(protocol, ".")
+	if len(parts) != 3 {
+		return "", reserr.ErrInvalidParams
+	}
+
+	v := 0
+	for i := 0; i < 3; i++ {
+		p, err := strconv.Atoi(parts[i])
+		if err != nil || p >= 1000 {
+			return "", reserr.ErrInvalidParams
+		}
+		v *= 1000
+		v += p
+	}
+
+	if v < 1000000 || v >= 2000000 {
+		return "", reserr.ErrUnsupportedProtocol
+	}
+
+	c.protocolVer = v
+
+	return ProtocolVersion, nil
 }
 
 func (c *wsConn) GetSubscription(rid string, cb func(sub *Subscription, err error)) {
