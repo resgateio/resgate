@@ -32,8 +32,9 @@ type Request struct {
 // Response represents a RES-service response
 // https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#response
 type Response struct {
-	Result json.RawMessage `json:"result"`
-	Error  *reserr.Error   `json:"error"`
+	Result   json.RawMessage `json:"result"`
+	Resource *Resource       `json:"resource"`
+	Error    *reserr.Error   `json:"error"`
 }
 
 // AccessResponse represents the response of a RES-service access request
@@ -81,12 +82,12 @@ type AuthRequest struct {
 // NewResponse represents the response of a RES-service new call request
 // https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#new-call-request
 type NewResponse struct {
-	Result *NewResult    `json:"result"`
+	Result *Resource     `json:"result"`
 	Error  *reserr.Error `json:"error"`
 }
 
-// NewResult represents the response result of a RES-service new call request
-type NewResult struct {
+// Resource represents the resource response of a RES-service call or auth request
+type Resource struct {
 	RID string `json:"rid"`
 }
 
@@ -527,22 +528,30 @@ func DecodeAccessResponse(payload []byte) (*AccessResult, *reserr.Error) {
 }
 
 // DecodeCallResponse decodes a JSON encoded RES-service call response
-func DecodeCallResponse(payload []byte) (json.RawMessage, error) {
+func DecodeCallResponse(payload []byte) (json.RawMessage, string, error) {
 	var r Response
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
-		return nil, reserr.RESError(err)
+		return nil, "", reserr.RESError(err)
 	}
 
 	if r.Error != nil {
-		return nil, r.Error
+		return nil, "", r.Error
+	}
+
+	if r.Resource != nil {
+		rid := r.Resource.RID
+		if !IsValidRID(rid, true) {
+			return nil, "", errInvalidResponse
+		}
+		return nil, rid, nil
 	}
 
 	if r.Result == nil {
-		return nil, errMissingResult
+		return nil, "", errMissingResult
 	}
 
-	return r.Result, nil
+	return r.Result, "", nil
 }
 
 // DecodeNewResponse decodes a JSON encoded RES-service new call response

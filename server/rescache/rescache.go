@@ -140,12 +140,12 @@ func (c *Cache) Access(sub Subscriber, token interface{}, callback func(access *
 }
 
 // Call sends a method call request
-func (c *Cache) Call(req codec.Requester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
+func (c *Cache) Call(req codec.Requester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, rid string, err error)) {
 	payload := codec.CreateRequest(params, req, query, token)
 	subj := "call." + rname + "." + action
 	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
-			callback(nil, err)
+			callback(nil, "", err)
 			return
 		}
 
@@ -168,12 +168,12 @@ func (c *Cache) CallNew(req codec.Requester, rname, query string, token, params 
 }
 
 // Auth sends an auth method call
-func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
+func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, rid string, err error)) {
 	payload := codec.CreateAuthRequest(params, req, query, token)
 	subj := "auth." + rname + "." + action
 	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
-			callback(nil, err)
+			callback(nil, "", err)
 			return
 		}
 

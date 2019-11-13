@@ -368,7 +368,7 @@ func (c *wsConn) UnsubscribeResource(rid string, cb func(ok bool)) {
 	cb(c.UnsubscribeByRID(rid))
 }
 
-func (c *wsConn) call(rid, action string, params interface{}, cb func(result json.RawMessage, err error)) {
+func (c *wsConn) call(rid, action string, params interface{}, cb func(result json.RawMessage, rid string, err error)) {
 	sub, ok := c.subs[rid]
 	if !ok {
 		sub = NewSubscription(c, rid)
@@ -376,11 +376,11 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result jso
 
 	sub.CanCall(action, func(err error) {
 		if err != nil {
-			cb(nil, err)
+			cb(nil, "", err)
 		} else {
 			c.serv.cache.Call(c, sub.ResourceName(), sub.ResourceQuery(), action, c.token, params, func(result json.RawMessage, err error) {
 				c.Enqueue(func() {
-					cb(result, err)
+					cb(result, rid, err)
 				})
 			})
 		}
