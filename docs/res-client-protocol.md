@@ -15,6 +15,7 @@
 - [Requests](#requests)
   * [Request method](#request-method)
 - [Request types](#request-types)
+  * [Version request](#version-request)
   * [Subscribe request](#subscribe-request)
   * [Unsubscribe request](#unsubscribe-request)
   * [Get request](#get-request)
@@ -184,7 +185,7 @@ Version requests are sent by the client to tell which RES protocol version it su
 
 The request SHOULD be the first request sent by the client after an established connection.
 
-If not sent, or if the **protocol** property is omitted in the request, the gateway should assume the latest protocol version.
+If not sent, or if the **protocol** property is omitted in the request, the gateway SHOULD assume version v1.1.x.
 
 ### Parameters
 The request parameters are optional.  

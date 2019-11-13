@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -18,6 +19,8 @@ type Requester interface {
 	CallResource(rid, action string, params interface{}, callback func(result json.RawMessage, err error))
 	AuthResource(rid, action string, params interface{}, callback func(result json.RawMessage, err error))
 	NewResource(rid string, params interface{}, callback func(data *NewResult, err error))
+	SetVersion(protocol string) (string, error)
+	ProtocolVersion() int
 }
 
 // Request represent a RES-client request
@@ -54,6 +57,16 @@ type Resources struct {
 	Errors      map[string]*reserr.Error `json:"errors,omitempty"`
 }
 
+// VersionRequest represents the params of a version request
+type VersionRequest struct {
+	Protocol string `json:"protocol"`
+}
+
+// VersionResult represents the results of a version request
+type VersionResult struct {
+	Protocol string `json:"protocol"`
+}
+
 // AddEvent represents a RES-client collection add event
 // https://github.com/resgateio/resgate/blob/master/docs/res-client-protocol.md#collection-add-event
 type AddEvent struct {
@@ -85,6 +98,8 @@ var (
 	errMissingID = errors.New("Request is missing id property")
 )
 
+var nullBytes = []byte("null")
+
 // HandleRequest unmarshals a request byte array and dispatches the request to the requester
 func HandleRequest(data []byte, req Requester) error {
 	r := &Request{}
@@ -99,6 +114,23 @@ func HandleRequest(data []byte, req Requester) error {
 
 	idx := strings.IndexByte(r.Method, '.')
 	if idx < 0 {
+		if r.Method == "version" {
+			var vr VersionRequest
+			if data != nil && !bytes.Equal(r.Params, nullBytes) {
+				err := json.Unmarshal(r.Params, &vr)
+				if err != nil {
+					req.Reply(r.ErrorResponse(reserr.ErrInvalidParams))
+					return nil
+				}
+			}
+			p, err := req.SetVersion(vr.Protocol)
+			if err != nil {
+				req.Reply(r.ErrorResponse(err))
+				return nil
+			}
+			req.Reply(r.SuccessResponse(VersionResult{Protocol: p}))
+			return nil
+		}
 		req.Reply(r.ErrorResponse(reserr.ErrInvalidRequest))
 		return nil
 	}
