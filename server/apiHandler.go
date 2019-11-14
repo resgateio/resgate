@@ -96,12 +96,15 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 					cb(nil, err)
 				})
 			default:
-				c.CallResource(rid, action, params, func(r json.RawMessage, err error) {
+				c.CallHTTPResource(rid, s.cfg.APIPath, action, params, func(r json.RawMessage, href string, err error) {
 					if err != nil {
 						cb(nil, err)
-						return
+					} else if href != "" {
+						w.Header().Set("Location", href)
+						w.WriteHeader(http.StatusCreated)
+					} else {
+						cb(s.enc.EncodePOST(r))
 					}
-					cb(s.enc.EncodePOST(r))
 				})
 			}
 		})
@@ -144,7 +147,7 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 	}
 	c.Enqueue(func() {
 		if s.cfg.HeaderAuth != nil {
-			c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(_ json.RawMessage, err error) {
+			c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(_ interface{}, err error) {
 				cb(c, rs)
 			})
 		} else {

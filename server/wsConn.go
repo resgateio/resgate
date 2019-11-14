@@ -333,8 +333,108 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 	})
 }
 
-func (c *wsConn) CallResource(rid, action string, params interface{}, callback func(result json.RawMessage, err error)) {
-	c.call(rid, action, params, callback)
+func (c *wsConn) CallResource(rid, action string, params interface{}, cb func(result interface{}, err error)) {
+	c.call(rid, action, params, func(result json.RawMessage, refRID string, err error) {
+		c.handleCallAuthResponse(result, refRID, err, cb)
+	})
+}
+
+func (c *wsConn) CallHTTPResource(rid, prefix, action string, params interface{}, cb func(result json.RawMessage, href string, err error)) {
+	c.call(rid, action, params, func(result json.RawMessage, refRID string, err error) {
+		if err != nil {
+			cb(nil, "", err)
+		} else if refRID != "" {
+			cb(nil, RIDToPath(refRID, prefix), nil)
+		} else {
+			cb(result, "", nil)
+		}
+	})
+}
+
+func (c *wsConn) call(rid, action string, params interface{}, cb func(result json.RawMessage, refRID string, err error)) {
+	sub, ok := c.subs[rid]
+	if !ok {
+		sub = NewSubscription(c, rid)
+	}
+
+	sub.CanCall(action, func(err error) {
+		if err != nil {
+			cb(nil, "", err)
+			return
+		}
+		c.serv.cache.Call(c, sub.ResourceName(), sub.ResourceQuery(), action, c.token, params, func(result json.RawMessage, refRID string, err error) {
+			c.Enqueue(func() {
+				cb(result, refRID, err)
+			})
+		})
+	})
+}
+
+func (c *wsConn) AuthResource(rid, action string, params interface{}, cb func(result interface{}, err error)) {
+	rname, query := parseRID(c.ExpandCID(rid))
+	c.serv.cache.Auth(c, rname, query, action, c.token, params, func(result json.RawMessage, refRID string, err error) {
+		c.Enqueue(func() {
+			c.handleCallAuthResponse(result, refRID, err, cb)
+		})
+	})
+}
+
+func (c *wsConn) handleCallAuthResponse(result json.RawMessage, refRID string, err error, cb func(result interface{}, err error)) {
+	if err != nil {
+		cb(nil, err)
+		return
+	}
+
+	// Legacy behavior
+	if c.protocolVer <= versionCallResourceResponse {
+		// Handle resource response by just returning the resource ID without subscription
+		if refRID != "" {
+			cb(rpc.CallResourceResult{RID: refRID}, nil)
+		} else {
+			cb(result, err)
+		}
+		return
+	}
+
+	// Handle payload result
+	if refRID == "" {
+		cb(rpc.CallPayloadResult{Payload: result}, nil)
+		return
+	}
+
+	// Handle resource result
+	sub, err := c.Subscribe(refRID, true)
+	if err != nil {
+		cb(nil, err)
+		return
+	}
+	sub.CanGet(func(err error) {
+		if err != nil {
+			// Respond with success even if the client is not allowed to get
+			// the referenced resource, as the call in itself succeeded.
+			// But the resource is the access error.
+			cb(rpc.CallResourceResult{
+				RID: sub.RID(),
+				Resources: &rpc.Resources{
+					Errors: map[string]*reserr.Error{
+						sub.RID(): reserr.RESError(err),
+					},
+				},
+			}, nil)
+			c.Unsubscribe(sub, true, 1, true)
+			return
+		}
+
+		sub.OnReady(func() {
+			// Respond with success even if subscription contains errors,
+			// as the call in itself succeeded.
+			cb(&rpc.CallResourceResult{
+				RID:       sub.RID(),
+				Resources: sub.GetRPCResources(),
+			}, nil)
+			sub.ReleaseRPCResources()
+		})
+	})
 }
 
 func (c *wsConn) NewResource(rid string, params interface{}, cb func(result *rpc.NewResult, err error)) {
@@ -394,36 +494,8 @@ func (c *wsConn) NewHTTPResource(rid, prefix string, params interface{}, cb func
 	})
 }
 
-func (c *wsConn) AuthResource(rid, action string, params interface{}, cb func(result json.RawMessage, err error)) {
-	rname, query := parseRID(c.ExpandCID(rid))
-	c.serv.cache.Auth(c, rname, query, action, c.token, params, func(result json.RawMessage, err error) {
-		c.Enqueue(func() {
-			cb(result, err)
-		})
-	})
-}
-
 func (c *wsConn) UnsubscribeResource(rid string, cb func(ok bool)) {
 	cb(c.UnsubscribeByRID(rid))
-}
-
-func (c *wsConn) call(rid, action string, params interface{}, cb func(result json.RawMessage, rid string, err error)) {
-	sub, ok := c.subs[rid]
-	if !ok {
-		sub = NewSubscription(c, rid)
-	}
-
-	sub.CanCall(action, func(err error) {
-		if err != nil {
-			cb(nil, "", err)
-		} else {
-			c.serv.cache.Call(c, sub.ResourceName(), sub.ResourceQuery(), action, c.token, params, func(result json.RawMessage, err error) {
-				c.Enqueue(func() {
-					cb(result, rid, err)
-				})
-			})
-		}
-	})
 }
 
 func (c *wsConn) callNew(rid string, params interface{}, cb func(newRID string, err error)) {

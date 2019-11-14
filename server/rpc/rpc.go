@@ -16,8 +16,8 @@ type Requester interface {
 	GetResource(rid string, callback func(data *Resources, err error))
 	SubscribeResource(rid string, callback func(data *Resources, err error))
 	UnsubscribeResource(rid string, callback func(ok bool))
-	CallResource(rid, action string, params interface{}, callback func(result json.RawMessage, err error))
-	AuthResource(rid, action string, params interface{}, callback func(result json.RawMessage, err error))
+	CallResource(rid, action string, params interface{}, callback func(result interface{}, err error))
+	AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error))
 	NewResource(rid string, params interface{}, callback func(data *NewResult, err error))
 	SetVersion(protocol string) (string, error)
 	ProtocolVersion() int
@@ -90,6 +90,17 @@ type UnsubscribeEvent struct {
 
 // NewResult represents a RES-client result to a new request
 type NewResult struct {
+	RID string `json:"rid"`
+	*Resources
+}
+
+// CallPayloadResult represents a RES-client result to a call or auth request with payload response
+type CallPayloadResult struct {
+	Payload json.RawMessage `json:"payload"`
+}
+
+// CallResourceResult represents a RES-client result to a call or auth request with resource response
+type CallResourceResult struct {
 	RID string `json:"rid"`
 	*Resources
 }
@@ -184,7 +195,7 @@ func HandleRequest(data []byte, req Requester) error {
 			}
 		})
 	case "call":
-		req.CallResource(rid, method, r.Params, func(result json.RawMessage, err error) {
+		req.CallResource(rid, method, r.Params, func(result interface{}, err error) {
 			if err != nil {
 				req.Reply(r.ErrorResponse(err))
 			} else {
@@ -193,7 +204,7 @@ func HandleRequest(data []byte, req Requester) error {
 		})
 
 	case "auth":
-		req.AuthResource(rid, method, r.Params, func(result json.RawMessage, err error) {
+		req.AuthResource(rid, method, r.Params, func(result interface{}, err error) {
 			if err != nil {
 				req.Reply(r.ErrorResponse(err))
 			} else {
