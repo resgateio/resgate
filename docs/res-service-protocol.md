@@ -63,17 +63,23 @@ The content of the payload depends on the subject type.
 
 
 ## Response
-When a request is received by a service, it should send a response as a JSON object with following members:
+When a request is received by a service, it should send a response as a JSON object with one of the following members:
 
 **result**  
-Is REQUIRED on success.  
-Will be ignored on error.  
+Is REQUIRED on success if **resource** is not set.  
+SHOULD be ignored if **error** or **resource** is set.  
 The value is determined by the request subject.  
+
+**resource**  
+MUST be omitted if the request type is not `call` or `auth`.  
+Is REQUIRED on success if **result** is not set.  
+SHOULD be ignored if **error** is set.  
+The value MUST be a valid [resource reference](res-protocol.md#resource-references).
 
 **error**  
 Is REQUIRED on error.  
 MUST be omitted on success.  
-The value MUST be an error object as defined in the [Error object](#error-object) section.  
+The value MUST be an [error object](#error-object).  
 
 ## Error object
 
@@ -315,6 +321,8 @@ If any of the model properties are changed, a [model change event](#model-change
 MUST NOT be sent on [collections](res-protocol.md#collections).
 
 ## New call request
+
+*DEPRECATED: Use [resource response](#response) instead.*
 
 **Subject**  
 `call.<resourceName>.new`

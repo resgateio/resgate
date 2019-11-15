@@ -86,24 +86,17 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, error)) {
-			switch action {
-			case "new":
-				c.NewHTTPResource(rid, s.cfg.APIPath, params, func(href string, err error) {
-					if err == nil {
-						w.Header().Set("Location", href)
-						w.WriteHeader(http.StatusCreated)
-					}
+			c.CallHTTPResource(rid, s.cfg.APIPath, action, params, func(r json.RawMessage, href string, err error) {
+				if err != nil {
 					cb(nil, err)
-				})
-			default:
-				c.CallResource(rid, action, params, func(r json.RawMessage, err error) {
-					if err != nil {
-						cb(nil, err)
-						return
-					}
+				} else if href != "" {
+					w.Header().Set("Location", href)
+					w.WriteHeader(http.StatusOK)
+					cb(nil, nil)
+				} else {
 					cb(s.enc.EncodePOST(r))
-				})
-			}
+				}
+			})
 		})
 
 	default:
@@ -118,7 +111,7 @@ func notFoundHandler(w http.ResponseWriter, r *http.Request, enc APIEncoder) {
 }
 
 func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func([]byte, error))) {
-	c := s.newWSConn(nil, r)
+	c := s.newWSConn(nil, r, latestProtocol)
 	if c == nil {
 		httpError(w, reserr.ErrServiceUnavailable, s.enc)
 		return
@@ -144,7 +137,7 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 	}
 	c.Enqueue(func() {
 		if s.cfg.HeaderAuth != nil {
-			c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(_ json.RawMessage, err error) {
+			c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(_ interface{}, err error) {
 				cb(c, rs)
 			})
 		} else {

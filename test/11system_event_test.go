@@ -237,7 +237,7 @@ func TestSystemReset_NotFoundResponseOnCollection_GeneratesDeleteEvent(t *testin
 		// Respond to get request with system.notFound error
 		s.GetRequest(t).AssertSubject(t, "get.test.collection").RespondError(reserr.ErrNotFound)
 		// Validate delete event is sent to client
-		c.GetEvent(t).AssertEventName(t, "test.collection.delete").AssertData(t, nil) // Send custom event on collection and validate no event
+		c.GetEvent(t).AssertEventName(t, "test.collection.delete").AssertData(t, nil)
 		// Validate subsequent events are not sent to client
 		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
 		c.AssertNoEvent(t, "test.collection")

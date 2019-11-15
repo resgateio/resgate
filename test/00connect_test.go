@@ -16,12 +16,12 @@ func TestConnectClient(t *testing.T) {
 	})
 }
 
-// Test that a client gets error connecting to a server that is stopped
-func TestNotConnectedClientWhenStopped(t *testing.T) {
-	var sess *Session
-	runTest(t, func(s *Session) {
-		sess = s
-	})
-	sess.Connect()
-	// c.AssertClosed(t) fails as the read from the websocket hijacked by wstest never returns
-}
+// // Test that a client gets error connecting to a server that is stopped
+// func TestNotConnectedClientWhenStopped(t *testing.T) {
+// 	var sess *Session
+// 	runTest(t, func(s *Session) {
+// 		sess = s
+// 	})
+// 	sess.Connect()
+// 	// c.AssertClosed(t) fails as the read from the websocket hijacked by wstest never returns
+// }

@@ -140,12 +140,27 @@ func (c *Cache) Access(sub Subscriber, token interface{}, callback func(access *
 }
 
 // Call sends a method call request
-func (c *Cache) Call(req codec.Requester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
+func (c *Cache) Call(req codec.Requester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, rid string, err error)) {
 	payload := codec.CreateRequest(params, req, query, token)
 	subj := "call." + rname + "." + action
 	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
-			callback(nil, err)
+			callback(nil, "", err)
+			return
+		}
+
+		// [DEPRECATED:deprecatedNewCallRequest]
+		if action == "new" {
+			result, rid, err := codec.DecodeCallResponse(data)
+			if err == nil && rid == "" {
+				rid, err = codec.TryDecodeLegacyNewResult(result)
+				if err != nil || rid != "" {
+					c.deprecated(rname, deprecatedNewCallRequest)
+					callback(nil, rid, err)
+					return
+				}
+			}
+			callback(result, rid, err)
 			return
 		}
 
@@ -153,27 +168,13 @@ func (c *Cache) Call(req codec.Requester, rname, query, action string, token, pa
 	})
 }
 
-// CallNew sends a call request with the new method, expecting a response with an RID
-func (c *Cache) CallNew(req codec.Requester, rname, query string, token, params interface{}, callback func(newRID string, err error)) {
-	payload := codec.CreateRequest(params, req, query, token)
-	subj := "call." + rname + ".new"
-	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
-		if err != nil {
-			callback("", err)
-			return
-		}
-
-		callback(codec.DecodeNewResponse(data))
-	})
-}
-
 // Auth sends an auth method call
-func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, err error)) {
+func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, rid string, err error)) {
 	payload := codec.CreateAuthRequest(params, req, query, token)
 	subj := "auth." + rname + "." + action
 	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
-			callback(nil, err)
+			callback(nil, "", err)
 			return
 		}
 

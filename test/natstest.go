@@ -56,6 +56,13 @@ func (c *NATSTestClient) Logf(format string, v ...interface{}) {
 	}
 }
 
+// Errorf writes a formatted error message
+func (c *NATSTestClient) Errorf(format string, v ...interface{}) {
+	if c.l != nil {
+		c.l.Error(fmt.Sprintf(format, v...))
+	}
+}
+
 // Debugf writes a formatted debug message
 func (c *NATSTestClient) Debugf(format string, v ...interface{}) {
 	if c.l != nil && c.l.IsDebug() {
@@ -119,7 +126,11 @@ func (c *NATSTestClient) SendRequest(subj string, payload []byte, cb mq.Response
 	}
 
 	c.Tracef("<== %s: %s", subj, payload)
-	c.reqs <- r
+	if c.connected {
+		c.reqs <- r
+	} else {
+		c.Errorf("Connection closed")
+	}
 }
 
 // Subscribe to all events on a resource namespace.
@@ -301,6 +312,18 @@ func (r *Request) RespondSuccess(result interface{}) {
 		Result interface{} `json:"result"`
 	}{
 		Result: result,
+	})
+}
+
+// RespondResource sends a resource response
+func (r *Request) RespondResource(rid string) {
+	type Ref struct {
+		RID string `json:"rid"`
+	}
+	r.Respond(struct {
+		Resource Ref `json:"resource"`
+	}{
+		Resource: Ref{RID: rid},
 	})
 }
 

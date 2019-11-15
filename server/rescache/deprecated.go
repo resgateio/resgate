@@ -9,6 +9,7 @@ type featureType int
 // deprecated feature types
 const (
 	deprecatedModelChangeEvent featureType = 1 << iota
+	deprecatedNewCallRequest
 )
 
 // deprecated logs a deprecated error for each unique service name and feature
@@ -33,6 +34,8 @@ func (c *Cache) deprecated(rid string, typ featureType) {
 	switch typ {
 	case deprecatedModelChangeEvent:
 		msg = "model change event v1.0 detected\n    Legacy support will be removed after 2020-03-31. For more information:\n    https://github.com/resgateio/resgate/blob/master/docs/res-protocol-v1.1-update.md"
+	case deprecatedNewCallRequest:
+		msg = "new call request v1.1 detected\n    Legacy support will be removed after 2021-11-30. For more information:\n    https://github.com/resgateio/resgate/blob/master/docs/res-protocol-v1.2-update.md"
 	default:
 		c.Errorf("Invalid deprecation feature type: %d", typ)
 		return
