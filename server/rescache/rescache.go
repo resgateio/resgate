@@ -149,21 +149,22 @@ func (c *Cache) Call(req codec.Requester, rname, query, action string, token, pa
 			return
 		}
 
-		callback(codec.DecodeCallResponse(data))
-	})
-}
-
-// CallNew sends a call request with the new method, expecting a response with an RID
-func (c *Cache) CallNew(req codec.Requester, rname, query string, token, params interface{}, callback func(newRID string, err error)) {
-	payload := codec.CreateRequest(params, req, query, token)
-	subj := "call." + rname + ".new"
-	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
-		if err != nil {
-			callback("", err)
+		// [DEPRECATED:deprecatedNewCallRequest]
+		if action == "new" {
+			result, rid, err := codec.DecodeCallResponse(data)
+			if err == nil && rid == "" {
+				rid, err = codec.TryDecodeLegacyNewResult(result)
+				if err != nil || rid != "" {
+					c.deprecated(rname, deprecatedNewCallRequest)
+					callback(nil, rid, err)
+					return
+				}
+			}
+			callback(result, rid, err)
 			return
 		}
 
-		callback(codec.DecodeNewResponse(data))
+		callback(codec.DecodeCallResponse(data))
 	})
 }
 

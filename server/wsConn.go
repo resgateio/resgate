@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -36,6 +37,10 @@ type wsConn struct {
 }
 
 const legacyProtocol = 1001001 // MAJOR * 1000000 + MINOR * 1000 + PATCH
+
+var (
+	errInvalidNewResourceResponse = reserr.InternalError(errors.New("non-resource response on new request"))
+)
 
 func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request) *wsConn {
 	s.mu.Lock()
@@ -379,6 +384,22 @@ func (c *wsConn) AuthResource(rid, action string, params interface{}, cb func(re
 	})
 }
 
+func (c *wsConn) NewResource(rid string, params interface{}, cb func(result interface{}, err error)) {
+	c.call(rid, "new", params, func(result json.RawMessage, refRID string, err error) {
+		if err != nil {
+			cb(nil, err)
+			return
+		}
+
+		if refRID == "" {
+			cb(nil, errInvalidNewResourceResponse)
+		}
+
+		// Handle resource result
+		c.handleResourceResult(refRID, cb)
+	})
+}
+
 func (c *wsConn) handleCallAuthResponse(result json.RawMessage, refRID string, err error, cb func(result interface{}, err error)) {
 	if err != nil {
 		cb(nil, err)
@@ -403,6 +424,10 @@ func (c *wsConn) handleCallAuthResponse(result json.RawMessage, refRID string, e
 	}
 
 	// Handle resource result
+	c.handleResourceResult(refRID, cb)
+}
+
+func (c *wsConn) handleResourceResult(refRID string, cb func(result interface{}, err error)) {
 	sub, err := c.Subscribe(refRID, true)
 	if err != nil {
 		cb(nil, err)
@@ -437,81 +462,8 @@ func (c *wsConn) handleCallAuthResponse(result json.RawMessage, refRID string, e
 	})
 }
 
-func (c *wsConn) NewResource(rid string, params interface{}, cb func(result *rpc.NewResult, err error)) {
-	c.callNew(rid, params, func(newRID string, err error) {
-		c.Enqueue(func() {
-			if err != nil {
-				cb(nil, err)
-				return
-			}
-
-			sub, err := c.Subscribe(newRID, true)
-			if err != nil {
-				cb(nil, err)
-				return
-			}
-
-			sub.CanGet(func(err error) {
-				if err != nil {
-					// Respond with success even if the client is not allowed to get
-					// the resource it just created, as the call to 'new'
-					// atleast succeeded. But the resource is the access error.
-					cb(&rpc.NewResult{
-						RID: sub.RID(),
-						Resources: &rpc.Resources{
-							Errors: map[string]*reserr.Error{
-								sub.RID(): reserr.RESError(err),
-							},
-						},
-					}, nil)
-					c.Unsubscribe(sub, true, 1, true)
-					return
-				}
-
-				sub.OnReady(func() {
-					// Respond with success even if subscription contains errors,
-					// as the call to 'new' atleast succeeded.
-					cb(&rpc.NewResult{
-						RID:       sub.RID(),
-						Resources: sub.GetRPCResources(),
-					}, nil)
-					sub.ReleaseRPCResources()
-				})
-			})
-		})
-	})
-}
-
-func (c *wsConn) NewHTTPResource(rid, prefix string, params interface{}, cb func(href string, err error)) {
-	c.callNew(rid, params, func(newRID string, err error) {
-		c.Enqueue(func() {
-			if err != nil {
-				cb("", err)
-			} else {
-				cb(RIDToPath(newRID, prefix), nil)
-			}
-		})
-	})
-}
-
 func (c *wsConn) UnsubscribeResource(rid string, cb func(ok bool)) {
 	cb(c.UnsubscribeByRID(rid))
-}
-
-func (c *wsConn) callNew(rid string, params interface{}, cb func(newRID string, err error)) {
-	sub, ok := c.subs[rid]
-	if !ok {
-		sub = NewSubscription(c, rid)
-	}
-
-	sub.CanCall("new", func(err error) {
-		if err != nil {
-			cb("", err)
-			return
-		}
-
-		c.serv.cache.CallNew(c, sub.ResourceName(), sub.ResourceQuery(), c.token, params, cb)
-	})
 }
 
 func (c *wsConn) subscribe(rid string, direct bool) (*Subscription, error) {

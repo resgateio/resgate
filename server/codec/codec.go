@@ -414,7 +414,7 @@ func DecodeEventQueryResponse(payload []byte) (*EventQueryResult, error) {
 }
 
 // IsLegacyChangeEvent returns true if the model change event is detected as v1.0 legacy
-// Remove after 2020-03-31
+// [DEPRECATED:deprecatedModelChangeEvent]
 func IsLegacyChangeEvent(data json.RawMessage) bool {
 	var r map[string]json.RawMessage
 	err := json.Unmarshal(data, &r)
@@ -554,27 +554,30 @@ func DecodeCallResponse(payload []byte) (json.RawMessage, string, error) {
 	return r.Result, "", nil
 }
 
-// DecodeNewResponse decodes a JSON encoded RES-service new call response
-func DecodeNewResponse(payload []byte) (string, error) {
-	var r NewResponse
-	err := json.Unmarshal(payload, &r)
+// TryDecodeLegacyNewResult tries to detect legacy v1.1.1 behavior.
+// Returns empty string and nil error when the result is not detected as legacy.
+// [DEPRECATED:deprecatedNewCallRequest]
+func TryDecodeLegacyNewResult(result json.RawMessage) (string, error) {
+	var r map[string]interface{}
+	err := json.Unmarshal(result, &r)
 	if err != nil {
-		return "", reserr.RESError(err)
+		return "", nil
 	}
 
-	if r.Error != nil {
-		return "", r.Error
+	if len(r) != 1 {
+		return "", nil
 	}
 
-	if r.Result == nil {
-		return "", errMissingResult
+	rid, ok := r["rid"].(string)
+	if !ok {
+		return "", nil
 	}
 
-	if !IsValidRID(r.Result.RID, true) {
+	if !IsValidRID(rid, true) {
 		return "", errInvalidResponse
 	}
 
-	return r.Result.RID, nil
+	return rid, nil
 }
 
 // DecodeConnTokenEvent decodes a JSON encoded RES-service connection token event

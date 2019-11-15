@@ -131,19 +131,20 @@ func TestHTTPPostNewResponses(t *testing.T) {
 		ExpectedCode       int               // Expected response status code
 		Expected           interface{}       // Expected response body
 		ExpectedHeaders    map[string]string // Expected response Headers
+		ExpectedErrors     int               // Expected logged errors
 	}{
 		// Params variants
-		{params, fullCallAccess, callResponse, http.StatusCreated, nil, modelLocationHref},
-		{nil, fullCallAccess, callResponse, http.StatusCreated, nil, modelLocationHref},
+		{params, fullCallAccess, callResponse, http.StatusCreated, nil, modelLocationHref, 1},
+		{nil, fullCallAccess, callResponse, http.StatusCreated, nil, modelLocationHref, 1},
 		// CallAccessResponse variants
-		{params, methodCallAccess, callResponse, http.StatusCreated, nil, modelLocationHref},
-		{params, multiMethodCallAccess, callResponse, http.StatusCreated, nil, modelLocationHref},
-		{params, missingMethodCallAccess, noRequest, http.StatusUnauthorized, reserr.ErrAccessDenied, nil},
-		{params, noCallAccess, noRequest, http.StatusUnauthorized, reserr.ErrAccessDenied, nil},
-		{params, requestTimeout, noRequest, http.StatusNotFound, mq.ErrRequestTimeout, nil},
+		{params, methodCallAccess, callResponse, http.StatusCreated, nil, modelLocationHref, 1},
+		{params, multiMethodCallAccess, callResponse, http.StatusCreated, nil, modelLocationHref, 1},
+		{params, missingMethodCallAccess, noRequest, http.StatusUnauthorized, reserr.ErrAccessDenied, nil, 0},
+		{params, noCallAccess, noRequest, http.StatusUnauthorized, reserr.ErrAccessDenied, nil, 0},
+		{params, requestTimeout, noRequest, http.StatusNotFound, mq.ErrRequestTimeout, nil, 0},
 		// CallResponse variants
-		{params, fullCallAccess, reserr.ErrInvalidParams, http.StatusBadRequest, reserr.ErrInvalidParams, nil},
-		{params, fullCallAccess, requestTimeout, http.StatusNotFound, mq.ErrRequestTimeout, nil},
+		{params, fullCallAccess, reserr.ErrInvalidParams, http.StatusBadRequest, reserr.ErrInvalidParams, nil, 0},
+		{params, fullCallAccess, requestTimeout, http.StatusNotFound, mq.ErrRequestTimeout, nil, 0},
 	}
 
 	for i, l := range tbl {
@@ -186,6 +187,9 @@ func TestHTTPPostNewResponses(t *testing.T) {
 				hresp.AssertBody(t, l.Expected)
 			}
 			hresp.AssertHeaders(t, l.ExpectedHeaders)
+
+			// Validate logged errors
+			s.AssertErrorsLogged(t, l.ExpectedErrors)
 		})
 	}
 }

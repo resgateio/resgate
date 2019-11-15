@@ -170,8 +170,8 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 
 	var props map[string]codec.Value
 	var err error
-	// Detect legacy v1.0 behavior
-	// Remove after 2020-03-31
+
+	// [DEPRECATED:deprecatedModelChangeEvent]
 	if codec.IsLegacyChangeEvent(r.Payload) {
 		rs.e.cache.deprecated(rs.e.ResourceName, deprecatedModelChangeEvent)
 		props, err = codec.DecodeLegacyChangeEvent(r.Payload)
@@ -461,7 +461,7 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 		// a delete event is generated. Otherwise we
 		// just log the error.
 		if reserr.IsError(err, reserr.CodeNotFound) {
-			rs.handleEvent(&ResourceEvent{ Event: "delete" })
+			rs.handleEvent(&ResourceEvent{Event: "delete"})
 		} else {
 			rs.e.cache.Errorf("Subscription %s: Reset get error - %s", rs.e.ResourceName, err)
 		}

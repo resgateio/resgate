@@ -86,27 +86,17 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, error)) {
-			switch action {
-			case "new":
-				c.NewHTTPResource(rid, s.cfg.APIPath, params, func(href string, err error) {
-					if err == nil {
-						w.Header().Set("Location", href)
-						w.WriteHeader(http.StatusCreated)
-					}
+			c.CallHTTPResource(rid, s.cfg.APIPath, action, params, func(r json.RawMessage, href string, err error) {
+				if err != nil {
 					cb(nil, err)
-				})
-			default:
-				c.CallHTTPResource(rid, s.cfg.APIPath, action, params, func(r json.RawMessage, href string, err error) {
-					if err != nil {
-						cb(nil, err)
-					} else if href != "" {
-						w.Header().Set("Location", href)
-						w.WriteHeader(http.StatusCreated)
-					} else {
-						cb(s.enc.EncodePOST(r))
-					}
-				})
-			}
+				} else if href != "" {
+					w.Header().Set("Location", href)
+					w.WriteHeader(http.StatusCreated)
+					cb(nil, nil)
+				} else {
+					cb(s.enc.EncodePOST(r))
+				}
+			})
 		})
 
 	default:

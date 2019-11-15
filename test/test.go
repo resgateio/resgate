@@ -2,6 +2,8 @@ package test
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,6 +15,11 @@ import (
 
 const timeoutSeconds = 1
 
+var (
+	versionRequest = json.RawMessage(`{"protocol":"1.999.999"}`)
+	versionResult  = json.RawMessage(fmt.Sprintf(`{"protocol":"%s"}`, server.ProtocolVersion))
+)
+
 // Session represents a test session with a resgate server
 type Session struct {
 	t *testing.T
@@ -20,6 +27,7 @@ type Session struct {
 	s     *server.Service
 	conns map[*Conn]struct{}
 	*CountLogger
+	version string
 }
 
 func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
@@ -62,7 +70,20 @@ func (s *Session) ConnectWithChannel(evs chan *ClientEvent) *Conn {
 }
 
 // Connect makes a new mock client websocket connection
+// that handshakes with version v1.999.999.
 func (s *Session) Connect() *Conn {
+	c := s.ConnectWithChannel(make(chan *ClientEvent, 256))
+
+	// Send version connect
+	creq := c.Request("version", versionRequest)
+	cresp := creq.GetResponse(s.t)
+	cresp.AssertResult(s.t, versionResult)
+	return c
+}
+
+// ConnectWithoutVersion makes a new mock client websocket connection
+// without any version handshake.
+func (s *Session) ConnectWithoutVersion() *Conn {
 	return s.ConnectWithChannel(make(chan *ClientEvent, 256))
 }
 

@@ -14,17 +14,18 @@ func TestAuthOnResource(t *testing.T) {
 
 	params := json.RawMessage(`{"value":42}`)
 	successResponse := json.RawMessage(`{"foo":"bar"}`)
+	successResult := json.RawMessage(`{"payload":{"foo":"bar"}}`)
 
 	tbl := []struct {
 		Params       interface{} // Params to use in call request
 		AuthResponse interface{} // Response on call request. requestTimeout means timeout.
 		Expected     interface{}
 	}{
-		{nil, successResponse, successResponse},
+		{nil, successResponse, successResult},
 		{nil, reserr.ErrInvalidParams, reserr.ErrInvalidParams},
-		{nil, nil, nil},
+		{nil, nil, json.RawMessage(`{"payload":null}`)},
 		{nil, requestTimeout, mq.ErrRequestTimeout},
-		{params, successResponse, successResponse},
+		{params, successResponse, successResult},
 		// Invalid service responses
 		{nil, []byte(`{"broken":JSON}`), reserr.CodeInternalError},
 		{nil, []byte(`{}`), reserr.CodeInternalError},
