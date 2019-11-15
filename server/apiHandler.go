@@ -91,7 +91,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 					cb(nil, err)
 				} else if href != "" {
 					w.Header().Set("Location", href)
-					w.WriteHeader(http.StatusCreated)
+					w.WriteHeader(http.StatusOK)
 					cb(nil, nil)
 				} else {
 					cb(s.enc.EncodePOST(r))
