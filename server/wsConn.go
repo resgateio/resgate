@@ -36,13 +36,17 @@ type wsConn struct {
 	mu sync.Mutex
 }
 
-const legacyProtocol = 1001001 // MAJOR * 1000000 + MINOR * 1000 + PATCH
+// Protocol versions
+const (
+	legacyProtocol = 1001001 // MAJOR * 1000000 + MINOR * 1000 + PATCH
+	latestProtocol = 1999999
+)
 
 var (
 	errInvalidNewResourceResponse = reserr.InternalError(errors.New("non-resource response on new request"))
 )
 
-func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request) *wsConn {
+func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request, protocol int) *wsConn {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -61,7 +65,7 @@ func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request) *wsConn {
 		subs:        make(map[string]*Subscription),
 		queue:       make([]func(), 0, WSConnWorkerQueueSize),
 		work:        make(chan struct{}, 1),
-		protocolVer: legacyProtocol,
+		protocolVer: protocol,
 	}
 	conn.connStr = "[" + conn.cid + "]"
 

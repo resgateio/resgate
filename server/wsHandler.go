@@ -34,7 +34,7 @@ func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn := s.newWSConn(ws, r)
+	conn := s.newWSConn(ws, r, legacyProtocol)
 	if conn == nil {
 		return
 	}
