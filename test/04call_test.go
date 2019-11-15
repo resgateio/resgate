@@ -279,10 +279,9 @@ func TestLegacyCallOnResource(t *testing.T) {
 	for i, l := range tbl {
 		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
 			c := s.ConnectWithoutVersion()
-			var creq *ClientRequest
 
 			// Send client call request
-			creq = c.Request("call.test.model.method", params)
+			creq := c.Request("call.test.model.method", params)
 			s.GetRequest(t).
 				AssertSubject(t, "access.test.model").
 				RespondSuccess(json.RawMessage(`{"get":true,"call":"*"}`))

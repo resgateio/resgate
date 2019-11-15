@@ -27,7 +27,6 @@ type Session struct {
 	s     *server.Service
 	conns map[*Conn]struct{}
 	*CountLogger
-	version string
 }
 
 func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
