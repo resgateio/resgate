@@ -64,3 +64,28 @@ func TestNoEventOnLinkedModelGet(t *testing.T) {
 		c.AssertNoEvent(t, "test.model.parent")
 	})
 }
+
+func TestGet_WithCIDPlaceholder_ReplacesCID(t *testing.T) {
+	runTest(t, func(s *Session) {
+		model := resourceData("test.model")
+		event := json.RawMessage(`{"foo":"bar"}`)
+
+		c := s.Connect()
+		cid := getCID(t, s, c)
+
+		creq := c.Request("get.test.{cid}.model", nil)
+
+		// Handle model get and access request
+		mreqs := s.GetParallelRequests(t, 2)
+		req := mreqs.GetRequest(t, "access.test."+cid+".model")
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+		req = mreqs.GetRequest(t, "get.test."+cid+".model")
+		req.RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+		// Validate client response
+		creq.GetResponse(t)
+
+		// Send event on model and validate client did not get event
+		s.ResourceEvent("test."+cid+".model", "custom", event)
+		c.AssertNoEvent(t, "test."+cid+".model")
+	})
+}

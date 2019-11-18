@@ -481,3 +481,30 @@ func TestCall_WithResourceResponse(t *testing.T) {
 		})
 	}
 }
+
+func TestCall_WithCIDPlaceholder_ReplacesCID(t *testing.T) {
+	runTest(t, func(s *Session) {
+		params := json.RawMessage(`{"foo":"bar"}`)
+		result := json.RawMessage(`"zoo"`)
+
+		c := s.Connect()
+		cid := getCID(t, s, c)
+
+		creq := c.Request("call.test.{cid}.model.method", params)
+
+		// Handle access request
+		s.GetRequest(t).
+			AssertSubject(t, "access.test."+cid+".model").
+			RespondSuccess(json.RawMessage(`{"get":true,"call":"*"}`))
+
+		// Handle call request
+		s.GetRequest(t).
+			AssertSubject(t, "call.test."+cid+".model.method").
+			AssertPathPayload(t, "params", params).
+			RespondSuccess(result)
+
+		// Validate response
+		creq.GetResponse(t).
+			AssertResult(t, json.RawMessage(`{"payload":"zoo"}`))
+	})
+}

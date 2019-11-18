@@ -74,3 +74,25 @@ func TestAuthOnResource(t *testing.T) {
 		})
 	}
 }
+
+func TestAuth_WithCIDPlaceholder_ReplacesCID(t *testing.T) {
+	runTest(t, func(s *Session) {
+		params := json.RawMessage(`{"foo":"bar"}`)
+		result := json.RawMessage(`"zoo"`)
+
+		c := s.Connect()
+		cid := getCID(t, s, c)
+
+		creq := c.Request("auth.test.{cid}.model.method", params)
+
+		// Handle auth request
+		s.GetRequest(t).
+			AssertSubject(t, "auth.test."+cid+".model.method").
+			AssertPathPayload(t, "params", params).
+			RespondSuccess(result)
+
+		// Validate response
+		creq.GetResponse(t).
+			AssertResult(t, json.RawMessage(`{"payload":"zoo"}`))
+	})
+}
