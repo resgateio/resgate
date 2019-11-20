@@ -4,7 +4,7 @@
 
 ## Changes from v1.1
 
-The update deprecates the pre-defined *new call requests*. The same behaviour can now be achieved with the [Resource response](res-service-protocol.md#response).
+The update deprecates the pre-defined *new call requests*. The same behavior can now be achieved with the [Resource response](res-service-protocol.md#response).
 
 ## Migration
 
