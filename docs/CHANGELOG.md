@@ -2,11 +2,13 @@
 
 All changes to the RES Protocol will be documented in this file.
 
-## [Unreleased]
+## v1.2.0 - [Resgate v1.4.0](compare/v1.3.0...v1.4.0) - 2019-11-20
 
 * #127 Resource response on query request.
-* #83 Added delete resource event.
-* #132 Added create resource event.
+* #83 Added *delete* resource event.
+* #132 Added *create* resource event.
+* #136 Added RES client *version* request.
+* #135 Resource response on call and auth requests.
 
 ## v1.1.1 - [Resgate v1.3.0](compare/v1.2.2...v1.3.0) - 2019-10-02
 
