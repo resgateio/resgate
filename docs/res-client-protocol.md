@@ -1,6 +1,6 @@
 # The RES-Client Protocol Specification
 
-*Version: [1.1.1](res-protocol-semver.md)*
+*Version: [1.2.0](res-protocol-semver.md)*
 
 ## Table of contents
 - [Introduction](#introduction)
@@ -15,6 +15,7 @@
 - [Requests](#requests)
   * [Request method](#request-method)
 - [Request types](#request-types)
+  * [Version request](#version-request)
   * [Subscribe request](#subscribe-request)
   * [Unsubscribe request](#unsubscribe-request)
   * [Get request](#get-request)
@@ -37,14 +38,14 @@ The RES-Client protocol is used in communication between the client and the gate
 
 # Subscriptions
 
-A core concept in the RES-Client protocol is the subscriptions. A client may subscribe to resources by making [subscribe requests](#subscribe-request) with the unique [resource ID](res-protocol.md#resource-ids), or when creating a new resource using [new request](#new-request).
+A core concept in the RES-Client protocol is the subscriptions. A client may subscribe to resources by making [subscribe requests](#subscribe-request) with the unique [resource ID](res-protocol.md#resource-ids), or by getting a resource response on a [call request](#call-request) or [auth request](#auth-request).
 
 A resource may be subscribed to [directly](#direct-subscription) or [indirectly](#indirect-subscription). Any reference to *subscription*, or a resource being *subscribed* to, in this document should be interpreted as both *direct* and *indirect* subscriptions, unless specified.
 
 The client will receive [events](#events) on anything that happens on a subscribed resource. A subscription lasts as long as the resource has direct or indirect subscriptions, or when the connection to the gateway is closed.
 
 ## Direct subscription
-The resource that is subscribed to with a [subscribe request](#subscribe-request), or created with a [new request](#new-request) will be considered *directly subscribed*.
+The resource that is subscribed to with a [subscribe request](#subscribe-request), or returned as a resource response to a [call request](#call-request) or [auth request](#auth-request) will be considered *directly subscribed*.
 
 It is possible to make multiple direct subscriptions on a resource. It will be considered directly subscribed until an equal number of [unsubscribe requests](#unsubscribe-request) has been made.
 
@@ -133,17 +134,18 @@ It can be used to hold values for replacing placeholders in the message.
 
 There are a number of predefined errors.
 
-Code                    | Message            | Meaning
------------------------ | ------------------ | ----------------------------------------
-`system.notFound`       | Not found          | The resource was not found
-`system.invalidParams`  | Invalid parameters | Invalid parameters in method call
-`system.invalidQuery`   | Invalid query      | Invalid query or query parameters
-`system.internalError`  | Internal error     | Internal error
-`system.methodNotFound` | Method not found   | Resource method not found
-`system.accessDenied`   | Access denied      | Access to a resource or method is denied
-`system.timeout`        | Request timeout    | Request timed out
-`system.noSubscription` | No subscription    | The resource has no direct subscription
-`system.invalidRequest` | Invalid request    | Invalid request
+Code | Message | Meaning
+--- | --- | ---
+`system.notFound` | Not found | The resource was not found
+`system.invalidParams` | Invalid parameters | Invalid parameters in method call
+`system.invalidQuery` | Invalid query | Invalid query or query parameters
+`system.internalError` | Internal error | Internal error
+`system.methodNotFound` | Method not found | Resource method not found
+`system.accessDenied` | Access denied | Access to a resource or method is denied
+`system.timeout` | Request timeout | Request timed out
+`system.noSubscription` | No subscription | The resource has no direct subscription
+`system.invalidRequest` | Invalid request | Invalid request
+`system.unsupportedProtocol` | Unsupported protocol | RES protocol version is not supported
 
 
 # Requests
@@ -157,12 +159,15 @@ A request method has the following structure:
 
 `<type>.<resourceID>.<resourceMethod>`
 
-* type - the request type. May be either `subscribe`, `unsubscribe`, `get`, `call`, `auth`, or `new`.
-* resourceID - the [resource ID](res-protocol.md#resource-ids).
-* resourceMethod - the resource method. Only used for `call` or `auth` type requests. If not included, the separating dot (`.`) must also not be included.
+* type - the request type. May be either `version`, `subscribe`, `unsubscribe`, `get`, `call`, `auth`, or `new`.
+* resourceID - the [resource ID](res-protocol.md#resource-ids). Not used for `version` type requests.
+* resourceMethod - the resource method. Only used for `call` or `auth` type requests.
+
+Trailing separating dots (`.`) must not be included.
 
 **Examples**  
 
+* `version` - Version request
 * `subscribe.userService.users` - Subscribe request of a collection of users
 * `call.userService.user.42.set` - Call request to set properties on a user
 * `new.userService.users` - New request to create a new user
@@ -170,6 +175,36 @@ A request method has the following structure:
 
 
 # Request types
+
+## Version request
+
+**method**  
+`version`
+
+Version requests are sent by the client to tell which RES protocol version it supports, and to get information on what protocol version the gateway supports.
+
+The request SHOULD be the first request sent by the client after an established connection.
+
+If not sent, or if the **protocol** property is omitted in the request, the gateway SHOULD assume version v1.1.x.
+
+### Parameters
+The request parameters are optional.  
+It not omitted, the parameters object SHOULD have the following property:
+
+**protocol**  
+The RES protocol version supported by the client.  
+MUST be a string in the format `"[MAJOR].[MINOR].[PATCH]"`. Eg. `"1.2.3"`.
+
+### Result
+
+**protocol**  
+The RES protocol version supported by the gateway.  
+MUST be a string in the format `"[MAJOR].[MINOR].[PATCH]"`. Eg. `"1.2.3"`.
+
+### Error
+
+A `system.unsupportedProtocol` error response will be sent if the gateway cannot support the client protocol version.  
+A `system.invalidRequest` error response will be sent if the gateway only supports RES Protocol v1.1.1 or below, prior to the introduction of the [version request](#version-request).
 
 ## Subscribe request
 
@@ -250,7 +285,9 @@ Any [resource reference](res-protocol.md#values) that fails will not lead to an 
 
 ## Call request
 
-Call requests are sent by the client to invoke a method on the resource.
+Call requests are sent by the client to invoke a method on the resource. The response may either contain a result payload or a resource ID.
+
+In case of a resource ID, the resource is considered [directly subscribed](#direct-subscription).
 
 **method**  
 `call.<resourceID>.<resourceMethod>`
@@ -259,14 +296,40 @@ Call requests are sent by the client to invoke a method on the resource.
 The request parameters are defined by the service.
 
 ### Result
-The result payload is defined by the service.
+The result is an object with the following members:
+
+**payload**  
+Result payload as defined by the service.  
+MUST be omitted if **rid** is set.  
+MUST NOT be omitted if **rid** is not set.
+
+**rid**  
+Resource ID of subscribed resource.  
+MUST be omitted if **payload** is set.
+
+**models**  
+[Resource set](#resource-set) models.  
+May be omitted if no new models were subscribed.  
+MUST be omitted if **payload** is set.
+
+**collections**  
+[Resource set](#resource-set) collections.  
+May be omitted if no new collections were subscribed.  
+MUST be omitted if **payload** is set.
+
+**errors**  
+[Resource set](#resource-set) errors.  
+May be omitted if no subscribed resources encountered errors.  
+MUST be omitted if **payload** is set.
 
 ### Error
 An error response will be sent if the method couldn't be called, or if the method was called, but an error was encountered.
 
 ## Auth request
 
-Auth requests are sent by the client to authenticate the client connection.
+Auth requests are sent by the client to authenticate the client connection. The response may either contain a result payload or a resource ID.
+
+In case of a resource ID, the resource is considered [directly subscribed](#direct-subscription).
 
 **method**  
 `auth.<resourceID>.<resourceMethod>`
@@ -275,13 +338,34 @@ Auth requests are sent by the client to authenticate the client connection.
 The request parameters are defined by the service.
 
 ### Result
-The result payload is defined by the service.
+The result is an object with the following members:
+
+**payload**  
+Result payload as defined by the service.  
+MUST be omitted if **rid** is set.  
+MUST NOT be omitted if **rid** is not set.
+
+**rid**  
+Resource ID of subscribed resource.  
+MUST be omitted if **payload** is set.
+
+**models**  
+[Resource set](#resource-set) models.  
+May be omitted if no new models were subscribed.  
+MUST be omitted if **payload** is set.
+
+**collections**  
+[Resource set](#resource-set) collections.  
+May be omitted if no new collections were subscribed.  
+MUST be omitted if **payload** is set.
 
 ### Error
 An error response will be sent if the method couldn't be called, or if the authentication failed.
 
 
 ## New request
+
+DEPRECATED: Use [call request](#call-request) instead.
 
 New requests are sent by the client to create a new resource.
 
@@ -460,7 +544,8 @@ Zero-based index number of the value being removed.
 
 ## Custom event
 
-Custom events are defined by the services, and may have any event name except `change`, `add`, `remove`, `unsubscribe` and `reaccess`.  
+Custom events are defined by the services, and may have any event name except the following:  
+`add`, `change`, `create`, `delete`, `patch`, `reset`, `reaccess`, `remove` or `unsubscribe`.  
 Custom events MUST NOT be used to change the state of the resource.
 
 **event**  
@@ -499,3 +584,12 @@ The unsubscribe event object has the following parameter:
   }
 }
 ```
+
+## Delete event
+
+Delete events are sent to the client when the service considers the resource deleted.  
+The resource is still to be considered subscribed, but the client will not receive any more events on the resource.  
+The event has no payload.
+
+**event**  
+`<resourceID>.delete`

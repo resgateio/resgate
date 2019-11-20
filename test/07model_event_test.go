@@ -49,23 +49,24 @@ func TestChangeEventOnCachedModel(t *testing.T) {
 		ChangeEvent         string // Change event to send (raw JSON)
 		ExpectedChangeEvent string // Expected event sent to client (raw JSON. Empty means none)
 		ExpectedModel       string // Expected model after event (raw JSON)
+		ExpectedErrors      int
 	}{
-		{`{"values":{"string":"bar","int":-12}}`, `{"values":{"string":"bar","int":-12}}`, `{"string":"bar","int":-12,"bool":true,"null":null}`},
-		{`{"values":{"string":"bar"}}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`},
-		{`{"values":{"int":-12}}`, `{"values":{"int":-12}}`, `{"string":"foo","int":-12,"bool":true,"null":null}`},
-		{`{"values":{"new":false}}`, `{"values":{"new":false}}`, `{"string":"foo","int":42,"bool":true,"null":null,"new":false}`},
-		{`{"values":{"int":{"action":"delete"}}}`, `{"values":{"int":{"action":"delete"}}}`, `{"string":"foo","bool":true,"null":null}`},
+		{`{"values":{"string":"bar","int":-12}}`, `{"values":{"string":"bar","int":-12}}`, `{"string":"bar","int":-12,"bool":true,"null":null}`, 0},
+		{`{"values":{"string":"bar"}}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`, 0},
+		{`{"values":{"int":-12}}`, `{"values":{"int":-12}}`, `{"string":"foo","int":-12,"bool":true,"null":null}`, 0},
+		{`{"values":{"new":false}}`, `{"values":{"new":false}}`, `{"string":"foo","int":42,"bool":true,"null":null,"new":false}`, 0},
+		{`{"values":{"int":{"action":"delete"}}}`, `{"values":{"int":{"action":"delete"}}}`, `{"string":"foo","bool":true,"null":null}`, 0},
 
 		// Unchanged values
-		{`{"values":{}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`},
-		{`{"values":{"string":"foo"}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`},
-		{`{"values":{"string":"foo","int":42}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`},
-		{`{"values":{"invalid":{"action":"delete"}}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`},
-		{`{"values":{"null":null,"string":"bar"}}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`},
+		{`{"values":{}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
+		{`{"values":{"string":"foo"}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
+		{`{"values":{"string":"foo","int":42}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
+		{`{"values":{"invalid":{"action":"delete"}}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
+		{`{"values":{"null":null,"string":"bar"}}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`, 0},
 
 		// Model change event v1.0 legacy behavior
-		{`{"string":"bar","int":-12}`, `{"values":{"string":"bar","int":-12}}`, `{"string":"bar","int":-12,"bool":true,"null":null}`},
-		{`{"string":"bar"}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`},
+		{`{"string":"bar","int":-12}`, `{"values":{"string":"bar","int":-12}}`, `{"string":"bar","int":-12,"bool":true,"null":null}`, 1},
+		{`{"string":"bar"}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`, 1},
 	}
 
 	for i, l := range tbl {
@@ -99,6 +100,7 @@ func TestChangeEventOnCachedModel(t *testing.T) {
 
 				// Validate client response
 				creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model":`+l.ExpectedModel+`}}`))
+				s.AssertErrorsLogged(t, l.ExpectedErrors)
 			})
 		}
 	}
@@ -107,7 +109,6 @@ func TestChangeEventOnCachedModel(t *testing.T) {
 // Test change event with new resource reference
 func TestChangeEventWithNewResourceReference(t *testing.T) {
 	collection := resourceData("test.collection")
-	customEvent := json.RawMessage(`{"foo":"bar"}`)
 
 	runTest(t, func(s *Session) {
 		c := s.Connect()
@@ -125,29 +126,27 @@ func TestChangeEventWithNewResourceReference(t *testing.T) {
 		c.GetEvent(t).Equals(t, "test.model.change", json.RawMessage(`{"values":{"ref":{"rid":"test.collection"}},"collections":{"test.collection":`+collection+`}}`))
 
 		// Send event on collection and validate client event
-		s.ResourceEvent("test.collection", "custom", customEvent)
-		c.GetEvent(t).Equals(t, "test.collection.custom", customEvent)
+		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.collection.custom", common.CustomEvent())
 	})
 }
 
 // Test change event with removed resource reference
 func TestChangeEventWithRemovedResourceReference(t *testing.T) {
-	customEvent := json.RawMessage(`{"foo":"bar"}`)
-
 	runTest(t, func(s *Session) {
 		c := s.Connect()
 		subscribeToTestModelParent(t, s, c, false)
 
 		// Send event on model and validate client event
-		s.ResourceEvent("test.model", "custom", customEvent)
-		c.GetEvent(t).Equals(t, "test.model.custom", customEvent)
+		s.ResourceEvent("test.model", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.model.custom", common.CustomEvent())
 
 		// Send event on model and validate client event
 		s.ResourceEvent("test.model.parent", "change", json.RawMessage(`{"values":{"child":null}}`))
 		c.GetEvent(t).Equals(t, "test.model.parent.change", json.RawMessage(`{"values":{"child":null}}`))
 
 		// Send event on collection and validate client event is not sent to client
-		s.ResourceEvent("test.model", "custom", customEvent)
+		s.ResourceEvent("test.model", "custom", common.CustomEvent())
 		c.AssertNoEvent(t, "test.model")
 	})
 }
@@ -155,7 +154,6 @@ func TestChangeEventWithRemovedResourceReference(t *testing.T) {
 // Test change event with new resource reference
 func TestChangeEventWithChangedResourceReference(t *testing.T) {
 	collection := resourceData("test.collection")
-	customEvent := json.RawMessage(`{"foo":"bar"}`)
 
 	runTest(t, func(s *Session) {
 		c := s.Connect()
@@ -173,11 +171,11 @@ func TestChangeEventWithChangedResourceReference(t *testing.T) {
 		c.GetEvent(t).Equals(t, "test.model.parent.change", json.RawMessage(`{"values":{"child":{"rid":"test.collection"}},"collections":{"test.collection":`+collection+`}}`))
 
 		// Send event on collection and validate client event
-		s.ResourceEvent("test.collection", "custom", customEvent)
-		c.GetEvent(t).Equals(t, "test.collection.custom", customEvent)
+		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.collection.custom", common.CustomEvent())
 
 		// Send event on model and validate no event is sent to client
-		s.ResourceEvent("test.model", "custom", customEvent)
+		s.ResourceEvent("test.model", "custom", common.CustomEvent())
 		c.AssertNoEvent(t, "test.model")
 	})
 }

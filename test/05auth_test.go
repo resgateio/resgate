@@ -14,17 +14,18 @@ func TestAuthOnResource(t *testing.T) {
 
 	params := json.RawMessage(`{"value":42}`)
 	successResponse := json.RawMessage(`{"foo":"bar"}`)
+	successResult := json.RawMessage(`{"payload":{"foo":"bar"}}`)
 
 	tbl := []struct {
 		Params       interface{} // Params to use in call request
 		AuthResponse interface{} // Response on call request. requestTimeout means timeout.
 		Expected     interface{}
 	}{
-		{nil, successResponse, successResponse},
+		{nil, successResponse, successResult},
 		{nil, reserr.ErrInvalidParams, reserr.ErrInvalidParams},
-		{nil, nil, nil},
+		{nil, nil, json.RawMessage(`{"payload":null}`)},
 		{nil, requestTimeout, mq.ErrRequestTimeout},
-		{params, successResponse, successResponse},
+		{params, successResponse, successResult},
 		// Invalid service responses
 		{nil, []byte(`{"broken":JSON}`), reserr.CodeInternalError},
 		{nil, []byte(`{}`), reserr.CodeInternalError},
@@ -72,4 +73,26 @@ func TestAuthOnResource(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAuth_WithCIDPlaceholder_ReplacesCID(t *testing.T) {
+	runTest(t, func(s *Session) {
+		params := json.RawMessage(`{"foo":"bar"}`)
+		result := json.RawMessage(`"zoo"`)
+
+		c := s.Connect()
+		cid := getCID(t, s, c)
+
+		creq := c.Request("auth.test.{cid}.model.method", params)
+
+		// Handle auth request
+		s.GetRequest(t).
+			AssertSubject(t, "auth.test."+cid+".model.method").
+			AssertPathPayload(t, "params", params).
+			RespondSuccess(result)
+
+		// Validate response
+		creq.GetResponse(t).
+			AssertResult(t, json.RawMessage(`{"payload":"zoo"}`))
+	})
 }

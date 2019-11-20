@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // Test model query event
@@ -33,6 +35,7 @@ func TestModelQueryEventWithOmittedEventsToQueryRequest(t *testing.T) {
 			RespondSuccess(json.RawMessage(`{}`))
 
 		c.AssertNoEvent(t, "test.model")
+		s.AssertNoErrorsLogged(t)
 	})
 }
 
@@ -63,6 +66,7 @@ func TestModelQueryEventOnMultipleQueries(t *testing.T) {
 
 		// Validate no events was sent to the client
 		c.AssertNoEvent(t, "test.model")
+		s.AssertNoErrorsLogged(t)
 	})
 }
 
@@ -194,7 +198,7 @@ func TestModelQueryChangeEventOnNonQuerySubscription(t *testing.T) {
 	})
 }
 
-// Test invalid query event on non-query model subscription
+// Test invalid query event on query model subscription
 // These should eventually result in an error being sent to NATS.
 func TestInvalidModelQueryEvent(t *testing.T) {
 	tbl := []struct {
@@ -217,6 +221,7 @@ func TestInvalidModelQueryEvent(t *testing.T) {
 
 			// Assert no request is sent to NATS
 			c.AssertNoNATSRequest(t, "test.model")
+			s.AssertErrorsLogged(t, 1)
 		})
 	}
 }
@@ -248,6 +253,7 @@ func TestCollectionQueryEventWithOmittedEventsToQueryRequest(t *testing.T) {
 			RespondSuccess(json.RawMessage(`{}`))
 
 		c.AssertNoEvent(t, "test.collection")
+		s.AssertNoErrorsLogged(t)
 	})
 }
 
@@ -278,6 +284,7 @@ func TestCollectionQueryEventOnMultipleQueries(t *testing.T) {
 
 		// Validate no events was sent to the client
 		c.AssertNoEvent(t, "test.collection")
+		s.AssertNoErrorsLogged(t)
 	})
 }
 
@@ -484,5 +491,233 @@ func TestQueryEventDiscardedWhenPrecedingGetResponse(t *testing.T) {
 		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model?foo=bar":`+model+`}}`))
 
 		c.AssertNoEvent(t, "test.model")
+		s.AssertNoErrorsLogged(t)
+	})
+}
+
+func TestQueryEvent_ModelResponse_CausesChangeEvent(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestQueryModel(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+
+		// Send query event
+		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+		// Respond to query request with a model
+		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"model":{"string":"bar","int":-12,"bool":true}}`))
+		// Validate change event was sent to client
+		c.GetEvent(t).Equals(t, "test.model?q=foo&f=bar.change", json.RawMessage(`{"values":{"string":"bar","int":-12,"null":{"action":"delete"}}}`))
+	})
+}
+
+func TestQueryEvent_CollectionResponse_CausesAddRemoveEvents(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestQueryCollection(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+
+		// Send query event
+		s.ResourceEvent("test.collection", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+		// Respond to query request with a collection
+		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"collection":["foo","bar",42,true]}`))
+
+		// Validate change event was sent to client
+		c.GetEvent(t).Equals(t, "test.collection?q=foo&f=bar.remove", json.RawMessage(`{"idx":3}`))
+		c.GetEvent(t).Equals(t, "test.collection?q=foo&f=bar.add", json.RawMessage(`{"idx":1,"value":"bar"}`))
+	})
+}
+
+func TestQueryEvent_CollectionResponseOnModel_CausesErrorLog(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestQueryModel(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+
+		// Send query event
+		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+		// Respond to query request with a collection
+		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"collection":["foo","bar",42,true]}`))
+
+		// Validate no events was sent to client and an error was logged
+		c.AssertNoEvent(t, "test.model")
+		s.AssertErrorsLogged(t, 1)
+	})
+}
+
+func TestQueryEvent_ModelResponseOnCollection_CausesErrorLog(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestQueryCollection(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+
+		// Send query event
+		s.ResourceEvent("test.collection", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+		// Respond to query request with a model
+		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"model":{"string":"bar","int":-12,"bool":true}}`))
+
+		// Validate no events was sent to client and an error was logged
+		c.AssertNoEvent(t, "test.collection")
+		s.AssertErrorsLogged(t, 1)
+	})
+}
+
+func TestQueryEvent_InvalidResponseOnModelResource_CausesErrorLog(t *testing.T) {
+	tbl := []struct {
+		InvalidQueryResponse string // Raw query event payload
+	}{
+		{`{"events":"foo"}`},
+		{`{"model":[]}`},
+		{`{"collection":[]}`},
+		{`{"model":{},"events":[]}`},
+		{`{"model":{"string":"bar"},"events":[]}`},
+		{`{"model":{},"events":[{"event":"change","data":{"values":{"string":"bar","int":-12}}}]}`},
+		{`{"model":{"string":"bar"},"events":[{"event":"change","data":{"values":{"string":"bar","int":-12}}}]}`},
+	}
+
+	for i, l := range tbl {
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
+			c := s.Connect()
+			subscribeToTestQueryModel(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+
+			// Send query event
+			s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+			// Respond to query request invalid response
+			s.GetRequest(t).RespondSuccess(json.RawMessage(l.InvalidQueryResponse))
+
+			// Validate no events was sent to client and an error was logged
+			c.AssertNoEvent(t, "test.model")
+			s.AssertErrorsLogged(t, 1)
+		})
+	}
+}
+
+func TestQueryEvent_InvalidResponseOnCollectionResource_CausesErrorLog(t *testing.T) {
+	tbl := []struct {
+		InvalidQueryResponse string // Raw query event payload
+	}{
+		{`{"events":"foo"}`},
+		{`{"collection":{}}`},
+		{`{"model":{}}`},
+		{`{"collection":[],"events":[]}`},
+		{`{"collection":["foo","bar"],"events":[]}`},
+		{`{"collection":[],"events":[{"event":"add","data":{"idx":1,"value":"bar"}}]}`},
+		{`{"collection":["foo","bar"],"events":[{"event":"add","data":{"idx":1,"value":"bar"}}]}`},
+	}
+
+	for i, l := range tbl {
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
+			c := s.Connect()
+			subscribeToTestQueryCollection(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+
+			// Send query event
+			s.ResourceEvent("test.collection", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+			// Respond to query request invalid response
+			s.GetRequest(t).RespondSuccess(json.RawMessage(l.InvalidQueryResponse))
+
+			// Validate no events was sent to client and an error was logged
+			c.AssertNoEvent(t, "test.collection")
+			s.AssertErrorsLogged(t, 1)
+		})
+	}
+}
+
+func TestQueryEvent_NotFoundResponseOnModel_GeneratesDeleteEvent(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestQueryModel(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+		// Send query event
+		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+		// Respond to query request with an error
+		s.GetRequest(t).RespondError(reserr.ErrNotFound)
+		// Validate delete event is sent to client
+		c.GetEvent(t).AssertEventName(t, "test.model?q=foo&f=bar.delete").AssertData(t, nil)
+		// Validate subsequent query events does not send request
+		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_02_"}`))
+		c.AssertNoNATSRequest(t, "test.model")
+	})
+}
+
+func TestQueryEvent_NotFoundResponseOnCollection_GeneratesDeleteEvent(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestQueryCollection(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+
+		// Send query event
+		s.ResourceEvent("test.collection", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+		// Respond to query request with an error
+		s.GetRequest(t).RespondError(reserr.ErrNotFound)
+		// Validate delete event is sent to client
+		c.GetEvent(t).AssertEventName(t, "test.collection?q=foo&f=bar.delete").AssertData(t, nil)
+		// Validate subsequent query events does not send request
+		s.ResourceEvent("test.collection", "query", json.RawMessage(`{"subject":"_EVENT_02_"}`))
+		c.AssertNoNATSRequest(t, "test.collection")
+	})
+}
+
+func TestQueryEvent_InternalErrorResponseOnModel_LogsError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestQueryModel(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+
+		// Send query event
+		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+		// Respond to query request with an error
+		s.GetRequest(t).RespondError(reserr.ErrInternalError)
+		// Validate delete event is sent to client
+		c.AssertNoEvent(t, "test.model")
+		// Assert error is logged
+		s.AssertErrorsLogged(t, 1)
+		// Validate subsequent query events does send request
+		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_02_"}`))
+		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[]}`))
+	})
+}
+
+func TestQueryEvent_InternalErrorResponseOnCollection_LogsError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestQueryCollection(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+
+		// Send query event
+		s.ResourceEvent("test.collection", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+		// Respond to query request with an error
+		s.GetRequest(t).RespondError(reserr.ErrInternalError)
+		// Validate delete event is sent to client
+		c.AssertNoEvent(t, "test.collection")
+		// Assert error is logged
+		s.AssertErrorsLogged(t, 1)
+		// Validate subsequent query events does send request
+		s.ResourceEvent("test.collection", "query", json.RawMessage(`{"subject":"_EVENT_02_"}`))
+		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[]}`))
+	})
+}
+
+func TestQueryEvent_DeleteEventOnModel_DeletesFromCache(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestQueryModel(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+		// Send query event
+		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+		// Respond to query request with an error
+		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[{"event":"delete"},{"event":"change","data":{"values":{"string":"bar","int":-12}}}]}`))
+		// Validate only delete event is sent to client
+		c.GetEvent(t).AssertEventName(t, "test.model?q=foo&f=bar.delete").AssertData(t, nil)
+		c.AssertNoEvent(t, "test.model")
+		// Validate subsequent query events does not send request
+		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_02_"}`))
+		c.AssertNoNATSRequest(t, "test.model")
+	})
+}
+
+func TestQueryEvent_DeleteEventOnCollection_DeletesFromCache(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestQueryCollection(t, s, c, "q=foo&f=bar", "q=foo&f=bar")
+		// Send query event
+		s.ResourceEvent("test.collection", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+		// Respond to query request with an error
+		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[{"event":"delete"},{"event":"add","data":{"idx":1,"value":"bar"}}]}`))
+		// Validate only delete event is sent to client
+		c.GetEvent(t).AssertEventName(t, "test.collection?q=foo&f=bar.delete").AssertData(t, nil)
+		c.AssertNoEvent(t, "test.collection")
+		// Validate subsequent query events does not send request
+		s.ResourceEvent("test.collection", "query", json.RawMessage(`{"subject":"_EVENT_02_"}`))
+		c.AssertNoNATSRequest(t, "test.collection")
 	})
 }

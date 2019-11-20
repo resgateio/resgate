@@ -1,6 +1,6 @@
 # The RES-Service Protocol Specification
 
-*Version: [1.1.1](res-protocol-semver.md)*
+*Version: [1.2.0](res-protocol-semver.md)*
 
 ## Table of contents
 - [Introduction](#introduction)
@@ -63,17 +63,23 @@ The content of the payload depends on the subject type.
 
 
 ## Response
-When a request is received by a service, it should send a response as a JSON object with following members:
+When a request is received by a service, it should send a response as a JSON object. The object MUST have one of the following members, dependent upon wether the response is a successful *result*, a *resource*, or an *error*:
 
 **result**  
-Is REQUIRED on success.  
-Will be ignored on error.  
+Is REQUIRED on success if **resource** is not set.  
+SHOULD be ignored if **error** or **resource** is set.  
 The value is determined by the request subject.  
+
+**resource**  
+MUST be omitted if the request type is not `call` or `auth`.  
+Is REQUIRED on success if **result** is not set.  
+SHOULD be ignored if **error** is set.  
+The value MUST be a valid [resource reference](res-protocol.md#resource-references).
 
 **error**  
 Is REQUIRED on error.  
 MUST be omitted on success.  
-The value MUST be an error object as defined in the [Error object](#error-object) section.  
+The value MUST be an [error object](#error-object).  
 
 ## Error object
 
@@ -183,7 +189,6 @@ MUST be omitted if *collection* is provided.
 **collection**  
 An ordered array containing the [values](res-protocol.md#values) of the collection.  
 MUST be omitted if *model* is provided.  
-MUST be an array of strings.
 
 **query**  
 Normalized query without the question mark separator.  
@@ -228,6 +233,10 @@ MAY be omitted.
 ### Result
 
 The result is defined by the service, or by the appropriate [pre-defined call method](#pre-defined-call-methods). The result may be null.
+
+### Resource
+
+A [resource response](#response) may be sent instead of a *result*.
 
 ### Error
 
@@ -288,6 +297,10 @@ MUST be a string.
 The result is defined by the service, and may be null.  
 A successful request MAY trigger a [connection token event](#connection-token-event). If a token event is triggered, it MUST be sent prior to sending the response.
 
+### Resource
+
+A [resource response](#response) may be sent instead of a *result*.
+
 ### Error
 
 Any error response indicates that the authentication failed and had no effect. A failed authentication SHOULD NOT trigger a [connection token event](#connection-token-event).  
@@ -316,6 +329,8 @@ If any of the model properties are changed, a [model change event](#model-change
 MUST NOT be sent on [collections](res-protocol.md#collections).
 
 ## New call request
+
+*DEPRECATED: Use [resource response](#response) instead.*
 
 **Subject**  
 `call.<resourceName>.new`
@@ -428,7 +443,25 @@ MUST be a number that is zero or greater and less than the length of the collect
 **Subject**  
 `event.<resourceName>.reaccess`
 
-Reaccess events are sent when a resource's access permissions has changed. It will invalidate any previous access response received for the resource.  
+Reaccess events are sent when a resource's access permissions has changed.
+It will invalidate any previous access response received for the resource.  
+The event has no payload.
+
+## Create event
+
+**Subject**  
+`event.<resourceName>.create`
+
+Create events are sent when the resource is created.  
+The event has no payload.
+
+## Delete event
+
+**Subject**  
+`event.<resourceName>.delete`
+
+Delete events are sent when the resource is considered deleted.
+It will invalidate any previous get response received for the resource.  
 The event has no payload.
 
 ## Custom event
@@ -438,7 +471,7 @@ The event has no payload.
 
 Custom events are used to send information that does not affect the state of the resource.  
 The event name is case-sensitive and MUST be a non-empty alphanumeric string with no embedded whitespace. It MUST NOT be any of the following reserved event names:  
-`change`, `delete`, `add`, `remove`, `patch`, `reaccess` or `unsubscribe`.
+`add`, `change`, `create`, `delete`, `patch`, `reset`, `reaccess`, `remove` or `unsubscribe`.
 
 
 Payload is defined by the service, and will be passed to the client without alteration.
@@ -562,15 +595,33 @@ MUST be a string.
 **events**  
 An array of events for the query resource.  
 MUST be an array of [event query objects](#event-query-object)  
-May be omitted if there are no events.
+May be omitted if there are no events.  
+Must be omitted if *model* or *collection* is provided.
 
-**Example result payload**
+**model**  
+An object containing the named properties and [values](res-protocol.md#values) of the model.  
+Must be omitted if *events* or *collection* is provided.
+Must be omitted if the query resource is not a model.
+
+**collection**  
+An ordered array containing the [values](res-protocol.md#values) of the collection.  
+Must be omitted if *events* or *model* is provided.
+Must be omitted if the query resource is not a collection.
+
+**Example result payload with events**
 ```json
 {
   "events": [
     { "event": "remove", "data": { "idx": 24 }},
     { "event": "add", "data": { "value": "foo", "idx": 0 }},
   ]
+}
+```
+
+**Example result payload with collection**
+```json
+{
+  "collection": [ "first", "second", "third" ]
 }
 ```
 

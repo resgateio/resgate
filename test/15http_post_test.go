@@ -46,27 +46,41 @@ func TestHTTPPostResponses(t *testing.T) {
 	multiMethodCallAccess := json.RawMessage(`{"get":true,"call":"foo,method"}`)
 	missingMethodCallAccess := json.RawMessage(`{"get":true,"call":"foo,bar"}`)
 	noCallAccess := json.RawMessage(`{"get":true}`)
+	// Response headers
+	modelLocationHref := map[string]string{"Location": "/api/test/model"}
 
 	tbl := []struct {
-		Params         []byte      // Params to use as body in post request
-		AccessResponse interface{} // Response on access request. nil means timeout
-		CallResponse   interface{} // Response on call request. requestTimeout means timeout. noRequest means no call request is expected
-		ExpectedCode   int         // Expected response status code
-		Expected       interface{} // Expected response body
+		Params          []byte            // Params to use as body in post request
+		AccessResponse  interface{}       // Response on access request. nil means timeout
+		CallResponse    interface{}       // Response on call request. requestTimeout means timeout. noRequest means no call request is expected
+		ExpectedCode    int               // Expected response status code
+		ExpectedHeaders map[string]string // Expected response Headers
+		Expected        interface{}       // Expected response body
 	}{
 		// Params variants
-		{nil, fullCallAccess, successResponse, http.StatusOK, successResponse},
-		{params, fullCallAccess, successResponse, http.StatusOK, successResponse},
+		{nil, fullCallAccess, successResponse, http.StatusOK, nil, successResponse},
+		{params, fullCallAccess, successResponse, http.StatusOK, nil, successResponse},
 		// AccessResponse variants
-		{nil, methodCallAccess, successResponse, http.StatusOK, successResponse},
-		{nil, multiMethodCallAccess, successResponse, http.StatusOK, successResponse},
-		{nil, missingMethodCallAccess, noRequest, http.StatusUnauthorized, reserr.ErrAccessDenied},
-		{nil, noCallAccess, noRequest, http.StatusUnauthorized, reserr.ErrAccessDenied},
-		{nil, nil, noRequest, http.StatusNotFound, mq.ErrRequestTimeout},
+		{nil, methodCallAccess, successResponse, http.StatusOK, nil, successResponse},
+		{nil, multiMethodCallAccess, successResponse, http.StatusOK, nil, successResponse},
+		{nil, missingMethodCallAccess, noRequest, http.StatusUnauthorized, nil, reserr.ErrAccessDenied},
+		{nil, noCallAccess, noRequest, http.StatusUnauthorized, nil, reserr.ErrAccessDenied},
+		{nil, nil, noRequest, http.StatusNotFound, nil, mq.ErrRequestTimeout},
 		// CallResponse variants
-		{nil, fullCallAccess, reserr.ErrInvalidParams, http.StatusBadRequest, reserr.ErrInvalidParams},
-		{nil, fullCallAccess, reserr.ErrMethodNotFound, http.StatusNotFound, reserr.ErrMethodNotFound},
-		{nil, fullCallAccess, nil, http.StatusNoContent, []byte{}},
+		{nil, fullCallAccess, reserr.ErrInvalidParams, http.StatusBadRequest, nil, reserr.ErrInvalidParams},
+		{nil, fullCallAccess, reserr.ErrMethodNotFound, http.StatusNotFound, nil, reserr.ErrMethodNotFound},
+		{nil, fullCallAccess, nil, http.StatusNoContent, nil, []byte{}},
+		// Valid call resource response
+		{nil, fullCallAccess, []byte(`{"resource":{"rid":"test.model"}}`), http.StatusOK, modelLocationHref, nil},
+		// Invalid call resource response
+		{nil, fullCallAccess, []byte(`{"resource":"test.model"}`), http.StatusInternalServerError, nil, reserr.CodeInternalError},
+		{nil, fullCallAccess, []byte(`{"resource":"test.model"}`), http.StatusInternalServerError, nil, reserr.CodeInternalError},
+		{nil, fullCallAccess, []byte(`{"resource":{}}`), http.StatusInternalServerError, nil, reserr.CodeInternalError},
+		{nil, fullCallAccess, []byte(`{"resource":{}}`), http.StatusInternalServerError, nil, reserr.CodeInternalError},
+		{nil, fullCallAccess, []byte(`{"resource":{"rid":42}}`), http.StatusInternalServerError, nil, reserr.CodeInternalError},
+		{nil, fullCallAccess, []byte(`{"resource":{"rid":42}}`), http.StatusInternalServerError, nil, reserr.CodeInternalError},
+		{nil, fullCallAccess, []byte(`{"resource":{"rid":"test..model"}}`), http.StatusInternalServerError, nil, reserr.CodeInternalError},
+		{nil, fullCallAccess, []byte(`{"resource":{"rid":"test..model"}}`), http.StatusInternalServerError, nil, reserr.CodeInternalError},
 	}
 
 	for i, l := range tbl {
@@ -93,6 +107,8 @@ func TestHTTPPostResponses(t *testing.T) {
 					req.Timeout()
 				} else if err, ok := l.CallResponse.(*reserr.Error); ok {
 					req.RespondError(err)
+				} else if raw, ok := l.CallResponse.([]byte); ok {
+					req.RespondRaw(raw)
 				} else {
 					req.RespondSuccess(l.CallResponse)
 				}
@@ -108,14 +124,18 @@ func TestHTTPPostResponses(t *testing.T) {
 			} else {
 				hresp.AssertBody(t, l.Expected)
 			}
+
+			// Validate headers
+			hresp.AssertHeaders(t, l.ExpectedHeaders)
 		})
 	}
 }
 
-// Test HTTP post responses to new requests
+// Test Legacy HTTP post responses to new requests
 func TestHTTPPostNewResponses(t *testing.T) {
 	params := json.RawMessage(`{"value":42}`)
-	callResponse := json.RawMessage(`{"rid":"test.model"}`)
+	legacyCallResponse := json.RawMessage(`{"rid":"test.model"}`)
+	nonlegacyCallResponse := []byte(`{"resource":{"rid":"test.model"}}`)
 	// Access responses
 	fullCallAccess := json.RawMessage(`{"get":true,"call":"*"}`)
 	methodCallAccess := json.RawMessage(`{"get":true,"call":"new"}`)
@@ -131,19 +151,22 @@ func TestHTTPPostNewResponses(t *testing.T) {
 		ExpectedCode       int               // Expected response status code
 		Expected           interface{}       // Expected response body
 		ExpectedHeaders    map[string]string // Expected response Headers
+		ExpectedErrors     int               // Expected logged errors
 	}{
 		// Params variants
-		{params, fullCallAccess, callResponse, http.StatusCreated, nil, modelLocationHref},
-		{nil, fullCallAccess, callResponse, http.StatusCreated, nil, modelLocationHref},
+		{params, fullCallAccess, legacyCallResponse, http.StatusOK, nil, modelLocationHref, 1},
+		{nil, fullCallAccess, legacyCallResponse, http.StatusOK, nil, modelLocationHref, 1},
 		// CallAccessResponse variants
-		{params, methodCallAccess, callResponse, http.StatusCreated, nil, modelLocationHref},
-		{params, multiMethodCallAccess, callResponse, http.StatusCreated, nil, modelLocationHref},
-		{params, missingMethodCallAccess, noRequest, http.StatusUnauthorized, reserr.ErrAccessDenied, nil},
-		{params, noCallAccess, noRequest, http.StatusUnauthorized, reserr.ErrAccessDenied, nil},
-		{params, requestTimeout, noRequest, http.StatusNotFound, mq.ErrRequestTimeout, nil},
+		{params, methodCallAccess, legacyCallResponse, http.StatusOK, nil, modelLocationHref, 1},
+		{params, multiMethodCallAccess, legacyCallResponse, http.StatusOK, nil, modelLocationHref, 1},
+		{params, missingMethodCallAccess, noRequest, http.StatusUnauthorized, reserr.ErrAccessDenied, nil, 0},
+		{params, noCallAccess, noRequest, http.StatusUnauthorized, reserr.ErrAccessDenied, nil, 0},
+		{params, requestTimeout, noRequest, http.StatusNotFound, mq.ErrRequestTimeout, nil, 0},
 		// CallResponse variants
-		{params, fullCallAccess, reserr.ErrInvalidParams, http.StatusBadRequest, reserr.ErrInvalidParams, nil},
-		{params, fullCallAccess, requestTimeout, http.StatusNotFound, mq.ErrRequestTimeout, nil},
+		{params, fullCallAccess, reserr.ErrInvalidParams, http.StatusBadRequest, reserr.ErrInvalidParams, nil, 0},
+		{params, fullCallAccess, requestTimeout, http.StatusNotFound, mq.ErrRequestTimeout, nil, 0},
+		// Non-legacy call response
+		{params, fullCallAccess, nonlegacyCallResponse, http.StatusOK, nil, modelLocationHref, 0},
 	}
 
 	for i, l := range tbl {
@@ -170,6 +193,8 @@ func TestHTTPPostNewResponses(t *testing.T) {
 					req.Timeout()
 				} else if err, ok := l.CallResponse.(*reserr.Error); ok {
 					req.RespondError(err)
+				} else if raw, ok := l.CallResponse.([]byte); ok {
+					req.RespondRaw(raw)
 				} else {
 					req.RespondSuccess(l.CallResponse)
 				}
@@ -186,6 +211,9 @@ func TestHTTPPostNewResponses(t *testing.T) {
 				hresp.AssertBody(t, l.Expected)
 			}
 			hresp.AssertHeaders(t, l.ExpectedHeaders)
+
+			// Validate logged errors
+			s.AssertErrorsLogged(t, l.ExpectedErrors)
 		})
 	}
 }

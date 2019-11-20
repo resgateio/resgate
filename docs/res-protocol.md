@@ -1,6 +1,6 @@
 # RES Protocol
 
-*Version: [1.1.1](res-protocol-semver.md)*
+*Version: [1.2.0](res-protocol-semver.md)*
 
 ## Table of contents
 - [Introduction](#introduction)
@@ -10,6 +10,7 @@
   * [Models](#models)
   * [Collections](#collections)
   * [Values](#values)
+  * [Resource references](#resource-references)
   * [Messaging system](#messaging-system)
   * [Services](#services)
   * [Gateways](#gateways)
@@ -48,11 +49,11 @@ May be omitted. If omitted, then the question mark separator MUST also be omitte
 
 **Examples**
 
-* `userService.users` - A collection representing a list of users
-* `userService.user.42` - A model representing a user
-* `userService.user.42.roles` - A collection of roles held by a user
-* `messageService.messages?start=0&limit=25` - A collection representing the first 25 messages of a list
-* `userService.users?q=Jane` - A collection of users with the name Jane
+* `example.users` - A collection representing a list of users
+* `example.user.42` - A model representing a user
+* `example.user.42.roles` - A collection of roles held by a user
+* `chat.messages?start=0&limit=25` - A collection representing the first 25 messages of a list
+* `example.users?q=Jane` - A collection of users with the name Jane
 
 ## Models
 
@@ -63,7 +64,7 @@ A model is an unordered set of named properties and [values](#values) represente
 {
     "id": 42,
     "name": "Jane Doe",
-    "roles": { "rid": "userService.user.42.roles" }
+    "roles": { "rid": "example.user.42.roles" }
 }
 ```
 
@@ -78,18 +79,26 @@ A collection is an ordered list of [values](#values) represented by a JSON array
 
 ## Values
 
-A value is either a *primitive* or a *resource reference*.  
-Primitives are either a JSON `string`, `number`, `true`, `false`, or `null` value.  
-Resource references are JSON objects with the following parameter:
+A value is either a *primitive* or a [resource reference](#resource-references).  
+A primitive is either a JSON `string`, `number`, `true`, `false`, or `null` value.  
+
+### Example
+```javascript
+"foo"                        // string
+42                           // number
+true                         // boolean true
+false                        // boolean false
+null                         // null
+{ "rid": "example.user.42" } // resource reference
+```
+
+## Resource references
+
+A resource reference is a JSON objects with the following parameter:
 
 **rid**  
 Resource ID of the referenced resource.  
 MUST be a valid [resource ID](#resource-ids).
-
-### Example
-```json
-{ "rid": "userService.user.42" }
-```
 
 ## Messaging system
 

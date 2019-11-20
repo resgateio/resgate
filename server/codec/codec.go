@@ -32,8 +32,9 @@ type Request struct {
 // Response represents a RES-service response
 // https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#response
 type Response struct {
-	Result json.RawMessage `json:"result"`
-	Error  *reserr.Error   `json:"error"`
+	Result   json.RawMessage `json:"result"`
+	Resource *Resource       `json:"resource"`
+	Error    *reserr.Error   `json:"error"`
 }
 
 // AccessResponse represents the response of a RES-service access request
@@ -81,12 +82,12 @@ type AuthRequest struct {
 // NewResponse represents the response of a RES-service new call request
 // https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#new-call-request
 type NewResponse struct {
-	Result *NewResult    `json:"result"`
+	Result *Resource     `json:"result"`
 	Error  *reserr.Error `json:"error"`
 }
 
-// NewResult represents the response result of a RES-service new call request
-type NewResult struct {
+// Resource represents the resource response of a RES-service call or auth request
+type Resource struct {
 	RID string `json:"rid"`
 }
 
@@ -111,7 +112,9 @@ type EventQueryResponse struct {
 // EventQueryResult represent the response's result part of a RES-service
 // query request
 type EventQueryResult struct {
-	Events []*EventQueryEvent `json:"events"`
+	Events     []*EventQueryEvent `json:"events"`
+	Model      map[string]Value   `json:"model"`
+	Collection []Value            `json:"collection"`
 }
 
 // EventQueryEvent represents an event in the response of a RES-server query request
@@ -321,16 +324,15 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 				return nil, errInvalidResponse
 			}
 		}
-	} else {
-		if res.Collection == nil {
-			return nil, errInvalidResponse
-		}
+	} else if res.Collection != nil {
 		// Assert collection only has proper values
 		for _, v := range res.Collection {
 			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
 				return nil, errInvalidResponse
 			}
 		}
+	} else {
+		return nil, errInvalidResponse
 	}
 
 	return r.Result, nil
@@ -367,7 +369,7 @@ func CreateEventQueryRequest(query string) []byte {
 }
 
 // DecodeEventQueryResponse decodes a JSON encoded RES-service event query response
-func DecodeEventQueryResponse(payload []byte) ([]*EventQueryEvent, error) {
+func DecodeEventQueryResponse(payload []byte) (*EventQueryResult, error) {
 	var r EventQueryResponse
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
@@ -382,11 +384,37 @@ func DecodeEventQueryResponse(payload []byte) ([]*EventQueryEvent, error) {
 		return nil, errMissingResult
 	}
 
-	return r.Result.Events, nil
+	// Assert we got either a model or a collection
+	res := r.Result
+	switch {
+	case res.Events != nil:
+		if res.Model != nil || res.Collection != nil {
+			return nil, errInvalidResponse
+		}
+	case res.Model != nil:
+		if res.Collection != nil {
+			return nil, errInvalidResponse
+		}
+		// Assert model only has proper values
+		for _, v := range res.Model {
+			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
+				return nil, errInvalidResponse
+			}
+		}
+	case res.Collection != nil:
+		// Assert collection only has proper values
+		for _, v := range res.Collection {
+			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
+				return nil, errInvalidResponse
+			}
+		}
+	}
+
+	return res, nil
 }
 
 // IsLegacyChangeEvent returns true if the model change event is detected as v1.0 legacy
-// Remove after 2020-03-31
+// [DEPRECATED:deprecatedModelChangeEvent]
 func IsLegacyChangeEvent(data json.RawMessage) bool {
 	var r map[string]json.RawMessage
 	err := json.Unmarshal(data, &r)
@@ -500,45 +528,56 @@ func DecodeAccessResponse(payload []byte) (*AccessResult, *reserr.Error) {
 }
 
 // DecodeCallResponse decodes a JSON encoded RES-service call response
-func DecodeCallResponse(payload []byte) (json.RawMessage, error) {
+func DecodeCallResponse(payload []byte) (json.RawMessage, string, error) {
 	var r Response
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
-		return nil, reserr.RESError(err)
+		return nil, "", reserr.RESError(err)
 	}
 
 	if r.Error != nil {
-		return nil, r.Error
+		return nil, "", r.Error
+	}
+
+	if r.Resource != nil {
+		rid := r.Resource.RID
+		if !IsValidRID(rid, true) {
+			return nil, "", errInvalidResponse
+		}
+		return nil, rid, nil
 	}
 
 	if r.Result == nil {
-		return nil, errMissingResult
+		return nil, "", errMissingResult
 	}
 
-	return r.Result, nil
+	return r.Result, "", nil
 }
 
-// DecodeNewResponse decodes a JSON encoded RES-service new call response
-func DecodeNewResponse(payload []byte) (string, error) {
-	var r NewResponse
-	err := json.Unmarshal(payload, &r)
+// TryDecodeLegacyNewResult tries to detect legacy v1.1.1 behavior.
+// Returns empty string and nil error when the result is not detected as legacy.
+// [DEPRECATED:deprecatedNewCallRequest]
+func TryDecodeLegacyNewResult(result json.RawMessage) (string, error) {
+	var r map[string]interface{}
+	err := json.Unmarshal(result, &r)
 	if err != nil {
-		return "", reserr.RESError(err)
+		return "", nil
 	}
 
-	if r.Error != nil {
-		return "", r.Error
+	if len(r) != 1 {
+		return "", nil
 	}
 
-	if r.Result == nil {
-		return "", errMissingResult
+	rid, ok := r["rid"].(string)
+	if !ok {
+		return "", nil
 	}
 
-	if !IsValidRID(r.Result.RID, true) {
+	if !IsValidRID(rid, true) {
 		return "", errInvalidResponse
 	}
 
-	return r.Result.RID, nil
+	return rid, nil
 }
 
 // DecodeConnTokenEvent decodes a JSON encoded RES-service connection token event

@@ -1,12 +1,14 @@
 FROM golang
 
-WORKDIR $GOPATH/src/github.com/resgateio/resgate
+ENV GO111MODULE=on
+
+WORKDIR /src/resgate
+
 COPY . .
 
-RUN go get -d -v
-RUN CGO_ENABLED=0 GO111MODULE=off go install -v -ldflags "-s -w"
+RUN CGO_ENABLED=0 go build -v -ldflags "-s -w" -o /resgate
 
 EXPOSE 8080
 
-ENTRYPOINT ["resgate"]
+ENTRYPOINT ["/resgate"]
 CMD ["--help"]

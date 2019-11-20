@@ -312,3 +312,28 @@ func TestResponseOnLinkedModelSubscribeWithDelayedAccess(t *testing.T) {
 		})
 	}
 }
+
+func TestSubscribe_WithCIDPlaceholder_ReplacesCID(t *testing.T) {
+	runTest(t, func(s *Session) {
+		model := resourceData("test.model")
+		event := json.RawMessage(`{"foo":"bar"}`)
+
+		c := s.Connect()
+		cid := getCID(t, s, c)
+
+		creq := c.Request("subscribe.test.{cid}.model", nil)
+
+		// Handle model get and access request
+		mreqs := s.GetParallelRequests(t, 2)
+		req := mreqs.GetRequest(t, "access.test."+cid+".model")
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+		req = mreqs.GetRequest(t, "get.test."+cid+".model")
+		req.RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+		// Validate client response
+		creq.GetResponse(t)
+
+		// Send event on model and validate client did get event
+		s.ResourceEvent("test."+cid+".model", "custom", event)
+		c.GetEvent(t).AssertEventName(t, "test.{cid}.model.custom")
+	})
+}

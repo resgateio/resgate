@@ -10,7 +10,7 @@ import (
 )
 
 // Test responses to client new requests
-func TestNewOnResource(t *testing.T) {
+func TestLegacyNewOnResource(t *testing.T) {
 
 	model := resourceData("test.model")
 	params := json.RawMessage(`{"value":42}`)
@@ -34,43 +34,47 @@ func TestNewOnResource(t *testing.T) {
 		GetResponse         interface{} // Response on get request of the newly created model.test. noRequest means no request is expected
 		ModelAccessResponse interface{} // Response on access request of the newly created model.test.
 		Expected            interface{} // Expected response to client
+		ExpectedErrors      int         // Expected logged errors
 	}{
 		// Params variants
-		{params, fullCallAccess, callResponse, modelGetResponse, fullCallAccess, modelClientResponse},
-		{nil, fullCallAccess, callResponse, modelGetResponse, fullCallAccess, modelClientResponse},
+		{params, fullCallAccess, callResponse, modelGetResponse, fullCallAccess, modelClientResponse, 1},
+		{nil, fullCallAccess, callResponse, modelGetResponse, fullCallAccess, modelClientResponse, 1},
 		// CallAccessResponse variants
-		{params, methodCallAccess, callResponse, modelGetResponse, fullCallAccess, modelClientResponse},
-		{params, multiMethodCallAccess, callResponse, modelGetResponse, fullCallAccess, modelClientResponse},
-		{params, missingMethodCallAccess, noRequest, noRequest, noRequest, reserr.ErrAccessDenied},
-		{params, noCallAccess, noRequest, noRequest, noRequest, reserr.ErrAccessDenied},
-		{params, requestTimeout, noRequest, noRequest, noRequest, mq.ErrRequestTimeout},
+		{params, methodCallAccess, callResponse, modelGetResponse, fullCallAccess, modelClientResponse, 1},
+		{params, multiMethodCallAccess, callResponse, modelGetResponse, fullCallAccess, modelClientResponse, 1},
+		{params, missingMethodCallAccess, noRequest, noRequest, noRequest, reserr.ErrAccessDenied, 0},
+		{params, noCallAccess, noRequest, noRequest, noRequest, reserr.ErrAccessDenied, 0},
+		{params, requestTimeout, noRequest, noRequest, noRequest, mq.ErrRequestTimeout, 0},
 		// CallResponse variants
-		{params, fullCallAccess, reserr.ErrInvalidParams, noRequest, noRequest, reserr.ErrInvalidParams},
-		{params, fullCallAccess, requestTimeout, noRequest, noRequest, mq.ErrRequestTimeout},
+		{params, fullCallAccess, reserr.ErrInvalidParams, noRequest, noRequest, reserr.ErrInvalidParams, 0},
+		{params, fullCallAccess, requestTimeout, noRequest, noRequest, mq.ErrRequestTimeout, 0},
 		// GetResponse variants
-		{params, fullCallAccess, callResponse, reserr.ErrInvalidParams, fullCallAccess, modelClientInvalidParamsResponse},
-		{params, fullCallAccess, callResponse, requestTimeout, fullCallAccess, modelClientRequestTimeoutResponse},
+		{params, fullCallAccess, callResponse, reserr.ErrInvalidParams, fullCallAccess, modelClientInvalidParamsResponse, 1},
+		{params, fullCallAccess, callResponse, requestTimeout, fullCallAccess, modelClientRequestTimeoutResponse, 1},
 		// ModelAccessResponse variants
-		{params, fullCallAccess, callResponse, modelGetResponse, json.RawMessage(`{"get":false}`), modelClientRequestAccessDeniedResponse},
-		{params, fullCallAccess, callResponse, modelGetResponse, reserr.ErrInvalidParams, modelClientInvalidParamsResponse},
-		{params, fullCallAccess, callResponse, modelGetResponse, reserr.ErrAccessDenied, modelClientRequestAccessDeniedResponse},
-		{params, fullCallAccess, callResponse, modelGetResponse, requestTimeout, modelClientRequestTimeoutResponse},
+		{params, fullCallAccess, callResponse, modelGetResponse, json.RawMessage(`{"get":false}`), modelClientRequestAccessDeniedResponse, 1},
+		{params, fullCallAccess, callResponse, modelGetResponse, reserr.ErrInvalidParams, modelClientInvalidParamsResponse, 1},
+		{params, fullCallAccess, callResponse, modelGetResponse, reserr.ErrAccessDenied, modelClientRequestAccessDeniedResponse, 1},
+		{params, fullCallAccess, callResponse, modelGetResponse, requestTimeout, modelClientRequestTimeoutResponse, 1},
 		// Invalid service responses
-		{nil, fullCallAccess, []byte(`{"broken":JSON}`), noRequest, noRequest, reserr.CodeInternalError},
-		{nil, fullCallAccess, []byte(`{}`), noRequest, noRequest, reserr.CodeInternalError},
-		{nil, fullCallAccess, []byte(`{"result":{"foo":"bar"},"error":{"code":"system.custom","message":"Custom"}}`), noRequest, noRequest, "system.custom"},
-		{nil, fullCallAccess, json.RawMessage(`{}`), noRequest, noRequest, reserr.CodeInternalError},
-		{nil, fullCallAccess, json.RawMessage(`{"rid":""}`), noRequest, noRequest, reserr.CodeInternalError},
-		{nil, fullCallAccess, json.RawMessage(`{"rid":"?q=foo"}`), noRequest, noRequest, reserr.CodeInternalError},
-		{nil, fullCallAccess, json.RawMessage(`{"rid":"test\tmodel"}`), noRequest, noRequest, reserr.CodeInternalError},
-		{nil, fullCallAccess, json.RawMessage(`{"rid":"test\nmodel"}`), noRequest, noRequest, reserr.CodeInternalError},
-		{nil, fullCallAccess, json.RawMessage(`{"rid":"test\rmodel"}`), noRequest, noRequest, reserr.CodeInternalError},
-		{nil, fullCallAccess, json.RawMessage(`{"rid":"test model"}`), noRequest, noRequest, reserr.CodeInternalError},
-		{nil, fullCallAccess, json.RawMessage(`{"rid":"test\ufffdmodel"}`), noRequest, noRequest, reserr.CodeInternalError},
+		{nil, fullCallAccess, []byte(`{"broken":JSON}`), noRequest, noRequest, reserr.CodeInternalError, 0},
+		{nil, fullCallAccess, []byte(`42`), noRequest, noRequest, reserr.CodeInternalError, 0},
+		{nil, fullCallAccess, []byte(`{}`), noRequest, noRequest, reserr.CodeInternalError, 0},
+		{nil, fullCallAccess, []byte(`{"result":{"foo":"bar"},"error":{"code":"system.custom","message":"Custom"}}`), noRequest, noRequest, "system.custom", 0},
+		{nil, fullCallAccess, json.RawMessage(`{}`), noRequest, noRequest, reserr.CodeInternalError, 0},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":""}`), noRequest, noRequest, reserr.CodeInternalError, 1},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"?q=foo"}`), noRequest, noRequest, reserr.CodeInternalError, 1},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"test\tmodel"}`), noRequest, noRequest, reserr.CodeInternalError, 1},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"test\nmodel"}`), noRequest, noRequest, reserr.CodeInternalError, 1},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"test\rmodel"}`), noRequest, noRequest, reserr.CodeInternalError, 1},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"test model"}`), noRequest, noRequest, reserr.CodeInternalError, 1},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"test\ufffdmodel"}`), noRequest, noRequest, reserr.CodeInternalError, 1},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":42}`), noRequest, noRequest, reserr.CodeInternalError, 0},
+		{nil, fullCallAccess, json.RawMessage(`{"rid":"test.model","foo":42}`), noRequest, noRequest, reserr.CodeInternalError, 0},
 		// Invalid auth error response
-		{nil, fullCallAccess, []byte(`{"error":[]}`), noRequest, noRequest, reserr.CodeInternalError},
-		{nil, fullCallAccess, []byte(`{"error":{"message":"missing code"}}`), noRequest, noRequest, ""},
-		{nil, fullCallAccess, []byte(`{"error":{"code":12,"message":"integer code"}}`), noRequest, noRequest, reserr.CodeInternalError},
+		{nil, fullCallAccess, []byte(`{"error":[]}`), noRequest, noRequest, reserr.CodeInternalError, 0},
+		{nil, fullCallAccess, []byte(`{"error":{"message":"missing code"}}`), noRequest, noRequest, "", 0},
+		{nil, fullCallAccess, []byte(`{"error":{"code":12,"message":"integer code"}}`), noRequest, noRequest, reserr.CodeInternalError, 0},
 	}
 
 	for i, l := range tbl {
@@ -139,6 +143,9 @@ func TestNewOnResource(t *testing.T) {
 			} else {
 				cresp.AssertResult(t, l.Expected)
 			}
+
+			// Validate logged errors
+			s.AssertErrorsLogged(t, l.ExpectedErrors)
 		})
 	}
 }

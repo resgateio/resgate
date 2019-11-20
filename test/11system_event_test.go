@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // Test system reset event
@@ -206,4 +208,76 @@ func TestSystemResetTriggersGetRequestOnQueryModel(t *testing.T) {
 			c.AssertNoEvent(t, "test.model")
 		})
 	}
+}
+
+func TestSystemReset_NotFoundResponseOnModel_GeneratesDeleteEvent(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get model
+		subscribeToTestModel(t, s, c)
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+		// Respond to get request with system.notFound error
+		s.GetRequest(t).AssertSubject(t, "get.test.model").RespondError(reserr.ErrNotFound)
+		// Validate delete event is sent to client
+		c.GetEvent(t).AssertEventName(t, "test.model.delete").AssertData(t, nil)
+		// Validate subsequent events are not sent to client
+		s.ResourceEvent("test.model", "custom", common.CustomEvent())
+		c.AssertNoEvent(t, "test.model")
+	})
+}
+
+func TestSystemReset_NotFoundResponseOnCollection_GeneratesDeleteEvent(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get model
+		subscribeToTestCollection(t, s, c)
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+		// Respond to get request with system.notFound error
+		s.GetRequest(t).AssertSubject(t, "get.test.collection").RespondError(reserr.ErrNotFound)
+		// Validate delete event is sent to client
+		c.GetEvent(t).AssertEventName(t, "test.collection.delete").AssertData(t, nil)
+		// Validate subsequent events are not sent to client
+		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
+		c.AssertNoEvent(t, "test.collection")
+	})
+}
+
+func TestSystemReset_InternalErrorResponseOnModel_LogsError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get model
+		subscribeToTestModel(t, s, c)
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+		// Respond to get request with system.notFound error
+		s.GetRequest(t).AssertSubject(t, "get.test.model").RespondError(reserr.ErrInternalError)
+		// Validate no delete event is sent to client
+		c.AssertNoEvent(t, "test.model")
+		// Validate subsequent events are sent to client
+		s.ResourceEvent("test.model", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.model.custom", common.CustomEvent())
+		// Assert error is logged
+		s.AssertErrorsLogged(t, 1)
+	})
+}
+
+func TestSystemReset_InternalErrorResponseOnCollection_LogsError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get collection
+		subscribeToTestCollection(t, s, c)
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+		// Respond to get request with system.notFound error
+		s.GetRequest(t).AssertSubject(t, "get.test.collection").RespondError(reserr.ErrInternalError)
+		// Validate no delete event is sent to client
+		c.AssertNoEvent(t, "test.collection")
+		// Validate subsequent events are sent to client
+		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.collection.custom", common.CustomEvent())
+		// Assert error is logged
+		s.AssertErrorsLogged(t, 1)
+	})
 }

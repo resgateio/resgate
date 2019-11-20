@@ -2,17 +2,23 @@ package test
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/posener/wstest"
-	"github.com/resgateio/resgate/logger"
 	"github.com/resgateio/resgate/server"
 )
 
 const timeoutSeconds = 1
+
+var (
+	versionRequest = json.RawMessage(`{"protocol":"1.999.999"}`)
+	versionResult  = json.RawMessage(fmt.Sprintf(`{"protocol":"%s"}`, server.ProtocolVersion))
+)
 
 // Session represents a test session with a resgate server
 type Session struct {
@@ -20,11 +26,11 @@ type Session struct {
 	*NATSTestClient
 	s     *server.Service
 	conns map[*Conn]struct{}
-	l     *logger.MemLogger
+	*CountLogger
 }
 
 func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
-	l := logger.NewMemLogger(true, true)
+	l := NewCountLogger(true, true)
 
 	c := NewNATSTestClient(l)
 	serv, err := server.NewService(c, TestConfig(cfgs...))
@@ -38,7 +44,7 @@ func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 		NATSTestClient: c,
 		s:              serv,
 		conns:          make(map[*Conn]struct{}),
-		l:              l,
+		CountLogger:    l,
 	}
 
 	if err := serv.Start(); err != nil {
@@ -63,7 +69,20 @@ func (s *Session) ConnectWithChannel(evs chan *ClientEvent) *Conn {
 }
 
 // Connect makes a new mock client websocket connection
+// that handshakes with version v1.999.999.
 func (s *Session) Connect() *Conn {
+	c := s.ConnectWithChannel(make(chan *ClientEvent, 256))
+
+	// Send version connect
+	creq := c.Request("version", versionRequest)
+	cresp := creq.GetResponse(s.t)
+	cresp.AssertResult(s.t, versionResult)
+	return c
+}
+
+// ConnectWithoutVersion makes a new mock client websocket connection
+// without any version handshake.
+func (s *Session) ConnectWithoutVersion() *Conn {
 	return s.ConnectWithChannel(make(chan *ClientEvent, 256))
 }
 
@@ -113,6 +132,9 @@ func teardown(s *Session) {
 	case <-st:
 	case <-time.After(3 * time.Second):
 		panic("test: failed to stop server: timeout")
+	}
+	if s.t != nil {
+		s.AssertNoErrorsLogged(s.t)
 	}
 }
 

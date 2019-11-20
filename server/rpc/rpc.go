@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -15,9 +16,11 @@ type Requester interface {
 	GetResource(rid string, callback func(data *Resources, err error))
 	SubscribeResource(rid string, callback func(data *Resources, err error))
 	UnsubscribeResource(rid string, callback func(ok bool))
-	CallResource(rid, action string, params interface{}, callback func(result json.RawMessage, err error))
-	AuthResource(rid, action string, params interface{}, callback func(result json.RawMessage, err error))
-	NewResource(rid string, params interface{}, callback func(data *NewResult, err error))
+	CallResource(rid, action string, params interface{}, callback func(result interface{}, err error))
+	AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error))
+	NewResource(rid string, params interface{}, callback func(result interface{}, err error))
+	SetVersion(protocol string) (string, error)
+	ProtocolVersion() int
 }
 
 // Request represent a RES-client request
@@ -54,6 +57,16 @@ type Resources struct {
 	Errors      map[string]*reserr.Error `json:"errors,omitempty"`
 }
 
+// VersionRequest represents the params of a version request
+type VersionRequest struct {
+	Protocol string `json:"protocol"`
+}
+
+// VersionResult represents the results of a version request
+type VersionResult struct {
+	Protocol string `json:"protocol"`
+}
+
 // AddEvent represents a RES-client collection add event
 // https://github.com/resgateio/resgate/blob/master/docs/res-client-protocol.md#collection-add-event
 type AddEvent struct {
@@ -75,8 +88,13 @@ type UnsubscribeEvent struct {
 	Reason *reserr.Error `json:"reason"`
 }
 
-// NewResult represents a RES-client result to a new request
-type NewResult struct {
+// CallPayloadResult represents a RES-client result to a call or auth request with payload response
+type CallPayloadResult struct {
+	Payload json.RawMessage `json:"payload"`
+}
+
+// CallResourceResult represents a RES-client result to a new, call or auth request with resource response
+type CallResourceResult struct {
 	RID string `json:"rid"`
 	*Resources
 }
@@ -84,6 +102,8 @@ type NewResult struct {
 var (
 	errMissingID = errors.New("Request is missing id property")
 )
+
+var nullBytes = []byte("null")
 
 // HandleRequest unmarshals a request byte array and dispatches the request to the requester
 func HandleRequest(data []byte, req Requester) error {
@@ -99,6 +119,23 @@ func HandleRequest(data []byte, req Requester) error {
 
 	idx := strings.IndexByte(r.Method, '.')
 	if idx < 0 {
+		if r.Method == "version" {
+			var vr VersionRequest
+			if data != nil && !bytes.Equal(r.Params, nullBytes) {
+				err := json.Unmarshal(r.Params, &vr)
+				if err != nil {
+					req.Reply(r.ErrorResponse(reserr.ErrInvalidParams))
+					return nil
+				}
+			}
+			p, err := req.SetVersion(vr.Protocol)
+			if err != nil {
+				req.Reply(r.ErrorResponse(err))
+				return nil
+			}
+			req.Reply(r.SuccessResponse(VersionResult{Protocol: p}))
+			return nil
+		}
 		req.Reply(r.ErrorResponse(reserr.ErrInvalidRequest))
 		return nil
 	}
@@ -152,7 +189,7 @@ func HandleRequest(data []byte, req Requester) error {
 			}
 		})
 	case "call":
-		req.CallResource(rid, method, r.Params, func(result json.RawMessage, err error) {
+		req.CallResource(rid, method, r.Params, func(result interface{}, err error) {
 			if err != nil {
 				req.Reply(r.ErrorResponse(err))
 			} else {
@@ -161,7 +198,7 @@ func HandleRequest(data []byte, req Requester) error {
 		})
 
 	case "auth":
-		req.AuthResource(rid, method, r.Params, func(result json.RawMessage, err error) {
+		req.AuthResource(rid, method, r.Params, func(result interface{}, err error) {
 			if err != nil {
 				req.Reply(r.ErrorResponse(err))
 			} else {
@@ -170,11 +207,11 @@ func HandleRequest(data []byte, req Requester) error {
 		})
 
 	case "new":
-		req.NewResource(rid, r.Params, func(data *NewResult, err error) {
+		req.NewResource(rid, r.Params, func(result interface{}, err error) {
 			if err != nil {
 				req.Reply(r.ErrorResponse(err))
 			} else {
-				req.Reply(r.SuccessResponse(data))
+				req.Reply(r.SuccessResponse(result))
 			}
 		})
 

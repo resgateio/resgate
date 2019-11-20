@@ -5,6 +5,7 @@ import (
 
 	"github.com/resgateio/resgate/server/codec"
 	"github.com/resgateio/resgate/server/mq"
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // ResourceType is an enum representing a resource type
@@ -23,15 +24,17 @@ type EventSubscription struct {
 	ResourceName string
 	cache        *Cache
 
+	// Protected by cache mutex
+	mqSub mq.Unsubscriber
+	count int64
+
 	// Protected by single goroutine
-	mqSub   mq.Unsubscriber
 	base    *ResourceSubscription
 	queries map[string]*ResourceSubscription
 	links   map[string]*ResourceSubscription
 
 	// Mutex protected
 	mu    sync.Mutex
-	count int64
 	queue []func()
 	locks []func()
 }
@@ -201,6 +204,8 @@ func (e *EventSubscription) addCount() {
 	e.count++
 }
 
+// removeCount decreases the subscription count, and puts the event subscription
+// in the unsubscribe queue if count reaches zero.
 func (e *EventSubscription) removeCount(n int64) {
 	e.count -= n
 	if e.count == 0 {
@@ -212,7 +217,7 @@ func (e *EventSubscription) enqueueEvent(subj string, payload []byte) {
 	e.Enqueue(func() {
 		idx := len(e.ResourceName) + 7 // Length of "event." + "."
 		if idx >= len(subj) {
-			e.cache.Logf("Error processing event %s: malformed event subject", subj)
+			e.cache.Errorf("Error processing event %s: malformed event subject", subj)
 			return
 		}
 
@@ -230,7 +235,7 @@ func (e *EventSubscription) enqueueEvent(subj string, payload []byte) {
 
 			ev, err := codec.DecodeEvent(payload)
 			if err != nil {
-				e.cache.Logf("Error processing event %s: malformed payload %s", subj, payload)
+				e.cache.Errorf("Error processing event %s: malformed payload %s", subj, payload)
 				return
 			}
 
@@ -247,12 +252,12 @@ func (e *EventSubscription) handleQueryEvent(subj string, payload []byte) {
 
 	qe, err := codec.DecodeQueryEvent(payload)
 	if err != nil {
-		e.cache.Logf("Error processing event %s: malformed payload %s", subj, payload)
+		e.cache.Errorf("Error processing event %s: malformed payload %s", subj, payload)
 		return
 	}
 
 	if qe.Subject == "" {
-		e.cache.Logf("Missing subject in event %s: %s", subj, payload)
+		e.cache.Errorf("Missing subject in event %s: %s", subj, payload)
 		return
 	}
 
@@ -273,14 +278,39 @@ func (e *EventSubscription) handleQueryEvent(subj string, payload []byte) {
 					return
 				}
 
-				events, err := codec.DecodeEventQueryResponse(data)
+				result, err := codec.DecodeEventQueryResponse(data)
 				if err != nil {
-					e.cache.Logf("Error processing query event: malformed payload %s", data)
+					// In case of a system.notFound error,
+					// a delete event is generated. Otherwise we
+					// just log the error.
+					if reserr.IsError(err, reserr.CodeNotFound) {
+						rs.handleEvent(&ResourceEvent{Event: "delete"})
+					} else {
+						e.cache.Errorf("Error processing query event for %s?%s: %s", e.ResourceName, rs.query, err)
+					}
 					return
 				}
 
-				for _, ev := range events {
-					rs.handleEvent(&ResourceEvent{Event: ev.Event, Payload: ev.Data})
+				switch {
+				// Handle array of events
+				case result.Events != nil:
+					for _, ev := range result.Events {
+						rs.handleEvent(&ResourceEvent{Event: ev.Event, Payload: ev.Data})
+					}
+				// Handle model response
+				case result.Model != nil:
+					if rs.state != stateModel {
+						e.cache.Errorf("Error processing query event for %s?%s: non-model payload on model %s", e.ResourceName, rs.query, data)
+						return
+					}
+					rs.processResetModel(result.Model)
+				// Handle collection response
+				case result.Collection != nil:
+					if rs.state != stateCollection {
+						e.cache.Errorf("Error processing query event for %s?%s: non-model payload on model %s", e.ResourceName, rs.query, data)
+						return
+					}
+					rs.processResetCollection(result.Collection)
 				}
 			})
 		})
@@ -308,7 +338,7 @@ func (e *EventSubscription) mqUnsubscribe() bool {
 	if e.mqSub != nil {
 		err := e.mqSub.Unsubscribe()
 		if err != nil {
-			e.cache.Logf("Error unsubscribing to %s: %s", e.ResourceName, err)
+			e.cache.Errorf("Error unsubscribing to %s: %s", e.ResourceName, err)
 			return false
 		}
 	}
