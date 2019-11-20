@@ -38,14 +38,14 @@ The RES-Client protocol is used in communication between the client and the gate
 
 # Subscriptions
 
-A core concept in the RES-Client protocol is the subscriptions. A client may subscribe to resources by making [subscribe requests](#subscribe-request) with the unique [resource ID](res-protocol.md#resource-ids), or when creating a new resource using [new request](#new-request).
+A core concept in the RES-Client protocol is the subscriptions. A client may subscribe to resources by making [subscribe requests](#subscribe-request) with the unique [resource ID](res-protocol.md#resource-ids), or by getting a resource response on a [call request](#call-request) or [auth request](#auth-request).
 
 A resource may be subscribed to [directly](#direct-subscription) or [indirectly](#indirect-subscription). Any reference to *subscription*, or a resource being *subscribed* to, in this document should be interpreted as both *direct* and *indirect* subscriptions, unless specified.
 
 The client will receive [events](#events) on anything that happens on a subscribed resource. A subscription lasts as long as the resource has direct or indirect subscriptions, or when the connection to the gateway is closed.
 
 ## Direct subscription
-The resource that is subscribed to with a [subscribe request](#subscribe-request), or created with a [new request](#new-request) will be considered *directly subscribed*.
+The resource that is subscribed to with a [subscribe request](#subscribe-request), or returned as a resource response to a [call request](#call-request) or [auth request](#auth-request) will be considered *directly subscribed*.
 
 It is possible to make multiple direct subscriptions on a resource. It will be considered directly subscribed until an equal number of [unsubscribe requests](#unsubscribe-request) has been made.
 
@@ -285,7 +285,9 @@ Any [resource reference](res-protocol.md#values) that fails will not lead to an 
 
 ## Call request
 
-Call requests are sent by the client to invoke a method on the resource.
+Call requests are sent by the client to invoke a method on the resource. The response may either contain a result payload or a resource ID.
+
+In case of a resource ID, the resource is considered [directly subscribed](#direct-subscription).
 
 **method**  
 `call.<resourceID>.<resourceMethod>`
@@ -294,14 +296,40 @@ Call requests are sent by the client to invoke a method on the resource.
 The request parameters are defined by the service.
 
 ### Result
-The result payload is defined by the service.
+The result is an object with the following members:
+
+**payload**  
+Result payload as defined by the service.  
+MUST be omitted if **rid** is set.  
+MUST NOT be omitted if **rid** is not set.
+
+**rid**  
+Resource ID of subscribed resource.  
+MUST be omitted if **payload** is set.
+
+**models**  
+[Resource set](#resource-set) models.  
+May be omitted if no new models were subscribed.  
+MUST be omitted if **payload** is set.
+
+**collections**  
+[Resource set](#resource-set) collections.  
+May be omitted if no new collections were subscribed.  
+MUST be omitted if **payload** is set.
+
+**errors**  
+[Resource set](#resource-set) errors.  
+May be omitted if no subscribed resources encountered errors.  
+MUST be omitted if **payload** is set.
 
 ### Error
 An error response will be sent if the method couldn't be called, or if the method was called, but an error was encountered.
 
 ## Auth request
 
-Auth requests are sent by the client to authenticate the client connection.
+Auth requests are sent by the client to authenticate the client connection. The response may either contain a result payload or a resource ID.
+
+In case of a resource ID, the resource is considered [directly subscribed](#direct-subscription).
 
 **method**  
 `auth.<resourceID>.<resourceMethod>`
@@ -310,13 +338,34 @@ Auth requests are sent by the client to authenticate the client connection.
 The request parameters are defined by the service.
 
 ### Result
-The result payload is defined by the service.
+The result is an object with the following members:
+
+**payload**  
+Result payload as defined by the service.  
+MUST be omitted if **rid** is set.  
+MUST NOT be omitted if **rid** is not set.
+
+**rid**  
+Resource ID of subscribed resource.  
+MUST be omitted if **payload** is set.
+
+**models**  
+[Resource set](#resource-set) models.  
+May be omitted if no new models were subscribed.  
+MUST be omitted if **payload** is set.
+
+**collections**  
+[Resource set](#resource-set) collections.  
+May be omitted if no new collections were subscribed.  
+MUST be omitted if **payload** is set.
 
 ### Error
 An error response will be sent if the method couldn't be called, or if the authentication failed.
 
 
 ## New request
+
+DEPRECATED: Use [call request](#call-request) instead.
 
 New requests are sent by the client to create a new resource.
 

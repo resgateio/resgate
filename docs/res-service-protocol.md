@@ -63,7 +63,7 @@ The content of the payload depends on the subject type.
 
 
 ## Response
-When a request is received by a service, it should send a response as a JSON object with one of the following members:
+When a request is received by a service, it should send a response as a JSON object. The object MUST have one of the following members, dependent upon wether the response is a successful *result*, a *resource*, or an *error*:
 
 **result**  
 Is REQUIRED on success if **resource** is not set.  
@@ -234,6 +234,10 @@ MAY be omitted.
 
 The result is defined by the service, or by the appropriate [pre-defined call method](#pre-defined-call-methods). The result may be null.
 
+### Resource
+
+A [resource response](#response) may be sent instead of a *result*.
+
 ### Error
 
 Any error response indicates that the method call failed and had no effect.  
@@ -292,6 +296,10 @@ MUST be a string.
 
 The result is defined by the service, and may be null.  
 A successful request MAY trigger a [connection token event](#connection-token-event). If a token event is triggered, it MUST be sent prior to sending the response.
+
+### Resource
+
+A [resource response](#response) may be sent instead of a *result*.
 
 ### Error
 
