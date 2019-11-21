@@ -397,6 +397,7 @@ func (c *wsConn) NewResource(rid string, params interface{}, cb func(result inte
 
 		if refRID == "" {
 			cb(nil, errInvalidNewResourceResponse)
+			return
 		}
 
 		// Handle resource result
