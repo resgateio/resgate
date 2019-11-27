@@ -63,12 +63,12 @@ The content of the payload depends on the subject type.
 
 
 ## Response
-When a request is received by a service, it should send a response as a JSON object. The object MUST have one of the following members, dependent upon wether the response is a successful *result*, a *resource*, or an *error*:
+When a request is received by a service, it should send a response as a JSON object. The object MUST have one of the following members, dependent upon whether the response is a successful *result*, a *resource*, or an *error*:
 
 **result**  
 Is REQUIRED on success if **resource** is not set.  
 SHOULD be ignored if **error** or **resource** is set.  
-The value is determined by the request subject.  
+The value is determined by the request subject.
 
 **resource**  
 MUST be omitted if the request type is not `call` or `auth`.  
@@ -79,7 +79,7 @@ The value MUST be a valid [resource reference](res-protocol.md#resource-referenc
 **error**  
 Is REQUIRED on error.  
 MUST be omitted on success.  
-The value MUST be an [error object](#error-object).  
+The value MUST be an [error object](#error-object).
 
 ## Error object
 
@@ -188,7 +188,7 @@ MUST be omitted if *collection* is provided.
 
 **collection**  
 An ordered array containing the [values](res-protocol.md#values) of the collection.  
-MUST be omitted if *model* is provided.  
+MUST be omitted if *model* is provided.
 
 **query**  
 Normalized query without the question mark separator.  
