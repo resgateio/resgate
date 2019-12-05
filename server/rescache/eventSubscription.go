@@ -208,7 +208,7 @@ func (e *EventSubscription) addCount() {
 // in the unsubscribe queue if count reaches zero.
 func (e *EventSubscription) removeCount(n int64) {
 	e.count -= n
-	if e.count == 0 {
+	if e.count == 0 && n != 0 {
 		e.cache.unsubQueue.Add(e)
 	}
 }
