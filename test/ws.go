@@ -118,6 +118,7 @@ func (c *Conn) Disconnect() {
 	c.ws.Close()
 }
 
+// PanicOnError panics if the connection has encountered an error.
 func (c *Conn) PanicOnError() {
 	err := c.Error()
 	if err != nil {

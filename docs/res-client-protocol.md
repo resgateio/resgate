@@ -103,13 +103,13 @@ Any [event](#events) on a resource containing a connection ID tag will be sent t
 The client RPC protocol is a variant of the [JSONRPC 2.0 specification](http://www.jsonrpc.org/specification), with the RES gateway acting as server. It differs in the following:
 
 * WebSockets SHOULD be used for transport
-*	Request object SHOULD NOT include the `jsonrpc` property
+* Request object SHOULD NOT include the `jsonrpc` property
 * Request object's `method` property MUST be a valid [request method](#request-method)
-*	Response object does NOT contain `jsonrpc` property
-*	Response object does NOT require the `result` property
-*	Error object's MUST be a valid [error object](#error-object), where the `code` property MUST be a string.
-*	Batch requests are NOT supported
-*	Client notifications are NOT supported
+* Response object does NOT contain `jsonrpc` property
+* Response object does NOT require the `result` property
+* Error object's MUST be a valid [error object](#error-object), where the `code` property MUST be a string.
+* Batch requests are NOT supported
+* Client notifications are NOT supported
 * Server may send [event objects](#event-object)
 
 ## Error object
@@ -364,7 +364,6 @@ An error response will be sent if the method couldn't be called, or if the authe
 
 
 ## New request
-
 DEPRECATED: Use [call request](#call-request) instead.
 
 New requests are sent by the client to create a new resource.
