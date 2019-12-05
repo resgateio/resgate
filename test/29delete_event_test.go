@@ -123,3 +123,35 @@ func TestDeleteEvent_FollowedByResubscribe_IsNotCached(t *testing.T) {
 		c.GetEvent(t).Equals(t, "test.model.custom", common.CustomEvent())
 	})
 }
+
+func TestDeleteEvent_OnModelQueuedForEviction_DoesNothing(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestModel(t, s, c)
+
+		// Unsubscribe to resource
+		c.Request("unsubscribe.test.model", nil).GetResponse(t)
+
+		// Send delete event
+		s.ResourceEvent("test.model", "delete", nil)
+
+		// Validate the delete event is sent to client
+		c.AssertNoEvent(t, "test.model")
+	})
+}
+
+func TestDeleteEvent_OnCollectionQueuedForEviction_DoesNothing(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestCollection(t, s, c)
+
+		// Unsubscribe to resource
+		c.Request("unsubscribe.test.collection", nil).GetResponse(t)
+
+		// Send delete event
+		s.ResourceEvent("test.collection", "delete", nil)
+
+		// Validate the delete event is sent to client
+		c.AssertNoEvent(t, "test.collection")
+	})
+}
