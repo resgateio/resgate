@@ -6,10 +6,10 @@ install:
 - go get -t ./...
 - ./scripts/install-checks.sh
 before_script:
-- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.14\. ]]; then ./scripts/check.sh; fi
+- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.14(\.[0-9]+)?$ ]]; then ./scripts/check.sh; fi
 - go build
-- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.14\. ]] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh $TRAVIS_TAG; fi
+- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.14(\.[0-9]+)?$ ]] && [ "$TRAVIS_TAG" != "" ]; then ./scripts/cross_compile.sh $TRAVIS_TAG; fi
 script:
-- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.14\. ]]; then ./scripts/cover.sh TRAVIS; else go test -v -race $PACKAGES; fi
+- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.14(\.[0-9]+)?$ ]]; then ./scripts/cover.sh TRAVIS; else go test -v -race $PACKAGES; fi
 after_success:
-- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.14\. ]] && [ "$TRAVIS_TAG" != "" ]; then ghr --owner resgateio --token $GITHUB_TOKEN --draft --replace $TRAVIS_TAG pkg/; fi
+- if [[ "$TRAVIS_GO_VERSION" =~ ^1\.14(\.[0-9]+)?$ ]] && [ "$TRAVIS_TAG" != "" ]; then ghr --owner resgateio --token $GITHUB_TOKEN --draft --replace $TRAVIS_TAG pkg/; fi
