@@ -15,4 +15,4 @@
 *.out
 
 # Editor specifics
-.vscode/*
+.vscode

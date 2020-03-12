@@ -123,6 +123,7 @@ func (c *Cache) Subscribe(sub Subscriber) {
 	eventSub.addSubscriber(sub)
 }
 
+
 // Access sends an access request
 func (c *Cache) Access(sub Subscriber, token interface{}, callback func(access *Access)) {
 	rname := sub.ResourceName()

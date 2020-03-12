@@ -147,9 +147,8 @@ func TestModelQueryEventResponseUpdatesTheCache(t *testing.T) {
 		c2 := s.Connect()
 		// Subscribe a second time
 		creq2 := c2.Request("subscribe.test.model?q=foo&f=bar", nil)
-		// Handle model get and access request
-		mreqs2 := s.GetParallelRequests(t, 1)
-		mreqs2.GetRequest(t, "access.test.model").RespondSuccess(json.RawMessage(`{"get":true}`))
+		// Handle model access request
+		s.GetRequest(t).AssertSubject(t, "access.test.model").RespondSuccess(json.RawMessage(`{"get":true}`))
 		// Validate client response and validate
 		creq2.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model?q=foo&f=bar":{"string":"bar","int":-12,"bool":true,"null":null}}}`))
 	})
@@ -719,5 +718,34 @@ func TestQueryEvent_DeleteEventOnCollection_DeletesFromCache(t *testing.T) {
 		// Validate subsequent query events does not send request
 		s.ResourceEvent("test.collection", "query", json.RawMessage(`{"subject":"_EVENT_02_"}`))
 		c.AssertNoNATSRequest(t, "test.collection")
+	})
+}
+
+func TestQueryEvent_MultipleClientsWithDifferentQueries_SendsMultipleQueryRequest(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c1 := s.Connect()
+		c2 := s.Connect()
+		subscribeToTestQueryCollection(t, s, c1, "q=foo&f=bar", "q=foo&f=bar")
+		subscribeToTestQueryCollection(t, s, c2, "q=zoo&f=baz", "q=zoo&f=baz")
+		// Send query event
+		s.ResourceEvent("test.collection", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
+		// Respond to query request with an error
+		mreqs := s.GetParallelRequests(t, 2)
+
+		// Ensure order
+		if mreqs[0].PathPayload(t, "query").(string) == "q=zoo&f=baz" {
+			temp := mreqs[0]
+			mreqs[0] = mreqs[1]
+			mreqs[1] = temp
+		}
+		// Validate query requests
+		mreqs[0].AssertSubject(t, "_EVENT_01_").AssertPathPayload(t, "query", "q=foo&f=bar")
+		mreqs[1].AssertSubject(t, "_EVENT_01_").AssertPathPayload(t, "query", "q=zoo&f=baz")
+		// Send query response
+		mreqs[0].RespondSuccess(json.RawMessage(`{"events":[]}`))
+		mreqs[1].RespondSuccess(json.RawMessage(`{"events":[]}`))
+		// Validate no events
+		c1.AssertNoEvent(t, "test.collection")
+		c2.AssertNoEvent(t, "test.collection")
 	})
 }

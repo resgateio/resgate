@@ -26,7 +26,7 @@ type Client struct {
 
 	mq           *nats.Conn
 	mqCh         chan *nats.Msg
-	mqReqs       map[*nats.Subscription]responseCont
+	mqReqs       map[*nats.Subscription]*responseCont
 	tq           *timerqueue.Queue
 	mu           sync.Mutex
 	closeHandler func(error)
@@ -85,7 +85,7 @@ func (c *Client) Connect() error {
 
 	c.mq = nc
 	c.mqCh = make(chan *nats.Msg, natsChannelSize)
-	c.mqReqs = make(map[*nats.Subscription]responseCont)
+	c.mqReqs = make(map[*nats.Subscription]*responseCont)
 	c.tq = timerqueue.New(c.onTimeout, c.RequestTimeout)
 	c.stopped = make(chan struct{})
 
@@ -126,7 +126,7 @@ func (c *Client) Close() {
 
 	c.mq = nil
 	// Set mqReqs to empty map to avoid possible nil reference error in listener
-	c.mqReqs = make(map[*nats.Subscription]responseCont)
+	c.mqReqs = make(map[*nats.Subscription]*responseCont)
 
 	c.tq.Clear()
 	c.tq = nil
@@ -175,7 +175,7 @@ func (c *Client) SendRequest(subj string, payload []byte, cb mq.Response) {
 	}
 
 	c.tq.Add(sub)
-	c.mqReqs[sub] = responseCont{isReq: true, f: cb}
+	c.mqReqs[sub] = &responseCont{isReq: true, f: cb}
 }
 
 // Subscribe to all events on a resource namespace.
@@ -191,7 +191,7 @@ func (c *Client) Subscribe(namespace string, cb mq.Response) (mq.Unsubscriber, e
 
 	c.Tracef("S=> %s", sub.Subject)
 
-	c.mqReqs[sub] = responseCont{f: cb}
+	c.mqReqs[sub] = &responseCont{f: cb}
 
 	us := &Subscription{c: c, sub: sub}
 	return us, nil
@@ -244,7 +244,7 @@ func (c *Client) listener(ch chan *nats.Msg, stopped chan struct{}) {
 	close(stopped)
 }
 
-func (c *Client) parseMeta(msg *nats.Msg, rc responseCont) {
+func (c *Client) parseMeta(msg *nats.Msg, rc *responseCont) {
 	tag := reflect.StructTag(msg.Data)
 
 	// timeout tag
