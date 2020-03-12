@@ -33,7 +33,7 @@ func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 	l := NewCountLogger(true, true)
 
 	c := NewNATSTestClient(l)
-	serv, err := server.NewService(c, TestConfig(cfgs...))
+	serv, err := server.NewService(c, DefaultConfig(cfgs...))
 	if err != nil {
 		t.Fatalf("error creating new service: %s", err)
 	}
@@ -138,8 +138,8 @@ func teardown(s *Session) {
 	}
 }
 
-// TestConfig returns a default server configuration used for testing
-func TestConfig(cfgs ...func(*server.Config)) server.Config {
+// DefaultConfig returns a default server configuration used for testing
+func DefaultConfig(cfgs ...func(*server.Config)) server.Config {
 	var cfg server.Config
 	cfg.SetDefault()
 	cfg.NoHTTP = true
