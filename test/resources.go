@@ -44,49 +44,49 @@ func resourceData(rid string) string {
 
 var resources = map[string]resource{
 	// Model resources
-	"test.model":              resource{typeModel, `{"string":"foo","int":42,"bool":true,"null":null}`, nil},
-	"test.model.parent":       resource{typeModel, `{"name":"parent","child":{"rid":"test.model"}}`, nil},
-	"test.model.secondparent": resource{typeModel, `{"name":"secondparent","child":{"rid":"test.model"}}`, nil},
-	"test.model.grandparent":  resource{typeModel, `{"name":"grandparent","child":{"rid":"test.model.parent"}}`, nil},
-	"test.model.brokenchild":  resource{typeModel, `{"name":"brokenchild","child":{"rid":"test.err.notFound"}}`, nil},
+	"test.model":              {typeModel, `{"string":"foo","int":42,"bool":true,"null":null}`, nil},
+	"test.model.parent":       {typeModel, `{"name":"parent","child":{"rid":"test.model"}}`, nil},
+	"test.model.secondparent": {typeModel, `{"name":"secondparent","child":{"rid":"test.model"}}`, nil},
+	"test.model.grandparent":  {typeModel, `{"name":"grandparent","child":{"rid":"test.model.parent"}}`, nil},
+	"test.model.brokenchild":  {typeModel, `{"name":"brokenchild","child":{"rid":"test.err.notFound"}}`, nil},
 
 	// Cyclic model resources
-	"test.m.a": resource{typeModel, `{"a":{"rid":"test.m.a"}}`, nil},
+	"test.m.a": {typeModel, `{"a":{"rid":"test.m.a"}}`, nil},
 
-	"test.m.b": resource{typeModel, `{"c":{"rid":"test.m.c"}}`, nil},
-	"test.m.c": resource{typeModel, `{"b":{"rid":"test.m.b"}}`, nil},
+	"test.m.b": {typeModel, `{"c":{"rid":"test.m.c"}}`, nil},
+	"test.m.c": {typeModel, `{"b":{"rid":"test.m.b"}}`, nil},
 
-	"test.m.d": resource{typeModel, `{"e":{"rid":"test.m.e"},"f":{"rid":"test.m.f"}}`, nil},
-	"test.m.e": resource{typeModel, `{"d":{"rid":"test.m.d"}}`, nil},
-	"test.m.f": resource{typeModel, `{"d":{"rid":"test.m.d"}}`, nil},
+	"test.m.d": {typeModel, `{"e":{"rid":"test.m.e"},"f":{"rid":"test.m.f"}}`, nil},
+	"test.m.e": {typeModel, `{"d":{"rid":"test.m.d"}}`, nil},
+	"test.m.f": {typeModel, `{"d":{"rid":"test.m.d"}}`, nil},
 
-	"test.m.g": resource{typeModel, `{"e":{"rid":"test.m.e"},"f":{"rid":"test.m.f"}}`, nil},
-	"test.m.h": resource{typeModel, `{"e":{"rid":"test.m.e"}}`, nil},
+	"test.m.g": {typeModel, `{"e":{"rid":"test.m.e"},"f":{"rid":"test.m.f"}}`, nil},
+	"test.m.h": {typeModel, `{"e":{"rid":"test.m.e"}}`, nil},
 
 	// Collection resources
-	"test.collection":              resource{typeCollection, `["foo",42,true,null]`, nil},
-	"test.collection.parent":       resource{typeCollection, `["parent",{"rid":"test.collection"}]`, nil},
-	"test.collection.secondparent": resource{typeCollection, `["secondparent",{"rid":"test.collection"}]`, nil},
-	"test.collection.grandparent":  resource{typeCollection, `["grandparent",{"rid":"test.collection.parent"}]`, nil},
-	"test.collection.brokenchild":  resource{typeCollection, `["brokenchild",{"rid":"test.err.notFound"}]`, nil},
+	"test.collection":              {typeCollection, `["foo",42,true,null]`, nil},
+	"test.collection.parent":       {typeCollection, `["parent",{"rid":"test.collection"}]`, nil},
+	"test.collection.secondparent": {typeCollection, `["secondparent",{"rid":"test.collection"}]`, nil},
+	"test.collection.grandparent":  {typeCollection, `["grandparent",{"rid":"test.collection.parent"}]`, nil},
+	"test.collection.brokenchild":  {typeCollection, `["brokenchild",{"rid":"test.err.notFound"}]`, nil},
 
 	// Cyclic collection resources
-	"test.c.a": resource{typeCollection, `[{"rid":"test.c.a"}]`, nil},
+	"test.c.a": {typeCollection, `[{"rid":"test.c.a"}]`, nil},
 
-	"test.c.b": resource{typeCollection, `[{"rid":"test.c.c"}]`, nil},
-	"test.c.c": resource{typeCollection, `[{"rid":"test.c.b"}]`, nil},
+	"test.c.b": {typeCollection, `[{"rid":"test.c.c"}]`, nil},
+	"test.c.c": {typeCollection, `[{"rid":"test.c.b"}]`, nil},
 
-	"test.c.d": resource{typeCollection, `[{"rid":"test.c.e"},{"rid":"test.c.f"}]`, nil},
-	"test.c.e": resource{typeCollection, `[{"rid":"test.c.d"}]`, nil},
-	"test.c.f": resource{typeCollection, `[{"rid":"test.c.d"}]`, nil},
+	"test.c.d": {typeCollection, `[{"rid":"test.c.e"},{"rid":"test.c.f"}]`, nil},
+	"test.c.e": {typeCollection, `[{"rid":"test.c.d"}]`, nil},
+	"test.c.f": {typeCollection, `[{"rid":"test.c.d"}]`, nil},
 
-	"test.c.g": resource{typeCollection, `[{"rid":"test.c.e"},{"rid":"test.c.f"}]`, nil},
-	"test.c.h": resource{typeCollection, `[{"rid":"test.c.e"}]`, nil},
+	"test.c.g": {typeCollection, `[{"rid":"test.c.e"},{"rid":"test.c.f"}]`, nil},
+	"test.c.h": {typeCollection, `[{"rid":"test.c.e"}]`, nil},
 
 	// Errors
-	"test.err.notFound":      resource{typeError, "", reserr.ErrNotFound},
-	"test.err.internalError": resource{typeError, "", reserr.ErrInternalError},
-	"test.err.timeout":       resource{typeError, "", reserr.ErrTimeout},
+	"test.err.notFound":      {typeError, "", reserr.ErrNotFound},
+	"test.err.internalError": {typeError, "", reserr.ErrInternalError},
+	"test.err.timeout":       {typeError, "", reserr.ErrTimeout},
 }
 
 // Call responses

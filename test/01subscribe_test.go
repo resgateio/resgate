@@ -187,29 +187,29 @@ func TestSubscribe(t *testing.T) {
 
 	responses := map[string][]string{
 		// Model responses
-		"test.model":              []string{"test.model"},
-		"test.model.parent":       []string{"test.model.parent", "test.model"},
-		"test.model.grandparent":  []string{"test.model.grandparent", "test.model.parent", "test.model"},
-		"test.model.secondparent": []string{"test.model.secondparent", "test.model"},
-		"test.model.brokenchild":  []string{"test.model.brokenchild", "test.err.notFound"},
+		"test.model":              {"test.model"},
+		"test.model.parent":       {"test.model.parent", "test.model"},
+		"test.model.grandparent":  {"test.model.grandparent", "test.model.parent", "test.model"},
+		"test.model.secondparent": {"test.model.secondparent", "test.model"},
+		"test.model.brokenchild":  {"test.model.brokenchild", "test.err.notFound"},
 		// Cyclic model responses
-		"test.m.a": []string{"test.m.a"},
-		"test.m.b": []string{"test.m.b", "test.m.c"},
-		"test.m.d": []string{"test.m.d", "test.m.e", "test.m.f"},
-		"test.m.g": []string{"test.m.d", "test.m.e", "test.m.f", "test.m.g"},
-		"test.m.h": []string{"test.m.d", "test.m.e", "test.m.f", "test.m.h"},
+		"test.m.a": {"test.m.a"},
+		"test.m.b": {"test.m.b", "test.m.c"},
+		"test.m.d": {"test.m.d", "test.m.e", "test.m.f"},
+		"test.m.g": {"test.m.d", "test.m.e", "test.m.f", "test.m.g"},
+		"test.m.h": {"test.m.d", "test.m.e", "test.m.f", "test.m.h"},
 		// Collection responses
-		"test.collection":              []string{"test.collection"},
-		"test.collection.parent":       []string{"test.collection.parent", "test.collection"},
-		"test.collection.grandparent":  []string{"test.collection.grandparent", "test.collection.parent", "test.collection"},
-		"test.collection.secondparent": []string{"test.collection.secondparent", "test.collection"},
-		"test.collection.brokenchild":  []string{"test.collection.brokenchild", "test.err.notFound"},
+		"test.collection":              {"test.collection"},
+		"test.collection.parent":       {"test.collection.parent", "test.collection"},
+		"test.collection.grandparent":  {"test.collection.grandparent", "test.collection.parent", "test.collection"},
+		"test.collection.secondparent": {"test.collection.secondparent", "test.collection"},
+		"test.collection.brokenchild":  {"test.collection.brokenchild", "test.err.notFound"},
 		// Cyclic collection responses
-		"test.c.a": []string{"test.c.a"},
-		"test.c.b": []string{"test.c.b", "test.c.c"},
-		"test.c.d": []string{"test.c.d", "test.c.e", "test.c.f"},
-		"test.c.g": []string{"test.c.d", "test.c.e", "test.c.f", "test.c.g"},
-		"test.c.h": []string{"test.c.d", "test.c.e", "test.c.f", "test.c.h"},
+		"test.c.a": {"test.c.a"},
+		"test.c.b": {"test.c.b", "test.c.c"},
+		"test.c.d": {"test.c.d", "test.c.e", "test.c.f"},
+		"test.c.g": {"test.c.d", "test.c.e", "test.c.f", "test.c.g"},
+		"test.c.h": {"test.c.d", "test.c.e", "test.c.f", "test.c.h"},
 	}
 
 	for i, l := range sequenceTable {
