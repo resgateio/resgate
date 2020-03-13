@@ -152,12 +152,23 @@ func (hr *HTTPResponse) AssertIsError(t *testing.T) *HTTPResponse {
 func (hr *HTTPResponse) AssertHeaders(t *testing.T, h map[string]string) *HTTPResponse {
 	for k, v := range h {
 		hv := hr.Result().Header.Get(k)
-		if hr.Result().Header.Get(k) != v {
+		if hv != v {
 			if hv == "" {
 				t.Fatalf("expected response header %s to be %s, but header not found", k, v)
 			} else {
 				t.Fatalf("expected response header %s to be %s, but got %s", k, v, hv)
 			}
+		}
+	}
+	return hr
+}
+
+// AssertMissingHeaders asserts that the response does not include the given headers
+func (hr *HTTPResponse) AssertMissingHeaders(t *testing.T, h []string) *HTTPResponse {
+	for _, h := range h {
+		hv := hr.Result().Header.Get(h)
+		if hv != "" {
+			t.Fatalf("expected response header %s to be missing, but got %s", h, hv)
 		}
 	}
 	return hr

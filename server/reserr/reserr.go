@@ -47,10 +47,11 @@ const (
 	CodeInvalidRequest      = "system.invalidRequest"
 	CodeUnsupportedProtocol = "system.unsupportedProtocol"
 	// HTTP only error codes
-	CodeBadRequest         = "system.badRequest"
-	CodeMethodNotAllowed   = "system.methodNotAllowed"
-	CodeServiceUnavailable = "system.serviceUnavailable"
-	CodeForbidden          = "system.forbidden"
+	CodeBadRequest           = "system.badRequest"
+	CodeMethodNotAllowed     = "system.methodNotAllowed"
+	CodeServiceUnavailable   = "system.serviceUnavailable"
+	CodeForbidden            = "system.forbidden"
+	CodeUnsupportedMediaType = "system.unsupportedMediaType"
 )
 
 // Pre-defined RES errors
@@ -69,8 +70,9 @@ var (
 	ErrInvalidRequest      = &Error{Code: CodeInvalidRequest, Message: "Invalid request"}
 	ErrUnsupportedProtocol = &Error{Code: CodeUnsupportedProtocol, Message: "Unsupported protocol"}
 	// HTTP only errors
-	ErrBadRequest         = &Error{Code: CodeBadRequest, Message: "Bad request"}
-	ErrMethodNotAllowed   = &Error{Code: CodeMethodNotAllowed, Message: "Method not allowed"}
-	ErrServiceUnavailable = &Error{Code: CodeServiceUnavailable, Message: "Service unavailable"}
-	ErrForbiddenOrigin    = &Error{Code: CodeForbidden, Message: "Forbidden origin"}
+	ErrBadRequest           = &Error{Code: CodeBadRequest, Message: "Bad request"}
+	ErrMethodNotAllowed     = &Error{Code: CodeMethodNotAllowed, Message: "Method not allowed"}
+	ErrServiceUnavailable   = &Error{Code: CodeServiceUnavailable, Message: "Service unavailable"}
+	ErrForbiddenOrigin      = &Error{Code: CodeForbidden, Message: "Forbidden origin"}
+	ErrUnsupportedMediaType = &Error{Code: CodeUnsupportedMediaType, Message: "Unsupported media type"}
 )

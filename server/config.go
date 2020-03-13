@@ -141,7 +141,7 @@ func validateAllowOrigin(s []string) error {
 			}
 		} else {
 			if o == "" {
-				errors.New("origin must not be empty")
+				return errors.New("origin must not be empty")
 			}
 			u, err := url.Parse(o)
 			if err != nil || u.Scheme == "" || u.Host == "" || u.Opaque != "" || u.User != nil || u.Path != "" || len(u.Query()) > 0 || u.Fragment != "" {

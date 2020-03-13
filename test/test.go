@@ -87,12 +87,16 @@ func (s *Session) ConnectWithoutVersion() *Conn {
 }
 
 // HTTPRequest sends a request over HTTP
-func (s *Session) HTTPRequest(method, url string, body []byte) *HTTPRequest {
+func (s *Session) HTTPRequest(method, url string, body []byte, opts ...func(r *http.Request)) *HTTPRequest {
 	r := bytes.NewReader(body)
 
 	req, err := http.NewRequest(method, url, r)
 	if err != nil {
 		panic("test: failed to create new http request: " + err.Error())
+	}
+
+	for _, opt := range opts {
+		opt(req)
 	}
 
 	// Record the response into a httptest.ResponseRecorder

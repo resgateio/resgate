@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"strings"
 
@@ -21,7 +22,9 @@ func (s *Service) initAPIHandler() error {
 		return fmt.Errorf("invalid apiEncoding setting (%s) - available encodings: %s", s.cfg.APIEncoding, strings.Join(keys, ", "))
 	}
 	s.enc = f(s.cfg)
-	return nil
+	mimetype, _, err := mime.ParseMediaType(s.enc.ContentType())
+	s.mimetype = mimetype
+	return err
 }
 
 // setCommonHeaders sets common headers such as Access-Control-*.
@@ -31,14 +34,29 @@ func (s *Service) setCommonHeaders(w http.ResponseWriter, r *http.Request) error
 	case "*":
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	case "same-origin":
-		// Same-Origin-Policy is the default for HTTP
-		// and requires no additional headers.
+		// Same-Origin-Policy is the default for HTTP and requires no additional
+		// headers. But to force the browser to stick to the Same-Origin-Policy,
+		// we require the request to contain a Content-Type header matching that
+		// of the API Encoding.
+		typ := r.Header["Content-Type"]
+		if len(typ) > 0 && typ[0] != "" {
+			for _, v := range strings.Split(typ[0], ",") {
+				t, _, err := mime.ParseMediaType(v)
+				if err != nil {
+					break
+				}
+				if t == s.mimetype {
+					return nil
+				}
+			}
+		}
+		return reserr.ErrUnsupportedMediaType
+
 	default:
 		// CORS validation
 		origin := r.Header["Origin"]
-		// If no Origin header is set, or the value is null,
-		// we can allow access as it is not coming from a CORS enabled
-		// browser.
+		// If no Origin header is set, or the value is null, we can allow access
+		// as it is not coming from a CORS enabled browser.
 		if len(origin) > 0 && origin[0] != "null" {
 			if matchesOrigins(s.cfg.allowOrigin, origin[0]) {
 				w.Header().Set("Access-Control-Allow-Origin", origin[0])
@@ -210,6 +228,8 @@ func httpError(w http.ResponseWriter, err error, enc APIEncoder) {
 		code = http.StatusServiceUnavailable
 	case reserr.CodeForbidden:
 		code = http.StatusForbidden
+	case reserr.CodeUnsupportedMediaType:
+		code = http.StatusUnsupportedMediaType
 	default:
 		code = http.StatusBadRequest
 	}
