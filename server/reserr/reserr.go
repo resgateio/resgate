@@ -50,6 +50,7 @@ const (
 	CodeBadRequest         = "system.badRequest"
 	CodeMethodNotAllowed   = "system.methodNotAllowed"
 	CodeServiceUnavailable = "system.serviceUnavailable"
+	CodeForbidden          = "system.forbidden"
 )
 
 // Pre-defined RES errors
@@ -71,4 +72,5 @@ var (
 	ErrBadRequest         = &Error{Code: CodeBadRequest, Message: "Bad request"}
 	ErrMethodNotAllowed   = &Error{Code: CodeMethodNotAllowed, Message: "Method not allowed"}
 	ErrServiceUnavailable = &Error{Code: CodeServiceUnavailable, Message: "Service unavailable"}
+	ErrForbidden          = &Error{Code: CodeForbidden, Message: "Access is forbidden"}
 )

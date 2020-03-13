@@ -25,6 +25,32 @@ func (s *Service) initAPIHandler() error {
 }
 
 func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
+	switch s.cfg.allowOrigin[0] {
+	case "*":
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+	case "sop":
+		// Same-Origin-Policy is the default for HTTP
+		// and requires no additional headers.
+	default:
+		// CORS validation
+		origin := r.Header["Origin"]
+		// If no Origin header is set, or the value is null,
+		// we can allow access as it is not coming from a CORS enabled
+		// browser.
+		if len(origin) > 0 && origin[0] != "null" {
+			if matchesOrigins(s.cfg.allowOrigin, origin[0]) {
+				w.Header().Set("Access-Control-Allow-Origin", origin[0])
+				w.Header().Set("Vary", "Origin")
+			} else {
+				// No matching origin
+				// We respond with an 403 error
+				w.Header().Set("Access-Control-Allow-Origin", s.cfg.allowOrigin[0])
+				w.Header().Set("Vary", "Origin")
+				httpError(w, reserr.ErrForbidden, s.enc)
+				return
+			}
+		}
+	}
 	path := r.URL.RawPath
 	if path == "" {
 		path = r.URL.Path
@@ -167,6 +193,8 @@ func httpError(w http.ResponseWriter, err error, enc APIEncoder) {
 		code = http.StatusInternalServerError
 	case reserr.CodeServiceUnavailable:
 		code = http.StatusServiceUnavailable
+	case reserr.CodeForbidden:
+		code = http.StatusForbidden
 	default:
 		code = http.StatusBadRequest
 	}

@@ -1,8 +1,11 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net"
+	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/resgateio/resgate/server/codec"
@@ -16,6 +19,7 @@ type Config struct {
 	APIPath     string  `json:"apiPath"`
 	APIEncoding string  `json:"apiEncoding"`
 	HeaderAuth  *string `json:"headerAuth"`
+	AllowOrigin *string `json:"allowOrigin"`
 
 	TLS     bool   `json:"tls"`
 	TLSCert string `json:"certFile"`
@@ -29,6 +33,7 @@ type Config struct {
 	netAddr          string
 	headerAuthRID    string
 	headerAuthAction string
+	allowOrigin      []string
 }
 
 // SetDefault sets the default values
@@ -48,6 +53,10 @@ func (c *Config) SetDefault() {
 	}
 	if c.APIEncoding == "" {
 		c.APIEncoding = DefaultAPIEncoding
+	}
+	if c.AllowOrigin == nil {
+		origin := "*"
+		c.AllowOrigin = &origin
 	}
 }
 
@@ -79,7 +88,7 @@ func (c *Config) prepare() error {
 					c.netAddr = ip.String()
 				}
 			} else {
-				return fmt.Errorf("invalid addr setting (%s) - must be a valid IPv4 or IPv6 address", s)
+				return fmt.Errorf("invalid addr setting (%s)\n\tmust be a valid IPv4 or IPv6 address", s)
 			}
 		}
 	} else {
@@ -94,9 +103,19 @@ func (c *Config) prepare() error {
 			c.headerAuthRID = s[:idx]
 			c.headerAuthAction = s[idx+1:]
 		} else {
-			return fmt.Errorf("invalid headerAuth setting (%s) - must be a valid resource method", s)
+			return fmt.Errorf("invalid headerAuth setting (%s)\n\tmust be a valid resource method", s)
 		}
 	}
+	if c.AllowOrigin != nil {
+		c.allowOrigin = strings.Split(*c.AllowOrigin, ";")
+		if err := validateAllowOrigin(c.allowOrigin); err != nil {
+			return fmt.Errorf("invalid allowOrigin setting (%s)\n\t%s\n\tvalid options are *, sop, or a list of semi-colon separated origins", *c.AllowOrigin, err)
+		}
+		sort.Strings(c.allowOrigin)
+	} else {
+		c.allowOrigin = []string{"*"}
+	}
+
 	if c.WSPath == "" {
 		c.WSPath = "/"
 	}
@@ -105,4 +124,39 @@ func (c *Config) prepare() error {
 	}
 
 	return nil
+}
+
+func validateAllowOrigin(s []string) error {
+	for i, o := range s {
+		o = toLowerASCII(o)
+		s[i] = o
+		if o == "sop" || o == "*" {
+			if len(s) > 1 {
+				return fmt.Errorf("'%s' must not be used together with other origin settings", o)
+			}
+		} else {
+			if o == "" {
+				errors.New("origin must not be empty")
+			}
+			u, err := url.Parse(o)
+			if err != nil || u.Scheme == "" || u.Host == "" || u.Opaque != "" || u.User != nil || u.Path != "" || len(u.Query()) > 0 || u.Fragment != "" {
+				return fmt.Errorf("'%s' doesn't match <scheme>://<hostname>[:<port>]", o)
+			}
+		}
+	}
+	return nil
+}
+
+// toLowerASCII converts only A-Z to lower case in a string
+func toLowerASCII(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if 'A' <= c && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		b.WriteByte(c)
+	}
+	return b.String()
 }
