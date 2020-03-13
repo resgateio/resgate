@@ -44,7 +44,7 @@ Server Options:
         --tlskey <file>              Private key for HTTP server certificate
         --apiencoding <type>         Encoding for web resources: json, jsonflat (default: json)
         --creds <file>               NATS User Credentials file
-        --alloworigin <origin>       Allowed origin(s) for CORS: *, same-origin, <origin> (default: *)
+        --alloworigin <origin>       Allowed origin(s): *, or <scheme>://<hostname>[:<port>] (default: *)
     -c, --config <file>              Configuration file
 
 Logging Options:

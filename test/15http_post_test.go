@@ -271,20 +271,10 @@ func TestHTTPPost_AllowOrigin_ExpectedResponse(t *testing.T) {
 		{"http://localhost", "", "*", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "*"}, []string{"Vary"}, successResponse},
 		{"http://localhost", "", "http://localhost", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"}, nil, successResponse},
 		{"https://resgate.io", "", "http://localhost;https://resgate.io", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "https://resgate.io", "Vary": "Origin"}, nil, successResponse},
-		{"http://example.com", "application/json", "same-origin", http.StatusOK, nil, []string{"Access-Control-Allow-Origin", "Vary"}, successResponse},
-		{"http://example.com", "application/json; charset=utf-8; ", "same-origin", http.StatusOK, nil, []string{"Access-Control-Allow-Origin", "Vary"}, successResponse},
-		{"http://example.com", "text/plain,application/json; charset=utf-8; ", "same-origin", http.StatusOK, nil, []string{"Access-Control-Allow-Origin", "Vary"}, successResponse},
 		// Invalid requests
 		{"http://example.com", "", "http://localhost;https://resgate.io", http.StatusForbidden, map[string]string{"Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"}, nil, reserr.ErrForbiddenOrigin},
-		{"http://example.com", "", "same-origin", http.StatusUnsupportedMediaType, nil, []string{"Access-Control-Allow-Origin", "Vary"}, reserr.ErrUnsupportedMediaType},
-		{"", "", "same-origin", http.StatusUnsupportedMediaType, nil, []string{"Access-Control-Allow-Origin", "Vary"}, reserr.ErrUnsupportedMediaType},
-		{"http://example.com", "text/plain", "same-origin", http.StatusUnsupportedMediaType, nil, []string{"Access-Control-Allow-Origin", "Vary"}, reserr.ErrUnsupportedMediaType},
-		{"http://example.com", "text/plain,multipart/form-data", "same-origin", http.StatusUnsupportedMediaType, nil, []string{"Access-Control-Allow-Origin", "Vary"}, reserr.ErrUnsupportedMediaType},
 		// No Origin header in request
 		{"", "", "*", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "*"}, []string{"Vary"}, successResponse},
-		{"", "application/json", "same-origin", http.StatusOK, nil, []string{"Access-Control-Allow-Origin", "Vary"}, successResponse},
-		{"", "application/json; charset=utf-8; ", "same-origin", http.StatusOK, nil, []string{"Access-Control-Allow-Origin", "Vary"}, successResponse},
-		{"", "text/plain,application/json; charset=utf-8; ", "same-origin", http.StatusOK, nil, []string{"Access-Control-Allow-Origin", "Vary"}, successResponse},
 		{"", "", "http://localhost", http.StatusOK, nil, []string{"Access-Control-Allow-Origin", "Vary"}, successResponse},
 	}
 

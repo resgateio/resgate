@@ -27,7 +27,6 @@ func TestConfigPrepare(t *testing.T) {
 	invalidAddr := "127.0.0"
 	invalidHeaderAuth := "test"
 	allowOriginAll := "*"
-	allowOriginSame := "same-origin"
 	allowOriginSingle := "http://resgate.io"
 	allowOriginMultiple := "http://localhost;http://resgate.io"
 	allowOriginInvalidEmpty := ""
@@ -50,7 +49,6 @@ func TestConfigPrepare(t *testing.T) {
 		{Config{Addr: &localAddr, WSPath: "/"}, Config{Addr: &localAddr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "127.0.0.1:80", allowOrigin: []string{"*"}, allowMethods: "GET, POST, OPTIONS"}, false},
 		{Config{Addr: &ipv6Addr, WSPath: "/"}, Config{Addr: &ipv6Addr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "[::1]:80", allowOrigin: []string{"*"}, allowMethods: "GET, POST, OPTIONS"}, false},
 		{Config{AllowOrigin: &allowOriginAll, WSPath: "/"}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, POST, OPTIONS"}, false},
-		{Config{AllowOrigin: &allowOriginSame, WSPath: "/"}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"same-origin"}, allowMethods: "GET, POST, OPTIONS"}, false},
 		{Config{AllowOrigin: &allowOriginSingle, WSPath: "/"}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"http://resgate.io"}, allowMethods: "GET, POST, OPTIONS"}, false},
 		{Config{AllowOrigin: &allowOriginMultiple, WSPath: "/"}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"http://localhost", "http://resgate.io"}, allowMethods: "GET, POST, OPTIONS"}, false},
 

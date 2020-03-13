@@ -112,7 +112,7 @@ func (c *Config) prepare() error {
 	if c.AllowOrigin != nil {
 		c.allowOrigin = strings.Split(*c.AllowOrigin, ";")
 		if err := validateAllowOrigin(c.allowOrigin); err != nil {
-			return fmt.Errorf("invalid allowOrigin setting (%s)\n\t%s\n\tvalid options are *, same-origin, or a list of semi-colon separated origins", *c.AllowOrigin, err)
+			return fmt.Errorf("invalid allowOrigin setting (%s)\n\t%s\n\tvalid options are *, or a list of semi-colon separated origins", *c.AllowOrigin, err)
 		}
 		sort.Strings(c.allowOrigin)
 	} else {
@@ -135,7 +135,7 @@ func validateAllowOrigin(s []string) error {
 	for i, o := range s {
 		o = toLowerASCII(o)
 		s[i] = o
-		if o == "same-origin" || o == "*" {
+		if o == "*" {
 			if len(s) > 1 {
 				return fmt.Errorf("'%s' must not be used together with other origin settings", o)
 			}

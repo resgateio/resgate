@@ -33,24 +33,6 @@ func (s *Service) setCommonHeaders(w http.ResponseWriter, r *http.Request) error
 	switch s.cfg.allowOrigin[0] {
 	case "*":
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-	case "same-origin":
-		// Same-Origin-Policy is the default for HTTP and requires no additional
-		// headers. But to force the browser to stick to the Same-Origin-Policy,
-		// we require the request to contain a Content-Type header matching that
-		// of the API Encoding.
-		typ := r.Header["Content-Type"]
-		if len(typ) > 0 && typ[0] != "" {
-			for _, v := range strings.Split(typ[0], ",") {
-				t, _, err := mime.ParseMediaType(v)
-				if err != nil {
-					break
-				}
-				if t == s.mimetype {
-					return nil
-				}
-			}
-		}
-		return reserr.ErrUnsupportedMediaType
 
 	default:
 		// CORS validation
@@ -74,7 +56,6 @@ func (s *Service) setCommonHeaders(w http.ResponseWriter, r *http.Request) error
 
 func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 	err := s.setCommonHeaders(w, r)
-
 	if r.Method == "OPTIONS" {
 		w.Header().Set("Access-Control-Allow-Methods", s.cfg.allowMethods)
 		return
@@ -228,8 +209,6 @@ func httpError(w http.ResponseWriter, err error, enc APIEncoder) {
 		code = http.StatusServiceUnavailable
 	case reserr.CodeForbidden:
 		code = http.StatusForbidden
-	case reserr.CodeUnsupportedMediaType:
-		code = http.StatusUnsupportedMediaType
 	default:
 		code = http.StatusBadRequest
 	}
