@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"runtime"
 	"time"
-	"unicode/utf8"
 
 	"github.com/gorilla/websocket"
 )
@@ -105,30 +104,4 @@ func (s *Service) stopWSHandler() {
 
 		s.Errorf("Closing connection %s timed out:\n%s", idStr, string(buf))
 	}
-}
-
-func matchesOrigins(os []string, t string) bool {
-origin:
-	for _, s := range os {
-		for s != "" && t != "" {
-			sr, size := utf8.DecodeRuneInString(s)
-			s = s[size:]
-			tr, size := utf8.DecodeRuneInString(t)
-			t = t[size:]
-			if sr == tr {
-				continue
-			}
-			// Lowercase A-Z. Should already be done for origins.
-			if 'A' <= tr && tr <= 'Z' {
-				tr = tr + 'a' - 'A'
-			}
-			if sr != tr {
-				continue origin
-			}
-		}
-		if s == t {
-			return true
-		}
-	}
-	return false
 }

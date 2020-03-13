@@ -24,11 +24,13 @@ func (s *Service) initAPIHandler() error {
 	return nil
 }
 
-func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
+// setCommonHeaders sets common headers such as Access-Control-*.
+// It returns error if the origin header does not match any allowed origin.
+func (s *Service) setCommonHeaders(w http.ResponseWriter, r *http.Request) error {
 	switch s.cfg.allowOrigin[0] {
 	case "*":
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-	case "sop":
+	case "same-origin":
 		// Same-Origin-Policy is the default for HTTP
 		// and requires no additional headers.
 	default:
@@ -43,14 +45,27 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Vary", "Origin")
 			} else {
 				// No matching origin
-				// We respond with an 403 error
 				w.Header().Set("Access-Control-Allow-Origin", s.cfg.allowOrigin[0])
 				w.Header().Set("Vary", "Origin")
-				httpError(w, reserr.ErrForbidden, s.enc)
-				return
+				return reserr.ErrForbiddenOrigin
 			}
 		}
 	}
+	return nil
+}
+
+func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
+	err := s.setCommonHeaders(w, r)
+
+	if r.Method == "OPTIONS" {
+		w.Header().Set("Access-Control-Allow-Methods", s.cfg.allowMethods)
+		return
+	}
+	if err != nil {
+		httpError(w, err, s.enc)
+		return
+	}
+
 	path := r.URL.RawPath
 	if path == "" {
 		path = r.URL.Path

@@ -135,3 +135,30 @@ func TestVersionMatchesTag(t *testing.T) {
 		t.Fatalf("Expected version %+v, got %+v", Version, tag[1:])
 	}
 }
+
+func TestMatchesOrigins(t *testing.T) {
+	tbl := []struct {
+		AllowedOrigins []string
+		Origin         string
+		Expected       bool
+	}{
+		{[]string{"http://localhost"}, "http://localhost", true},
+		{[]string{"https://resgate.io"}, "https://resgate.io", true},
+		{[]string{"https://resgate.io"}, "https://Resgate.IO", true},
+		{[]string{"http://localhost", "https://resgate.io"}, "http://localhost", true},
+		{[]string{"http://localhost", "https://resgate.io"}, "https://resgate.io", true},
+		{[]string{"http://localhost", "https://resgate.io"}, "https://Resgate.IO", true},
+		{[]string{"http://localhost", "https://resgate.io", "http://resgate.io"}, "http://Localhost", true},
+		{[]string{"http://localhost", "https://resgate.io", "http://resgate.io"}, "https://Resgate.io", true},
+		{[]string{"http://localhost", "https://resgate.io", "http://resgate.io"}, "http://resgate.IO", true},
+		{[]string{"https://resgate.io"}, "http://resgate.io", false},
+		{[]string{"http://localhost", "https://resgate.io"}, "http://resgate.io", false},
+		{[]string{"http://localhost", "https://resgate.io", "http://resgate.io"}, "http://localhost/", false},
+	}
+
+	for i, r := range tbl {
+		if matchesOrigins(r.AllowedOrigins, r.Origin) != r.Expected {
+			t.Fatalf("expected matchesOrigins to return %#v\n\tmatchesOrigins(%#v, %#v)\n\tin test #%d", r.Expected, r.AllowedOrigins, r.Origin, i+1)
+		}
+	}
+}

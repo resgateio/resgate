@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/resgateio/resgate/server/codec"
 )
@@ -34,6 +35,7 @@ type Config struct {
 	headerAuthRID    string
 	headerAuthAction string
 	allowOrigin      []string
+	allowMethods     string
 }
 
 // SetDefault sets the default values
@@ -106,15 +108,18 @@ func (c *Config) prepare() error {
 			return fmt.Errorf("invalid headerAuth setting (%s)\n\tmust be a valid resource method", s)
 		}
 	}
+
 	if c.AllowOrigin != nil {
 		c.allowOrigin = strings.Split(*c.AllowOrigin, ";")
 		if err := validateAllowOrigin(c.allowOrigin); err != nil {
-			return fmt.Errorf("invalid allowOrigin setting (%s)\n\t%s\n\tvalid options are *, sop, or a list of semi-colon separated origins", *c.AllowOrigin, err)
+			return fmt.Errorf("invalid allowOrigin setting (%s)\n\t%s\n\tvalid options are *, same-origin, or a list of semi-colon separated origins", *c.AllowOrigin, err)
 		}
 		sort.Strings(c.allowOrigin)
 	} else {
 		c.allowOrigin = []string{"*"}
 	}
+
+	c.allowMethods = "GET, POST, OPTIONS"
 
 	if c.WSPath == "" {
 		c.WSPath = "/"
@@ -130,7 +135,7 @@ func validateAllowOrigin(s []string) error {
 	for i, o := range s {
 		o = toLowerASCII(o)
 		s[i] = o
-		if o == "sop" || o == "*" {
+		if o == "same-origin" || o == "*" {
 			if len(s) > 1 {
 				return fmt.Errorf("'%s' must not be used together with other origin settings", o)
 			}
@@ -159,4 +164,31 @@ func toLowerASCII(s string) string {
 		b.WriteByte(c)
 	}
 	return b.String()
+}
+
+func matchesOrigins(os []string, o string) bool {
+origin:
+	for _, s := range os {
+		t := o
+		for s != "" && t != "" {
+			sr, size := utf8.DecodeRuneInString(s)
+			s = s[size:]
+			tr, size := utf8.DecodeRuneInString(t)
+			t = t[size:]
+			if sr == tr {
+				continue
+			}
+			// Lowercase A-Z. Should already be done for origins.
+			if 'A' <= tr && tr <= 'Z' {
+				tr = tr + 'a' - 'A'
+			}
+			if sr != tr {
+				continue origin
+			}
+		}
+		if s == t {
+			return true
+		}
+	}
+	return false
 }
