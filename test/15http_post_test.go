@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/resgateio/resgate/server"
 	"github.com/resgateio/resgate/server/mq"
 	"github.com/resgateio/resgate/server/reserr"
 )
@@ -251,6 +252,62 @@ func TestHTTPPostInvalidURLs(t *testing.T) {
 					hresp.AssertBody(t, l.Expected)
 				}
 			}
+		})
+	}
+}
+
+func TestHTTPPost_AllowOrigin_ExpectedResponse(t *testing.T) {
+	successResponse := json.RawMessage(`{"get":true,"call":"*"}`)
+
+	tbl := []struct {
+		Origin                 string            // Request's Origin header. Empty means no Origin header.
+		ContentType            string            // Request's Content-Type header. Empty means no Content-Type header.
+		AllowOrigin            string            // AllowOrigin config
+		ExpectedCode           int               // Expected response status code
+		ExpectedHeaders        map[string]string // Expected response Headers
+		ExpectedMissingHeaders []string          // Expected response headers not to be included
+		ExpectedBody           interface{}       // Expected response body
+	}{
+		{"http://localhost", "", "*", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "*"}, []string{"Vary"}, successResponse},
+		{"http://localhost", "", "http://localhost", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"}, nil, successResponse},
+		{"https://resgate.io", "", "http://localhost;https://resgate.io", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "https://resgate.io", "Vary": "Origin"}, nil, successResponse},
+		// Invalid requests
+		{"http://example.com", "", "http://localhost;https://resgate.io", http.StatusForbidden, map[string]string{"Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"}, nil, reserr.ErrForbiddenOrigin},
+		// No Origin header in request
+		{"", "", "*", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "*"}, []string{"Vary"}, successResponse},
+		{"", "", "http://localhost", http.StatusOK, nil, []string{"Access-Control-Allow-Origin", "Vary"}, successResponse},
+	}
+
+	for i, l := range tbl {
+		l := l
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
+			hreq := s.HTTPRequest("POST", "/api/test/model/method", nil, func(req *http.Request) {
+				if l.Origin != "" {
+					req.Header.Set("Origin", l.Origin)
+				}
+				if l.ContentType != "" {
+					req.Header.Set("Content-Type", l.ContentType)
+				}
+			})
+
+			if l.ExpectedCode == http.StatusOK {
+				// Get access request
+				req := s.GetRequest(t)
+				req.AssertSubject(t, "access.test.model")
+				req.RespondSuccess(json.RawMessage(`{"get":true,"call":"*"}`))
+				// Get call request
+				req = s.GetRequest(t)
+				req.AssertSubject(t, "call.test.model.method")
+				req.RespondSuccess(successResponse)
+			}
+
+			// Validate http response
+			hreq.GetResponse(t).
+				Equals(t, l.ExpectedCode, l.ExpectedBody).
+				AssertHeaders(t, l.ExpectedHeaders).
+				AssertMissingHeaders(t, l.ExpectedMissingHeaders)
+		}, func(cfg *server.Config) {
+			cfg.AllowOrigin = &l.AllowOrigin
 		})
 	}
 }

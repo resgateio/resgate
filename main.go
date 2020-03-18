@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -43,6 +44,7 @@ Server Options:
         --tlskey <file>              Private key for HTTP server certificate
         --apiencoding <type>         Encoding for web resources: json, jsonflat (default: json)
         --creds <file>               NATS User Credentials file
+        --alloworigin <origin>       Allowed origin(s): *, or <scheme>://<hostname>[:<port>] (default: *)
     -c, --config <file>              Configuration file
 
 Logging Options:
@@ -65,6 +67,22 @@ type Config struct {
 	Debug          bool    `json:"debug"`
 	Trace          bool    `json:"trace"`
 	server.Config
+}
+
+// StringSlice is a slice of strings implementing the flag.Value interface.
+type StringSlice []string
+
+func (s *StringSlice) String() string {
+	if s == nil {
+		return ""
+	}
+	return strings.Join(*s, ";")
+}
+
+// Set adds a value to the slice.
+func (s *StringSlice) Set(v string) error {
+	*s = append(*s, v)
+	return nil
 }
 
 // SetDefault sets the default values
@@ -90,6 +108,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 		addr        string
 		natsCreds   string
 		debugTrace  bool
+		allowOrigin StringSlice
 	)
 
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
@@ -115,6 +134,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout in milliseconds for NATS requests.")
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
 	fs.StringVar(&natsCreds, "creds", "", "NATS User Credentials file.")
+	fs.Var(&allowOrigin, "alloworigin", "Allowed origin(s) for CORS.")
 	fs.BoolVar(&c.Debug, "D", false, "Enable debugging output.")
 	fs.BoolVar(&c.Debug, "debug", false, "Enable debugging output.")
 	fs.BoolVar(&c.Trace, "V", false, "Enable trace logging.")
@@ -185,6 +205,9 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 			} else {
 				c.NatsCreds = &natsCreds
 			}
+		case "alloworigin":
+			str := allowOrigin.String()
+			c.AllowOrigin = &str
 		case "i":
 			fallthrough
 		case "addr":

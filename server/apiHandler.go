@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"strings"
 
@@ -21,10 +22,49 @@ func (s *Service) initAPIHandler() error {
 		return fmt.Errorf("invalid apiEncoding setting (%s) - available encodings: %s", s.cfg.APIEncoding, strings.Join(keys, ", "))
 	}
 	s.enc = f(s.cfg)
+	mimetype, _, err := mime.ParseMediaType(s.enc.ContentType())
+	s.mimetype = mimetype
+	return err
+}
+
+// setCommonHeaders sets common headers such as Access-Control-*.
+// It returns error if the origin header does not match any allowed origin.
+func (s *Service) setCommonHeaders(w http.ResponseWriter, r *http.Request) error {
+	switch s.cfg.allowOrigin[0] {
+	case "*":
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	default:
+		// CORS validation
+		origin := r.Header["Origin"]
+		// If no Origin header is set, or the value is null, we can allow access
+		// as it is not coming from a CORS enabled browser.
+		if len(origin) > 0 && origin[0] != "null" {
+			if matchesOrigins(s.cfg.allowOrigin, origin[0]) {
+				w.Header().Set("Access-Control-Allow-Origin", origin[0])
+				w.Header().Set("Vary", "Origin")
+			} else {
+				// No matching origin
+				w.Header().Set("Access-Control-Allow-Origin", s.cfg.allowOrigin[0])
+				w.Header().Set("Vary", "Origin")
+				return reserr.ErrForbiddenOrigin
+			}
+		}
+	}
 	return nil
 }
 
 func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
+	err := s.setCommonHeaders(w, r)
+	if r.Method == "OPTIONS" {
+		w.Header().Set("Access-Control-Allow-Methods", s.cfg.allowMethods)
+		return
+	}
+	if err != nil {
+		httpError(w, err, s.enc)
+		return
+	}
+
 	path := r.URL.RawPath
 	if path == "" {
 		path = r.URL.Path
@@ -167,6 +207,8 @@ func httpError(w http.ResponseWriter, err error, enc APIEncoder) {
 		code = http.StatusInternalServerError
 	case reserr.CodeServiceUnavailable:
 		code = http.StatusServiceUnavailable
+	case reserr.CodeForbidden:
+		code = http.StatusForbidden
 	default:
 		code = http.StatusBadRequest
 	}
