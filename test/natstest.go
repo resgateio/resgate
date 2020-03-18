@@ -453,3 +453,15 @@ func (pr ParallelRequests) GetRequest(t *testing.T, subject string) *Request {
 	t.Fatalf("expected parallel requests to contain subject %#v, but found none", subject)
 	return nil
 }
+
+// AssertPanic expects the callback function to panic, otherwise
+// logs an error with t.Errorf
+func AssertPanic(t *testing.T, cb func()) {
+	defer func() {
+		v := recover()
+		if v == nil {
+			t.Errorf("expected callback to panic, but it didn't")
+		}
+	}()
+	cb()
+}

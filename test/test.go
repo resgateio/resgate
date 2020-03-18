@@ -57,8 +57,12 @@ func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 // ConnectWithChannel makes a new mock client websocket connection
 // with a ClientEvent channel.
 func (s *Session) ConnectWithChannel(evs chan *ClientEvent) *Conn {
+	return s.connect(evs, nil)
+}
+
+func (s *Session) connect(evs chan *ClientEvent, h http.Header) *Conn {
 	d := wstest.NewDialer(s.s.GetWSHandlerFunc())
-	c, _, err := d.Dial("ws://example.org/", nil)
+	c, _, err := d.Dial("ws://example.org/", h)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +75,7 @@ func (s *Session) ConnectWithChannel(evs chan *ClientEvent) *Conn {
 // Connect makes a new mock client websocket connection
 // that handshakes with version v1.999.999.
 func (s *Session) Connect() *Conn {
-	c := s.ConnectWithChannel(make(chan *ClientEvent, 256))
+	c := s.connect(make(chan *ClientEvent, 256), nil)
 
 	// Send version connect
 	creq := c.Request("version", versionRequest)
@@ -84,6 +88,12 @@ func (s *Session) Connect() *Conn {
 // without any version handshake.
 func (s *Session) ConnectWithoutVersion() *Conn {
 	return s.ConnectWithChannel(make(chan *ClientEvent, 256))
+}
+
+// ConnectWithHeader makes a new mock client websocket connection
+// using provided headers. It does not send a version handshake.
+func (s *Session) ConnectWithHeader(h http.Header) *Conn {
+	return s.connect(make(chan *ClientEvent, 256), h)
 }
 
 // HTTPRequest sends a request over HTTP
