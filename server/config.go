@@ -14,13 +14,16 @@ import (
 
 // Config holds server configuration
 type Config struct {
-	Addr        *string `json:"addr"`
-	Port        uint16  `json:"port"`
-	WSPath      string  `json:"wsPath"`
-	APIPath     string  `json:"apiPath"`
-	APIEncoding string  `json:"apiEncoding"`
-	HeaderAuth  *string `json:"headerAuth"`
-	AllowOrigin *string `json:"allowOrigin"`
+	Addr         *string `json:"addr"`
+	Port         uint16  `json:"port"`
+	WSPath       string  `json:"wsPath"`
+	APIPath      string  `json:"apiPath"`
+	APIEncoding  string  `json:"apiEncoding"`
+	HeaderAuth   *string `json:"headerAuth"`
+	AllowOrigin  *string `json:"allowOrigin"`
+	PUTMethod    *string `json:"putMethod"`
+	DELETEMethod *string `json:"deleteMethod"`
+	PATCHMethod  *string `json:"patchMethod"`
 
 	TLS     bool   `json:"tls"`
 	TLSCert string `json:"certFile"`
@@ -120,6 +123,24 @@ func (c *Config) prepare() error {
 	}
 
 	c.allowMethods = "GET, POST, OPTIONS"
+	if c.PUTMethod != nil {
+		if !codec.IsValidRIDPart(*c.PUTMethod) {
+			return fmt.Errorf("invalid putMethod setting (%s)\n\tmust be a valid call method name", *c.PUTMethod)
+		}
+		c.allowMethods += ", PUT"
+	}
+	if c.DELETEMethod != nil {
+		if !codec.IsValidRIDPart(*c.DELETEMethod) {
+			return fmt.Errorf("invalid deleteMethod setting (%s)\n\tmust be a valid call method name", *c.DELETEMethod)
+		}
+		c.allowMethods += ", DELETE"
+	}
+	if c.PATCHMethod != nil {
+		if !codec.IsValidRIDPart(*c.PATCHMethod) {
+			return fmt.Errorf("invalid patchMethod setting (%s)\n\tmust be a valid call method name", *c.PATCHMethod)
+		}
+		c.allowMethods += ", PATCH"
+	}
 
 	if c.WSPath == "" {
 		c.WSPath = "/"

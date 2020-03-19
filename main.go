@@ -45,6 +45,9 @@ Server Options:
         --apiencoding <type>         Encoding for web resources: json, jsonflat (default: json)
         --creds <file>               NATS User Credentials file
         --alloworigin <origin>       Allowed origin(s): *, or <scheme>://<hostname>[:<port>] (default: *)
+        --putmethod <methodName>     Call method name mapped to HTTP PUT requests
+        --deletemethod <methodName>  Call method name mapped to HTTP DELETE requests
+        --patchmethod <methodName>   Call method name mapped to HTTP PATCH requests
     -c, --config <file>              Configuration file
 
 Logging Options:
@@ -100,15 +103,18 @@ func (c *Config) SetDefault() {
 // If no file exists, a new file with default settings is created
 func (c *Config) Init(fs *flag.FlagSet, args []string) {
 	var (
-		showHelp    bool
-		showVersion bool
-		configFile  string
-		port        uint
-		headauth    string
-		addr        string
-		natsCreds   string
-		debugTrace  bool
-		allowOrigin StringSlice
+		showHelp     bool
+		showVersion  bool
+		configFile   string
+		port         uint
+		headauth     string
+		addr         string
+		natsCreds    string
+		debugTrace   bool
+		allowOrigin  StringSlice
+		putMethod    string
+		deleteMethod string
+		patchMethod  string
 	)
 
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
@@ -135,6 +141,9 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
 	fs.StringVar(&natsCreds, "creds", "", "NATS User Credentials file.")
 	fs.Var(&allowOrigin, "alloworigin", "Allowed origin(s) for CORS.")
+	fs.StringVar(&putMethod, "putmethod", "", "Call method name mapped to HTTP PUT requests.")
+	fs.StringVar(&deleteMethod, "deletemethod", "", "Call method name mapped to HTTP DELETE requests.")
+	fs.StringVar(&patchMethod, "patchmethod", "", "Call method name mapped to HTTP PATCH requests.")
 	fs.BoolVar(&c.Debug, "D", false, "Enable debugging output.")
 	fs.BoolVar(&c.Debug, "debug", false, "Enable debugging output.")
 	fs.BoolVar(&c.Trace, "V", false, "Enable trace logging.")
@@ -189,25 +198,31 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 		c.Port = uint16(port)
 	}
 
+	// Helper function to set string pointers to nil if empty.
+	setString := func(v string, s **string) {
+		if v == "" {
+			*s = nil
+		} else {
+			*s = &v
+		}
+	}
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "u":
 			fallthrough
 		case "headauth":
-			if headauth == "" {
-				c.HeaderAuth = nil
-			} else {
-				c.HeaderAuth = &headauth
-			}
+			setString(headauth, &c.HeaderAuth)
 		case "creds":
-			if natsCreds == "" {
-				c.NatsCreds = nil
-			} else {
-				c.NatsCreds = &natsCreds
-			}
+			setString(natsCreds, &c.NatsCreds)
 		case "alloworigin":
 			str := allowOrigin.String()
 			c.AllowOrigin = &str
+		case "putmethod":
+			setString(putMethod, &c.PUTMethod)
+		case "deletemethod":
+			setString(deleteMethod, &c.DELETEMethod)
+		case "patchmethod":
+			setString(patchMethod, &c.PATCHMethod)
 		case "i":
 			fallthrough
 		case "addr":
