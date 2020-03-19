@@ -60,7 +60,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		httpError(w, err, s.enc, false)
+		httpError(w, err, s.enc)
 		return
 	}
 
@@ -79,9 +79,9 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 
 	var rid, action string
 	switch r.Method {
-	case "GET":
-		fallthrough
 	case "HEAD":
+		fallthrough
+	case "GET":
 		rid = PathToRID(path, r.URL.RawQuery, apiPath)
 		if !codec.IsValidRID(rid, true) {
 			notFoundHandler(w, r, s.enc)
@@ -119,7 +119,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		// Return error if we have no mapping for the method
 		if m == nil {
-			httpError(w, reserr.ErrMethodNotAllowed, s.enc, false)
+			httpError(w, reserr.ErrMethodNotAllowed, s.enc)
 			return
 		}
 		rid = PathToRID(path, r.URL.RawQuery, apiPath)
@@ -132,9 +132,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 func notFoundHandler(w http.ResponseWriter, r *http.Request, enc APIEncoder) {
 	w.Header().Set("Content-Type", enc.ContentType())
 	w.WriteHeader(http.StatusNotFound)
-	if r.Method != "HEAD" {
-		w.Write(enc.NotFoundError())
-	}
+	w.Write(enc.NotFoundError())
 }
 
 func (s *Service) handleCall(w http.ResponseWriter, r *http.Request, rid string, action string) {
@@ -146,7 +144,7 @@ func (s *Service) handleCall(w http.ResponseWriter, r *http.Request, rid string,
 	// Try to parse the body
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error reading request body: " + err.Error()}, s.enc, false)
+		httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error reading request body: " + err.Error()}, s.enc)
 		return
 	}
 
@@ -154,7 +152,7 @@ func (s *Service) handleCall(w http.ResponseWriter, r *http.Request, rid string,
 	if strings.TrimSpace(string(b)) != "" {
 		err = json.Unmarshal(b, &params)
 		if err != nil {
-			httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error decoding request body: " + err.Error()}, s.enc, false)
+			httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error decoding request body: " + err.Error()}, s.enc)
 			return
 		}
 	}
@@ -177,7 +175,7 @@ func (s *Service) handleCall(w http.ResponseWriter, r *http.Request, rid string,
 func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func([]byte, error))) {
 	c := s.newWSConn(nil, r, latestProtocol)
 	if c == nil {
-		httpError(w, reserr.ErrServiceUnavailable, s.enc, r.Method == "HEAD")
+		httpError(w, reserr.ErrServiceUnavailable, s.enc)
 		return
 	}
 
@@ -190,19 +188,17 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 			// Convert system.methodNotFound to system.methodNotAllowed for PUT/DELETE/PATCH
 			if rerr, ok := err.(*reserr.Error); ok {
 				if rerr.Code == reserr.CodeMethodNotFound && (r.Method == "PUT" || r.Method == "DELETE" || r.Method == "PATCH") {
-					httpError(w, reserr.ErrMethodNotAllowed, s.enc, false)
+					httpError(w, reserr.ErrMethodNotAllowed, s.enc)
 					return
 				}
 			}
-			httpError(w, err, s.enc, r.Method == "HEAD")
+			httpError(w, err, s.enc)
 			return
 		}
 
 		if len(out) > 0 {
 			w.Header().Set("Content-Type", s.enc.ContentType())
-			if r.Method != "HEAD" {
-				w.Write(out)
-			}
+			w.Write(out)
 			return
 		}
 
@@ -220,7 +216,7 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 	<-done
 }
 
-func httpError(w http.ResponseWriter, err error, enc APIEncoder, noBody bool) {
+func httpError(w http.ResponseWriter, err error, enc APIEncoder) {
 	rerr := reserr.RESError(err)
 
 	var code int
@@ -247,7 +243,5 @@ func httpError(w http.ResponseWriter, err error, enc APIEncoder, noBody bool) {
 
 	w.Header().Set("Content-Type", enc.ContentType())
 	w.WriteHeader(code)
-	if !noBody {
-		w.Write(enc.EncodeError(rerr))
-	}
+	w.Write(enc.EncodeError(rerr))
 }

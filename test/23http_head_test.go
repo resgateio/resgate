@@ -27,8 +27,10 @@ func TestHTTPMethodHEAD_InvalidURLs_CorrectStatus(t *testing.T) {
 		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
 			s.HTTPRequest("HEAD", l.URL, nil).
 				GetResponse(t).
-				AssertStatusCode(t, l.ExpectedCode).
-				AssertBody(t, nil)
+				AssertStatusCode(t, l.ExpectedCode)
+			// We don't check the Body as the httptest.ResponseRecorder
+			// does not discard the written bytes to the body, unlike the
+			// actual http package.
 		})
 	}
 }
@@ -47,8 +49,10 @@ func TestHTTPHead_OnSuccess_NoBody(t *testing.T) {
 
 		// Validate http response
 		hreq.GetResponse(t).
-			AssertStatusCode(t, http.StatusOK).
-			AssertBody(t, nil)
+			AssertStatusCode(t, http.StatusOK)
+		// We don't check the Body as the httptest.ResponseRecorder
+		// does not discard the written bytes to the body, unlike the
+		// actual http package.
 	})
 }
 
@@ -65,7 +69,9 @@ func TestHTTPHead_OnError_NoBody(t *testing.T) {
 
 		// Validate http response
 		hreq.GetResponse(t).
-			AssertStatusCode(t, http.StatusNotFound).
-			AssertBody(t, nil)
+			AssertStatusCode(t, http.StatusNotFound)
+		// We don't check the Body as the httptest.ResponseRecorder
+		// does not discard the written bytes to the body, unlike the
+		// actual http package.
 	})
 }
