@@ -629,3 +629,13 @@ func IsValidRID(rid string, allowQuery bool) bool {
 
 	return !start
 }
+
+// IsValidRIDPart returns true if the RID part is valid, otherwise false.
+func IsValidRIDPart(part string) bool {
+	for _, r := range part {
+		if r < 33 || r > 126 || r == '.' || r == '*' || r == '>' || r == '?' {
+			return false
+		}
+	}
+	return len(part) > 0
+}
