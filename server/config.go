@@ -122,7 +122,7 @@ func (c *Config) prepare() error {
 		c.allowOrigin = []string{"*"}
 	}
 
-	c.allowMethods = "GET, POST, OPTIONS"
+	c.allowMethods = "GET, HEAD, OPTIONS, POST"
 	if c.PUTMethod != nil {
 		if !codec.IsValidRIDPart(*c.PUTMethod) {
 			return fmt.Errorf("invalid putMethod setting (%s)\n\tmust be a valid call method name", *c.PUTMethod)
