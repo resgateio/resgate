@@ -121,7 +121,7 @@ func (s *Session) HTTPRequest(method, url string, body []byte, opts ...func(r *h
 	go func() {
 		s.Tracef("H-> %s %s: %s", method, url, body)
 		s.s.ServeHTTP(rr, req)
-		s.Tracef("<-H %s %s: %s", method, url, rr.Body.String())
+		s.Tracef("<-H %s %s: (%d) %s", method, url, rr.Code, rr.Body.String())
 		hr.ch <- &HTTPResponse{ResponseRecorder: rr}
 	}()
 
