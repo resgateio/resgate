@@ -135,7 +135,7 @@ If a gateway loses the connection to a client, it will make no attempt at recove
 
 A client is the application that accesses the API by connecting to a gateway's WebSocket. While it may be possible to access the API resources through HTTP requests, any reference in these documentations to *client* implies a client using the WebSocket.
 
-A client uses the [RES-service protocol](res-service-protocol.md) for communication.
+A client uses the [RES-client protocol](res-client-protocol.md) for communication.
 
 ## Connection IDs
 
