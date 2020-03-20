@@ -34,8 +34,6 @@ Whenever there is a change to the data, the responsible micro-service sends an e
 
 ## Quickstart
 
-### Docker
-
 If you <a href="https://docs.docker.com/install/" target="_blank">install Docker</a>, it is easy to run both *NATS server* and *Resgate* as containers:
 
 ```text
@@ -44,37 +42,16 @@ docker run -d --name nats -p 4222:4222 --net res nats
 docker run --name resgate -p 8080:8080 --net res resgateio/resgate --nats nats://nats:4222
 ```
 
-Both images are small, less than 10 MB each.
+Both images are small, about 10 MB each.
 
-### Download
-
-Another way to install *Resgate* and *NATS Server* is to download one of the pre-built binaries:
-
-* [Download](https://nats.io/download/nats-io/nats-server/) and run NATS Server
-* [Download](https://resgate.io/download/) and run Resgate
-
-### Building
-
-If you wish to build your own binaries, first make sure you have:
-* [installed Go](https://golang.org/doc/install) and [set your `$GOPATH`](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable)
-* added `$GOPATH/bin` (where your binaries are stored) to your `PATH`
-* [installed node.js](https://nodejs.org/en/download/) (for the test app)
-
-Install and run [NATS server](https://nats-io.github.io/docs/nats_server/installation.html) and Resgate:
-```bash
-go get github.com/nats-io/nats-server
-nats-server
-```
-```bash
-go get github.com/resgateio/resgate
-resgate
-```
+See [Resgate.io - Installation](https://resgate.io/docs/get-started/installation/) for other ways of installation.
 
 ## Examples
 
-While Resgate may be used with any language, the examples in this repository are written in Javascript for Node.js.
+While Resgate may be used with any language, the examples in this repository are written in Javascript for Node.js, without using any additional library.
 
-For examples in other languages, visit [Resgate.io - Examples](https://resgate.io/docs/get-started/examples/).
+* For Go (golang) examples, see [go-res package](https://github.com/jirenius/go-res)
+* For C# (NETCore) examples, see [RES Service for .NET](https://github.com/jirenius/csharp-res)
 
 | Example | Description
 | --- | ---
@@ -101,22 +78,43 @@ For more in depth information on the protocol:
 ```
 resgate [options]
 ```
-| Option | Description |
-|---|---|
-| `-n, --nats <url>` | NATS Server URL |
-| `-i, --addr <host>` | Bind to HOST address |
-| `-p, --port <port>` | Use port for clients |
-| `-w, --wspath <path>` | Path to WebSocket |
-| `-a, --apipath <path>` | Path to web resources |
-| `-r, --reqtimeout <milliseconds>` | Timeout duration for NATS requests |
-| `-u, --headauth <method>` | Resource method for header authentication |
-| `    --tls` | Enable TLS |
-| `    --tlscert <file>` | Server certificate file |
-| `    --tlskey <file>` | Private key for server certificate |
-| `    --apiencoding <type>` | Encoding for web resources: json, jsonflat |
-| `-c, --config <file>` | Configuration file |
-| `-h, --help` | Show usage message |
-| `-v, --version` | Show version |
+
+### Server options
+
+| Option | Description | Default value
+| --- | --- | ---
+| `-n`, `--nats <url>` | NATS Server URL | `nats://127.0.0.1:4222`
+| `-i`, `--addr <host>` | Bind to HOST address | `0.0.0.0`
+| `-p`, `--port <port>` | HTTP port for client connections | `8080`
+| `-w`, `--wspath <path>` | WebSocket path for clients | `/`
+| `-a`, `--apipath <path>` | Web resource path for clients | `/api/`
+| `-r`, `--reqtimeout <seconds>` | Timeout duration for NATS requests | `3000`
+| `-u`, `--headauth <method>` | Resource method for header authentication |
+| `    --tls` | Enable TLS for HTTP | `false`
+| `    --tlscert <file>` | HTTP server certificate file |
+| `    --tlskey <file>` | Private key for HTTP server certificate |
+| `    --apiencoding <type>` | Encoding for web resources: json, jsonflat | `json`
+| `    --creds <file>` | NATS User Credentials file |
+| `    --alloworigin <origin>` | Allowed origin(s): *, or \<scheme\>://\<hostname\>\[:\<port\>\] | `*`
+| `    --putmethod <methodName>` | Call method name mapped to HTTP PUT requests |
+| `    --deletemethod <methodName>` | Call method name mapped to HTTP DELETE requests |
+| `    --patchmethod <methodName>` | Call method name mapped to HTTP PATCH requests |
+| `-c`, `--config <file>` | Configuration file in JSON format |
+
+### Logging options
+
+| Option | Description
+| --- | ---
+| `-D`, `--debug` | Enable debugging output
+| `-V`, `--trace` | Enable trace logging
+| `-DV` | Debug and trace
+
+### Common options
+
+| Option | Description
+| --- | ---
+| `-h`, `--help` | Show usage message
+| `-v`, `--version` | Show version
 
 
 ## Configuration
@@ -126,39 +124,61 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
 
 ```javascript
 {
-	// URL to the NATS server
-	"natsUrl": "nats://127.0.0.1:4222",
-	// Timeout in milliseconds for NATS requests
-	"requestTimeout": 3000,
-	// Bind to HOST IPv4 or IPv6 address
-	// Empty string ("") means all IPv4 and IPv6 addresses.
-	// Invalid or missing IP address defaults to 0.0.0.0.
-	"addr": "0.0.0.0",
-	// Port for the http server to listen on.
-	// If the port value is missing or 0, standard http(s) port is used.
-	"port": 8080,
-	// Path for accessing the RES API WebSocket
-	"wsPath": "/",
-	// Path for accessing web resources
-	"apiPath": "/api",
-	// Encoding for web resources.
-	// Available encodings are:
-	// * json - JSON encoding with resource reference meta data
-	// * jsonflat - JSON encoding without resource reference meta data
-	"apiEncoding": "json",
-	// Header authentication resource method for web resources.
-	// Prior to accessing the resource, this resource method will be
-	// called, allowing an auth service to set a token using
-	// information such as the request headers.
-	// Missing value or null will disable header authentication.
-	// Eg. "authService.headerLogin"
-	"headerAuth": null,
-	// Flag telling if tls encryption is enabled
-	"tls": false,
-	// Certificate file path for tls encryption
-	"tlsCert": "",
-	// Key file path for tls encryption
-	"tlsKey": ""
+    // URL to the NATS server.
+    "natsUrl": "nats://127.0.0.1:4222",
+    // NATS User Credentials file path.
+    // Eg. "ngs.creds"
+    "natsCreds": null,
+    // Timeout in milliseconds for NATS requests
+    "requestTimeout": 3000,
+    // Bind to HOST IPv4 or IPv6 address.
+    // Empty string ("") means all IPv4 and IPv6 addresses.
+    // Invalid or missing IP address defaults to 0.0.0.0.
+    "addr": "0.0.0.0",
+    // Port for the http server to listen on.
+    // If the port value is missing or 0, standard http(s) port is used.
+    "port": 8080,
+    // Path for accessing the RES API WebSocket.
+    "wsPath": "/",
+    // Path prefix for accessing web resources.
+    "apiPath": "/api",
+    // Encoding for web resources.
+    // Available encodings are:
+    // * json - JSON encoding with resource reference meta data.
+    // * jsonflat - JSON encoding without resource reference meta data.
+    "apiEncoding": "json",
+    // Flag enabling WebSocket per message compression (RFC 7692).
+    "wsCompression": false,
+    // Call method name to map HTTP PUT method requests to.
+    // Eg. "put"
+    "putMethod": null,
+    // Call method name to map HTTP DELETE method requests to.
+    // Eg. "delete"
+    "deleteMethod": null,
+    // Call method name to map HTTP PATCH method requests to.
+    // Eg. "patch"
+    "patchMethod": null,
+    // Header authentication resource method for web resources.
+    // Prior to accessing the resource, this resource method will be
+    // called, allowing an auth service to set a token using
+    // information such as the request headers.
+    // Missing value or null will disable header authentication.
+    // Eg. "authService.headerLogin"
+    "headerAuth": null,
+    // Flag enabling tls encryption.
+    "tls": false,
+    // Certificate file path for tls encryption.
+    "tlsCert": "",
+    // Key file path for tls encryption.
+    "tlsKey": "",
+    // Allowed origin for CORS requests, or * to allow all origins.
+    // Multiple origins are separated by semicolon.
+    // Eg. "https://example.com;https://api.example.com"
+    "allowOrigin": "*",
+    // Flag enabling debug logging.
+    "debug": false,
+    // Flag enabling trace logging.
+    "trace": false
 }
 ```
 
