@@ -168,6 +168,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 		version()
 	}
 
+	writeConfig := false
 	if configFile != "" {
 		fin, err := ioutil.ReadFile(configFile)
 		if err != nil {
@@ -176,13 +177,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 			}
 
 			c.SetDefault()
-
-			fout, err := json.MarshalIndent(c, "", "\t")
-			if err != nil {
-				printAndDie(fmt.Sprintf("Error encoding config: %s", err), false)
-			}
-
-			ioutil.WriteFile(configFile, fout, os.FileMode(0664))
+			writeConfig = true
 		} else {
 			err = json.Unmarshal(fin, c)
 			if err != nil {
@@ -235,6 +230,15 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 
 	// Any value not set, set it now
 	c.SetDefault()
+
+	// Write config file
+	if writeConfig {
+		fout, err := json.MarshalIndent(c, "", "\t")
+		if err != nil {
+			printAndDie(fmt.Sprintf("Error encoding config: %s", err), false)
+		}
+		ioutil.WriteFile(configFile, fout, os.FileMode(0664))
+	}
 }
 
 // usage will print out the flag options for the server.
