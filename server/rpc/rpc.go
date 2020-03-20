@@ -151,7 +151,7 @@ func HandleRequest(data []byte, req Requester) error {
 			return nil
 		}
 		method = rid[idx+1:]
-		if !codec.IsValidRID(method, false) {
+		if !codec.IsValidRIDPart(method) {
 			req.Reply(r.ErrorResponse(reserr.ErrInvalidRequest))
 			return nil
 		}

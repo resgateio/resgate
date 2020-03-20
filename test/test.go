@@ -33,7 +33,7 @@ func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 	l := NewCountLogger(true, true)
 
 	c := NewNATSTestClient(l)
-	serv, err := server.NewService(c, TestConfig(cfgs...))
+	serv, err := server.NewService(c, DefaultConfig(cfgs...))
 	if err != nil {
 		t.Fatalf("error creating new service: %s", err)
 	}
@@ -57,8 +57,12 @@ func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 // ConnectWithChannel makes a new mock client websocket connection
 // with a ClientEvent channel.
 func (s *Session) ConnectWithChannel(evs chan *ClientEvent) *Conn {
+	return s.connect(evs, nil)
+}
+
+func (s *Session) connect(evs chan *ClientEvent, h http.Header) *Conn {
 	d := wstest.NewDialer(s.s.GetWSHandlerFunc())
-	c, _, err := d.Dial("ws://example.org/", nil)
+	c, _, err := d.Dial("ws://example.org/", h)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +75,7 @@ func (s *Session) ConnectWithChannel(evs chan *ClientEvent) *Conn {
 // Connect makes a new mock client websocket connection
 // that handshakes with version v1.999.999.
 func (s *Session) Connect() *Conn {
-	c := s.ConnectWithChannel(make(chan *ClientEvent, 256))
+	c := s.connect(make(chan *ClientEvent, 256), nil)
 
 	// Send version connect
 	creq := c.Request("version", versionRequest)
@@ -86,13 +90,23 @@ func (s *Session) ConnectWithoutVersion() *Conn {
 	return s.ConnectWithChannel(make(chan *ClientEvent, 256))
 }
 
+// ConnectWithHeader makes a new mock client websocket connection
+// using provided headers. It does not send a version handshake.
+func (s *Session) ConnectWithHeader(h http.Header) *Conn {
+	return s.connect(make(chan *ClientEvent, 256), h)
+}
+
 // HTTPRequest sends a request over HTTP
-func (s *Session) HTTPRequest(method, url string, body []byte) *HTTPRequest {
+func (s *Session) HTTPRequest(method, url string, body []byte, opts ...func(r *http.Request)) *HTTPRequest {
 	r := bytes.NewReader(body)
 
 	req, err := http.NewRequest(method, url, r)
 	if err != nil {
 		panic("test: failed to create new http request: " + err.Error())
+	}
+
+	for _, opt := range opts {
+		opt(req)
 	}
 
 	// Record the response into a httptest.ResponseRecorder
@@ -107,7 +121,7 @@ func (s *Session) HTTPRequest(method, url string, body []byte) *HTTPRequest {
 	go func() {
 		s.Tracef("H-> %s %s: %s", method, url, body)
 		s.s.ServeHTTP(rr, req)
-		s.Tracef("<-H %s %s: %s", method, url, rr.Body.String())
+		s.Tracef("<-H %s %s: (%d) %s", method, url, rr.Code, rr.Body.String())
 		hr.ch <- &HTTPResponse{ResponseRecorder: rr}
 	}()
 
@@ -138,8 +152,8 @@ func teardown(s *Session) {
 	}
 }
 
-// TestConfig returns a default server configuration used for testing
-func TestConfig(cfgs ...func(*server.Config)) server.Config {
+// DefaultConfig returns a default server configuration used for testing
+func DefaultConfig(cfgs ...func(*server.Config)) server.Config {
 	var cfg server.Config
 	cfg.SetDefault()
 	cfg.NoHTTP = true

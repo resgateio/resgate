@@ -25,8 +25,9 @@ type Service struct {
 	cache *rescache.Cache
 
 	// httpServer
-	h   *http.Server
-	enc APIEncoder
+	h        *http.Server
+	enc      APIEncoder
+	mimetype string
 
 	// wsListener/wsConn
 	upgrader websocket.Upgrader

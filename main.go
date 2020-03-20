@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -43,6 +44,10 @@ Server Options:
         --tlskey <file>              Private key for HTTP server certificate
         --apiencoding <type>         Encoding for web resources: json, jsonflat (default: json)
         --creds <file>               NATS User Credentials file
+        --alloworigin <origin>       Allowed origin(s): *, or <scheme>://<hostname>[:<port>] (default: *)
+        --putmethod <methodName>     Call method name mapped to HTTP PUT requests
+        --deletemethod <methodName>  Call method name mapped to HTTP DELETE requests
+        --patchmethod <methodName>   Call method name mapped to HTTP PATCH requests
     -c, --config <file>              Configuration file
 
 Logging Options:
@@ -67,6 +72,22 @@ type Config struct {
 	server.Config
 }
 
+// StringSlice is a slice of strings implementing the flag.Value interface.
+type StringSlice []string
+
+func (s *StringSlice) String() string {
+	if s == nil {
+		return ""
+	}
+	return strings.Join(*s, ";")
+}
+
+// Set adds a value to the slice.
+func (s *StringSlice) Set(v string) error {
+	*s = append(*s, v)
+	return nil
+}
+
 // SetDefault sets the default values
 func (c *Config) SetDefault() {
 	if c.NatsURL == "" {
@@ -82,14 +103,18 @@ func (c *Config) SetDefault() {
 // If no file exists, a new file with default settings is created
 func (c *Config) Init(fs *flag.FlagSet, args []string) {
 	var (
-		showHelp    bool
-		showVersion bool
-		configFile  string
-		port        uint
-		headauth    string
-		addr        string
-		natsCreds   string
-		debugTrace  bool
+		showHelp     bool
+		showVersion  bool
+		configFile   string
+		port         uint
+		headauth     string
+		addr         string
+		natsCreds    string
+		debugTrace   bool
+		allowOrigin  StringSlice
+		putMethod    string
+		deleteMethod string
+		patchMethod  string
 	)
 
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
@@ -115,6 +140,10 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout in milliseconds for NATS requests.")
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
 	fs.StringVar(&natsCreds, "creds", "", "NATS User Credentials file.")
+	fs.Var(&allowOrigin, "alloworigin", "Allowed origin(s) for CORS.")
+	fs.StringVar(&putMethod, "putmethod", "", "Call method name mapped to HTTP PUT requests.")
+	fs.StringVar(&deleteMethod, "deletemethod", "", "Call method name mapped to HTTP DELETE requests.")
+	fs.StringVar(&patchMethod, "patchmethod", "", "Call method name mapped to HTTP PATCH requests.")
 	fs.BoolVar(&c.Debug, "D", false, "Enable debugging output.")
 	fs.BoolVar(&c.Debug, "debug", false, "Enable debugging output.")
 	fs.BoolVar(&c.Trace, "V", false, "Enable trace logging.")
@@ -139,6 +168,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 		version()
 	}
 
+	writeConfig := false
 	if configFile != "" {
 		fin, err := ioutil.ReadFile(configFile)
 		if err != nil {
@@ -147,13 +177,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 			}
 
 			c.SetDefault()
-
-			fout, err := json.MarshalIndent(c, "", "\t")
-			if err != nil {
-				printAndDie(fmt.Sprintf("Error encoding config: %s", err), false)
-			}
-
-			ioutil.WriteFile(configFile, fout, os.FileMode(0664))
+			writeConfig = true
 		} else {
 			err = json.Unmarshal(fin, c)
 			if err != nil {
@@ -169,22 +193,31 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 		c.Port = uint16(port)
 	}
 
+	// Helper function to set string pointers to nil if empty.
+	setString := func(v string, s **string) {
+		if v == "" {
+			*s = nil
+		} else {
+			*s = &v
+		}
+	}
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "u":
 			fallthrough
 		case "headauth":
-			if headauth == "" {
-				c.HeaderAuth = nil
-			} else {
-				c.HeaderAuth = &headauth
-			}
+			setString(headauth, &c.HeaderAuth)
 		case "creds":
-			if natsCreds == "" {
-				c.NatsCreds = nil
-			} else {
-				c.NatsCreds = &natsCreds
-			}
+			setString(natsCreds, &c.NatsCreds)
+		case "alloworigin":
+			str := allowOrigin.String()
+			c.AllowOrigin = &str
+		case "putmethod":
+			setString(putMethod, &c.PUTMethod)
+		case "deletemethod":
+			setString(deleteMethod, &c.DELETEMethod)
+		case "patchmethod":
+			setString(patchMethod, &c.PATCHMethod)
 		case "i":
 			fallthrough
 		case "addr":
@@ -197,6 +230,15 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 
 	// Any value not set, set it now
 	c.SetDefault()
+
+	// Write config file
+	if writeConfig {
+		fout, err := json.MarshalIndent(c, "", "\t")
+		if err != nil {
+			printAndDie(fmt.Sprintf("Error encoding config: %s", err), false)
+		}
+		ioutil.WriteFile(configFile, fout, os.FileMode(0664))
+	}
 }
 
 // usage will print out the flag options for the server.

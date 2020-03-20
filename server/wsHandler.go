@@ -9,12 +9,26 @@ import (
 )
 
 func (s *Service) initWSHandler() {
-	s.upgrader = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
+	var co func(r *http.Request) bool
+	switch s.cfg.allowOrigin[0] {
+	case "*":
+		co = func(r *http.Request) bool {
 			return true
-		},
+		}
+	default:
+		origins := s.cfg.allowOrigin
+		co = func(r *http.Request) bool {
+			origin := r.Header["Origin"]
+			if len(origin) == 0 || origin[0] == "null" {
+				return true
+			}
+			return matchesOrigins(origins, origin[0])
+		}
+	}
+	s.upgrader = websocket.Upgrader{
+		ReadBufferSize:    1024,
+		WriteBufferSize:   1024,
+		CheckOrigin:       co,
 		EnableCompression: s.cfg.WSCompression,
 	}
 	s.conns = make(map[string]*wsConn)

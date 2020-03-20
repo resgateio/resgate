@@ -5,6 +5,12 @@ import (
 	"testing"
 )
 
+func compareString(t *testing.T, name string, str, exp string, i int) {
+	if str != exp {
+		t.Fatalf("expected %s to be:\n%s\nbut got:\n%s\nin test #%d", name, exp, str, i+1)
+	}
+}
+
 func compareStringPtr(t *testing.T, name string, str, exp *string, i int) {
 	if str == exp {
 		return
@@ -26,6 +32,16 @@ func TestConfigPrepare(t *testing.T) {
 	ipv6Addr := "::1"
 	invalidAddr := "127.0.0"
 	invalidHeaderAuth := "test"
+	allowOriginAll := "*"
+	allowOriginSingle := "http://resgate.io"
+	allowOriginMultiple := "http://localhost;http://resgate.io"
+	allowOriginInvalidEmpty := ""
+	allowOriginInvalidEmptyOrigin := ";http://localhost"
+	allowOriginInvalidMultipleAll := "http://localhost;*"
+	allowOriginInvalidMultipleSame := "http://localhost;*"
+	allowOriginInvalidOrigin := "http://this.is/invalid"
+	method := "foo"
+	invalidMethod := "foo.bar"
 	defaultCfg := Config{}
 	defaultCfg.SetDefault()
 
@@ -34,14 +50,32 @@ func TestConfigPrepare(t *testing.T) {
 		Expected     Config
 		PrepareError bool
 	}{
-		{defaultCfg, Config{Addr: &defaultAddr, Port: 8080, WSPath: "/", APIPath: "/api/", APIEncoding: "json", scheme: "http", netAddr: "0.0.0.0:8080"}, false},
-		{Config{WSPath: "/"}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "0.0.0.0:80"}, false},
-		{Config{WSPath: "/"}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "0.0.0.0:80"}, false},
-		{Config{Addr: &emptyAddr, WSPath: "/"}, Config{Addr: &emptyAddr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: ":80"}, false},
-		{Config{Addr: &localAddr, WSPath: "/"}, Config{Addr: &localAddr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "127.0.0.1:80"}, false},
-		{Config{Addr: &ipv6Addr, WSPath: "/"}, Config{Addr: &ipv6Addr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "[::1]:80"}, false},
+		// Valid config
+		{defaultCfg, Config{Addr: &defaultAddr, Port: 8080, WSPath: "/", APIPath: "/api/", APIEncoding: "json", scheme: "http", netAddr: "0.0.0.0:8080", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		{Config{WSPath: "/"}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		{Config{Addr: &emptyAddr, WSPath: "/"}, Config{Addr: &emptyAddr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: ":80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		{Config{Addr: &localAddr, WSPath: "/"}, Config{Addr: &localAddr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "127.0.0.1:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		{Config{Addr: &ipv6Addr, WSPath: "/"}, Config{Addr: &ipv6Addr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "[::1]:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		// Allow origin
+		{Config{AllowOrigin: &allowOriginAll, WSPath: "/"}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		{Config{AllowOrigin: &allowOriginSingle, WSPath: "/"}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"http://resgate.io"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		{Config{AllowOrigin: &allowOriginMultiple, WSPath: "/"}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"http://localhost", "http://resgate.io"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		// HTTP method mapping
+		{Config{WSPath: "/", PUTMethod: &method}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", PUTMethod: &method, scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST, PUT"}, false},
+		{Config{WSPath: "/", DELETEMethod: &method}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", DELETEMethod: &method, scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST, DELETE"}, false},
+		{Config{WSPath: "/", PATCHMethod: &method}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", PATCHMethod: &method, scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST, PATCH"}, false},
+		{Config{WSPath: "/", PUTMethod: &method, DELETEMethod: &method, PATCHMethod: &method}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", PUTMethod: &method, DELETEMethod: &method, PATCHMethod: &method, scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST, PUT, DELETE, PATCH"}, false},
+		// Invalid config
 		{Config{Addr: &invalidAddr, WSPath: "/"}, Config{}, true},
 		{Config{HeaderAuth: &invalidHeaderAuth, WSPath: "/"}, Config{}, true},
+		{Config{AllowOrigin: &allowOriginInvalidEmpty, WSPath: "/"}, Config{}, true},
+		{Config{AllowOrigin: &allowOriginInvalidEmptyOrigin, WSPath: "/"}, Config{}, true},
+		{Config{AllowOrigin: &allowOriginInvalidMultipleAll, WSPath: "/"}, Config{}, true},
+		{Config{AllowOrigin: &allowOriginInvalidMultipleSame, WSPath: "/"}, Config{}, true},
+		{Config{AllowOrigin: &allowOriginInvalidOrigin, WSPath: "/"}, Config{}, true},
+		{Config{PUTMethod: &invalidMethod, WSPath: "/"}, Config{}, true},
+		{Config{DELETEMethod: &invalidMethod, WSPath: "/"}, Config{}, true},
+		{Config{PATCHMethod: &invalidMethod, WSPath: "/"}, Config{}, true},
 	}
 
 	for i, r := range tbl {
@@ -56,42 +90,34 @@ func TestConfigPrepare(t *testing.T) {
 			t.Fatalf("expected an error, but got none, in test #%d", i+1)
 		}
 
-		if cfg.WSPath != r.Expected.WSPath {
-			t.Fatalf("expected WSPath to be:\n%s\nbut got:\n%s\nin test #%d", r.Expected.WSPath, cfg.WSPath, i+1)
-		}
-
-		if cfg.APIPath != r.Expected.APIPath {
-			t.Fatalf("expected APIPath to be:\n%s\nbut got:\n%s\nin test %d", r.Expected.APIPath, cfg.APIPath, i+1)
-		}
-
-		if cfg.APIEncoding != r.Expected.APIEncoding {
-			t.Fatalf("expected APIEncoding to be:\n%s\nbut got:\n%s\nin test %d", r.Expected.APIEncoding, cfg.APIEncoding, i+1)
-		}
-
+		compareString(t, "WSPath", cfg.WSPath, r.Expected.WSPath, i)
+		compareString(t, "APIPath", cfg.APIPath, r.Expected.APIPath, i)
+		compareString(t, "APIEncoding", cfg.APIEncoding, r.Expected.APIEncoding, i)
 		compareStringPtr(t, "Addr", cfg.Addr, r.Expected.Addr, i)
+		compareStringPtr(t, "PUTMethod", cfg.PUTMethod, r.Expected.PUTMethod, i)
+		compareStringPtr(t, "DELETEMethod", cfg.DELETEMethod, r.Expected.DELETEMethod, i)
+		compareStringPtr(t, "PATCHMethod", cfg.PATCHMethod, r.Expected.PATCHMethod, i)
 
 		if cfg.Port != r.Expected.Port {
 			t.Fatalf("expected Port to be:\n%d\nbut got:\n%d\nin test %d", r.Expected.Port, cfg.Port, i+1)
 		}
 
-		if cfg.scheme != r.Expected.scheme {
-			t.Fatalf("expected scheme to be:\n%s\nbut got:\n%s\nin test %d", r.Expected.scheme, cfg.scheme, i+1)
-		}
+		compareString(t, "scheme", cfg.scheme, r.Expected.scheme, i)
+		compareString(t, "netAddr", cfg.netAddr, r.Expected.netAddr, i)
+		compareString(t, "headerAuthAction", cfg.headerAuthAction, r.Expected.headerAuthAction, i)
+		compareString(t, "headerAuthRID", cfg.headerAuthRID, r.Expected.headerAuthRID, i)
+		compareString(t, "allowMethods", cfg.allowMethods, r.Expected.allowMethods, i)
 
-		if cfg.netAddr != r.Expected.netAddr {
-			t.Fatalf("expected netAddr to be:\n%s\nbut got:\n%s\nin test %d", r.Expected.netAddr, cfg.netAddr, i+1)
+		if len(cfg.allowOrigin) != len(r.Expected.allowOrigin) {
+			t.Fatalf("expected allowOrigin to be:\n%+v\nbut got:\n%+v\nin test %d", r.Expected.allowOrigin, cfg.allowOrigin, i+1)
 		}
-
-		if cfg.headerAuthAction != r.Expected.headerAuthAction {
-			t.Fatalf("expected headerAuthAction to be:\n%s\nbut got:\n%s\nin test %d", r.Expected.headerAuthAction, cfg.headerAuthAction, i+1)
-		}
-
-		if cfg.headerAuthRID != r.Expected.headerAuthRID {
-			t.Fatalf("expected headerAuthRID to be:\n%s\nbut got:\n%s\nin test %d", r.Expected.headerAuthRID, cfg.headerAuthRID, i+1)
+		for i, origin := range cfg.allowOrigin {
+			if origin != r.Expected.allowOrigin[i] {
+				t.Fatalf("expected allowOrigin to be:\n%+v\nbut got:\n%+v\nin test %d", r.Expected.allowOrigin, cfg.allowOrigin, i+1)
+			}
 		}
 
 		compareStringPtr(t, "HeaderAuth", cfg.HeaderAuth, r.Expected.HeaderAuth, i)
-
 	}
 }
 
@@ -133,5 +159,32 @@ func TestVersionMatchesTag(t *testing.T) {
 	}
 	if Version != tag[1:] {
 		t.Fatalf("Expected version %+v, got %+v", Version, tag[1:])
+	}
+}
+
+func TestMatchesOrigins(t *testing.T) {
+	tbl := []struct {
+		AllowedOrigins []string
+		Origin         string
+		Expected       bool
+	}{
+		{[]string{"http://localhost"}, "http://localhost", true},
+		{[]string{"https://resgate.io"}, "https://resgate.io", true},
+		{[]string{"https://resgate.io"}, "https://Resgate.IO", true},
+		{[]string{"http://localhost", "https://resgate.io"}, "http://localhost", true},
+		{[]string{"http://localhost", "https://resgate.io"}, "https://resgate.io", true},
+		{[]string{"http://localhost", "https://resgate.io"}, "https://Resgate.IO", true},
+		{[]string{"http://localhost", "https://resgate.io", "http://resgate.io"}, "http://Localhost", true},
+		{[]string{"http://localhost", "https://resgate.io", "http://resgate.io"}, "https://Resgate.io", true},
+		{[]string{"http://localhost", "https://resgate.io", "http://resgate.io"}, "http://resgate.IO", true},
+		{[]string{"https://resgate.io"}, "http://resgate.io", false},
+		{[]string{"http://localhost", "https://resgate.io"}, "http://resgate.io", false},
+		{[]string{"http://localhost", "https://resgate.io", "http://resgate.io"}, "http://localhost/", false},
+	}
+
+	for i, r := range tbl {
+		if matchesOrigins(r.AllowedOrigins, r.Origin) != r.Expected {
+			t.Fatalf("expected matchesOrigins to return %#v\n\tmatchesOrigins(%#v, %#v)\n\tin test #%d", r.Expected, r.AllowedOrigins, r.Origin, i+1)
+		}
 	}
 }

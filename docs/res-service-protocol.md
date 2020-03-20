@@ -402,6 +402,7 @@ A delete action is a JSON object used when a property has been deleted from a mo
 `event.<resourceName>.add`
 
 Add events are sent when a value is added to a [collection](res-protocol.md#collections).  
+Any previous value at the same index or higher will implicitly be shifted one step to a higher index.  
 MUST NOT be sent on [models](res-protocol.md#models).  
 The event payload has the following parameters:
 
@@ -410,7 +411,7 @@ The event payload has the following parameters:
 
 **idx**  
 Zero-based index number of where the value is inserted.  
-MUST be a number that is zero or greater and less than the length of the collection.
+MUST be a number that is zero or greater and less than or equal to the length of the collection.
 
 **Example payload**
 ```json
@@ -426,6 +427,7 @@ MUST be a number that is zero or greater and less than the length of the collect
 `event.<resourceName>.remove`
 
 Remove events are sent when a value is removed from a [collection](res-protocol.md#collections).  
+Any previous value at a higher index will implicitly be shifted one step to a lower index.  
 MUST NOT be sent on [models](res-protocol.md#models).  
 The event payload has the following parameter:
 
