@@ -63,16 +63,20 @@ type ResourceSubscription struct {
 	subs      map[Subscriber]struct{}
 	resetting bool
 	links     []string
+	cid       string
+	token     interface{}
 	// Three types of values stored
 	model      *Model
 	collection *Collection
 	err        error
 }
 
-func newResourceSubscription(e *EventSubscription, query string) *ResourceSubscription {
+func newResourceSubscription(e *EventSubscription, query string, token interface{}, cid string) *ResourceSubscription {
 	return &ResourceSubscription{
 		e:     e,
 		query: query,
+		token: token,
+		cid:   cid,
 		subs:  make(map[Subscriber]struct{}),
 	}
 }
@@ -372,7 +376,7 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (n
 	// one requested by the Subscriber?
 	// Then we should create a link to the normalized query
 	if result.Query != rs.query {
-		nrs = rs.e.getResourceSubscription(result.Query)
+		nrs = rs.e.getResourceSubscription(result.Query, rs.token, rs.cid)
 		if rs.query == "" {
 			rs.e.base = nrs
 		} else {
@@ -432,7 +436,7 @@ func (rs *ResourceSubscription) handleResetResource() {
 
 	// Create request
 	subj := "get." + rs.e.ResourceName
-	payload := codec.CreateGetRequest(rs.query)
+	payload := codec.CreateGetRequest(rs.query, rs.token, rs.cid)
 	rs.e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
 		rs.e.Enqueue(func() {
 			rs.resetting = false

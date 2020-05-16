@@ -50,12 +50,6 @@ type AccessResult struct {
 	Call string `json:"call"`
 }
 
-// GetRequest represents a RES-service get request
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#get-request
-type GetRequest struct {
-	Query string `json:"query,omitempty"`
-}
-
 // GetResponse represents the response of a RES-service get request
 type GetResponse struct {
 	Result *GetResult    `json:"result"`
@@ -275,11 +269,11 @@ func CreateRequest(params interface{}, r Requester, query string, token interfac
 }
 
 // CreateGetRequest creates a JSON encoded RES-service get request
-func CreateGetRequest(query string) []byte {
+func CreateGetRequest(query string, token interface{}, cid string) []byte {
 	if query == "" {
 		return noQueryGetRequest
 	}
-	out, _ := json.Marshal(GetRequest{Query: query})
+	out, _ := json.Marshal(Request{Query: query, Token: token, CID: cid})
 	return out
 }
 

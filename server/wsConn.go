@@ -481,7 +481,7 @@ func (c *wsConn) subscribe(rid string, direct bool) (*Subscription, error) {
 
 	sub = NewSubscription(c, rid)
 	_ = c.addCount(sub, direct)
-	c.serv.cache.Subscribe(sub)
+	c.serv.cache.Subscribe(sub, c.token)
 
 	c.subs[rid] = sub
 	return sub, nil

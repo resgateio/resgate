@@ -39,17 +39,17 @@ type EventSubscription struct {
 	locks []func()
 }
 
-func (e *EventSubscription) getResourceSubscription(q string) (rs *ResourceSubscription) {
+func (e *EventSubscription) getResourceSubscription(q string, t interface{}, c string) (rs *ResourceSubscription) {
 	if q == "" {
 		rs = e.base
 		if rs == nil {
-			rs = newResourceSubscription(e, "")
+			rs = newResourceSubscription(e, "", t, c)
 			e.base = rs
 		}
 	} else {
 		if e.queries == nil {
 			e.queries = make(map[string]*ResourceSubscription)
-			rs = newResourceSubscription(e, q)
+			rs = newResourceSubscription(e, q, t, c)
 			e.queries[q] = rs
 		} else {
 			rs = e.queries[q]
@@ -58,7 +58,7 @@ func (e *EventSubscription) getResourceSubscription(q string) (rs *ResourceSubsc
 			}
 
 			if rs == nil {
-				rs = newResourceSubscription(e, q)
+				rs = newResourceSubscription(e, q, t, c)
 				e.queries[q] = rs
 			}
 		}
@@ -66,11 +66,11 @@ func (e *EventSubscription) getResourceSubscription(q string) (rs *ResourceSubsc
 	return
 }
 
-func (e *EventSubscription) addSubscriber(sub Subscriber) {
+func (e *EventSubscription) addSubscriber(sub Subscriber, token interface{}) {
 	e.Enqueue(func() {
 		var rs *ResourceSubscription
 		q := sub.ResourceQuery()
-		rs = e.getResourceSubscription(q)
+		rs = e.getResourceSubscription(q, token, sub.CID())
 
 		if rs.state != stateError {
 			rs.subs[sub] = struct{}{}
@@ -84,7 +84,7 @@ func (e *EventSubscription) addSubscriber(sub Subscriber) {
 			rs.state = stateRequested
 			// Create request
 			subj := "get." + e.ResourceName
-			payload := codec.CreateGetRequest(q)
+			payload := codec.CreateGetRequest(q, token, sub.CID())
 			e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
 				rs.enqueueGetResponse(data, err)
 			})
