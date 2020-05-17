@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/resgateio/resgate/server/reserr"
+	"github.com/raphaelpereira/resgate/server/reserr"
 )
 
 // Test that a client can unsubscribe to a model

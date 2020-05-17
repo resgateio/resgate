@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/resgateio/resgate/server/codec"
-	"github.com/resgateio/resgate/server/reserr"
+	"github.com/raphaelpereira/resgate/server/codec"
+	"github.com/raphaelpereira/resgate/server/reserr"
 )
 
 func (s *Service) initAPIHandler() error {

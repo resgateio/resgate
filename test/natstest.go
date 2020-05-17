@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/resgateio/resgate/logger"
-	"github.com/resgateio/resgate/server/mq"
-	"github.com/resgateio/resgate/server/reserr"
+	"github.com/raphaelpereira/resgate/logger"
+	"github.com/raphaelpereira/resgate/server/mq"
+	"github.com/raphaelpereira/resgate/server/reserr"
 )
 
 // Subscription implements the mq.Unsubscriber interface.

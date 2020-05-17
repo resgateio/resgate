@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/posener/wstest"
-	"github.com/resgateio/resgate/server"
+	"github.com/raphaelpereira/resgate/server"
 )
 
 const timeoutSeconds = 1

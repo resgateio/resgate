@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/resgateio/resgate/server/codec"
+	"github.com/raphaelpereira/resgate/server/codec"
 )
 
 // Config holds server configuration

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/resgateio/resgate/server/codec"
+	"github.com/raphaelpereira/resgate/server/codec"
 )
 
 // Test IsValidRID method

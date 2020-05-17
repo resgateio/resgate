@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/resgateio/resgate/server/rescache"
+	"github.com/raphaelpereira/resgate/server/rescache"
 )
 
 func (s *Service) initMQClient() {

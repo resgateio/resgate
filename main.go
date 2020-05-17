@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/resgateio/resgate/logger"
-	"github.com/resgateio/resgate/nats"
-	"github.com/resgateio/resgate/server"
+	"github.com/raphaelpereira/resgate/logger"
+	"github.com/raphaelpereira/resgate/nats"
+	"github.com/raphaelpereira/resgate/server"
 )
 
 const (

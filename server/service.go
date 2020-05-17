@@ -8,9 +8,9 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/resgateio/resgate/logger"
-	"github.com/resgateio/resgate/server/mq"
-	"github.com/resgateio/resgate/server/rescache"
+	"github.com/raphaelpereira/resgate/logger"
+	"github.com/raphaelpereira/resgate/server/mq"
+	"github.com/raphaelpereira/resgate/server/rescache"
 )
 
 // Service is a RES gateway implementation

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/resgateio/resgate/server/reserr"
+	"github.com/raphaelpereira/resgate/server/reserr"
 )
 
 var (
@@ -21,7 +21,7 @@ const (
 )
 
 // Request represents a RES-service request
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#requests
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#requests
 type Request struct {
 	Params interface{} `json:"params,omitempty"`
 	Token  interface{} `json:"token,omitempty"`
@@ -30,7 +30,7 @@ type Request struct {
 }
 
 // Response represents a RES-service response
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#response
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#response
 type Response struct {
 	Result   json.RawMessage `json:"result"`
 	Resource *Resource       `json:"resource"`
@@ -38,7 +38,7 @@ type Response struct {
 }
 
 // AccessResponse represents the response of a RES-service access request
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#access-request
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#access-request
 type AccessResponse struct {
 	Result *AccessResult `json:"result"`
 	Error  *reserr.Error `json:"error"`
@@ -64,7 +64,7 @@ type GetResult struct {
 }
 
 // AuthRequest represents a RES-service auth request
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#auth-request
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#auth-request
 type AuthRequest struct {
 	Request
 	Header     http.Header `json:"header,omitempty"`
@@ -74,7 +74,7 @@ type AuthRequest struct {
 }
 
 // NewResponse represents the response of a RES-service new call request
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#new-call-request
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#new-call-request
 type NewResponse struct {
 	Result *Resource     `json:"result"`
 	Error  *reserr.Error `json:"error"`
@@ -91,13 +91,13 @@ type QueryEvent struct {
 }
 
 // EventQueryRequest represents a RES-service query request
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#query-request
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#query-request
 type EventQueryRequest struct {
 	Query string `json:"query"`
 }
 
 // EventQueryResponse represent the response of a RES-service query request
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#query-event
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#query-event
 type EventQueryResponse struct {
 	Result *EventQueryResult `json:"result"`
 	Error  *reserr.Error     `json:"error"`
@@ -118,32 +118,32 @@ type EventQueryEvent struct {
 }
 
 // ConnTokenEvent represents a RES-server connection token event
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#connection-token-event
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#connection-token-event
 type ConnTokenEvent struct {
 	Token json.RawMessage `json:"token"`
 }
 
 // ChangeEvent represent a RES-server model change event
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#model-change-event
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#model-change-event
 type ChangeEvent struct {
 	Values map[string]Value `json:"values"`
 }
 
 // AddEvent represent a RES-server collection add event
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#collection-add-event
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#collection-add-event
 type AddEvent struct {
 	Idx   int   `json:"idx"`
 	Value Value `json:"value"`
 }
 
 // RemoveEvent represent a RES-server collection remove event
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#collection-remove-event
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#collection-remove-event
 type RemoveEvent struct {
 	Idx int `json:"idx"`
 }
 
 // SystemReset represents a RES-server system reset event
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#system-reset-event
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#system-reset-event
 type SystemReset struct {
 	Resources []string `json:"resources"`
 	Access    []string `json:"access"`
@@ -175,7 +175,7 @@ const (
 )
 
 // Value represents a RES value
-// https://github.com/resgateio/resgate/blob/master/docs/res-protocol.md#values
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-protocol.md#values
 type Value struct {
 	json.RawMessage
 	Type ValueType

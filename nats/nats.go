@@ -9,8 +9,8 @@ import (
 
 	"github.com/jirenius/timerqueue"
 	nats "github.com/nats-io/nats.go"
-	"github.com/resgateio/resgate/logger"
-	"github.com/resgateio/resgate/server/mq"
+	"github.com/raphaelpereira/resgate/logger"
+	"github.com/raphaelpereira/resgate/server/mq"
 )
 
 const (

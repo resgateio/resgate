@@ -3,8 +3,8 @@ package rescache
 import (
 	"encoding/json"
 
-	"github.com/resgateio/resgate/server/codec"
-	"github.com/resgateio/resgate/server/reserr"
+	"github.com/raphaelpereira/resgate/server/codec"
+	"github.com/raphaelpereira/resgate/server/reserr"
 )
 
 type subscriptionState byte
@@ -18,7 +18,7 @@ const (
 )
 
 // Model represents a RES model
-// https://github.com/resgateio/resgate/blob/master/docs/res-protocol.md#models
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-protocol.md#models
 type Model struct {
 	Values map[string]codec.Value
 	data   []byte
@@ -37,7 +37,7 @@ func (m *Model) MarshalJSON() ([]byte, error) {
 }
 
 // Collection represents a RES collection
-// https://github.com/resgateio/resgate/blob/master/docs/res-protocol.md#collections
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-protocol.md#collections
 type Collection struct {
 	Values []codec.Value
 	data   []byte

@@ -10,11 +10,11 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/resgateio/resgate/server/codec"
-	"github.com/resgateio/resgate/server/mq"
-	"github.com/resgateio/resgate/server/rescache"
-	"github.com/resgateio/resgate/server/reserr"
-	"github.com/resgateio/resgate/server/rpc"
+	"github.com/raphaelpereira/resgate/server/codec"
+	"github.com/raphaelpereira/resgate/server/mq"
+	"github.com/raphaelpereira/resgate/server/rescache"
+	"github.com/raphaelpereira/resgate/server/reserr"
+	"github.com/raphaelpereira/resgate/server/rpc"
 	"github.com/rs/xid"
 )
 

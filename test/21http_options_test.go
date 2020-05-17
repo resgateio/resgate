@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/resgateio/resgate/server"
+	"github.com/raphaelpereira/resgate/server"
 )
 
 func TestHTTPOptions_AllowOrigin_ExpectedResponseHeaders(t *testing.T) {

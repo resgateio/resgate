@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/resgateio/resgate/server"
-	"github.com/resgateio/resgate/server/reserr"
+	"github.com/raphaelpereira/resgate/server"
+	"github.com/raphaelpereira/resgate/server/reserr"
 )
 
 func TestHTTPMethod_MappedMethod_ExpectedResponse(t *testing.T) {

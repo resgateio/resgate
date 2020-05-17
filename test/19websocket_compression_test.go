@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 
-	"github.com/resgateio/resgate/server"
+	"github.com/raphaelpereira/resgate/server"
 )
 
 // Test subscribing to a resource with WebSocket compression enabled

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/resgateio/resgate/server"
-	"github.com/resgateio/resgate/server/mq"
-	"github.com/resgateio/resgate/server/reserr"
+	"github.com/raphaelpereira/resgate/server"
+	"github.com/raphaelpereira/resgate/server/mq"
+	"github.com/raphaelpereira/resgate/server/reserr"
 )
 
 // Test response to a HTTP POST request to a primitive query model method

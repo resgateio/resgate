@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/resgateio/resgate/server/reserr"
+	"github.com/raphaelpereira/resgate/server/reserr"
 )
 
 // Test invalid urls for HTTP get requests

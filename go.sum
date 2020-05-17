@@ -29,6 +29,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/posener/wstest v1.2.0 h1:PAY0cRybxOjh0yqSDCrlAGUwtx+GNKpuUfid/08pv48=
 github.com/posener/wstest v1.2.0/go.mod h1:GkplCx9zskpudjrMp23LyZHrSonab0aZzh2x0ACGRbU=
+github.com/resgateio/resgate v1.5.0 h1:ZSk0lycudQ4OvMDGTaXnTze07YJnkIbcnuS7O5Ra/6U=
+github.com/resgateio/resgate v1.5.0/go.mod h1:g38rsmYv1UluA86kTdzhKFt86mTaYe0beR6IUytRp+U=
 github.com/rs/xid v1.2.1 h1:mhH9Nq+C1fY2l1XIpgxIiUOfNpRBYH1kKcr+qfKgjRc=
 github.com/rs/xid v1.2.1/go.mod h1:+uKXf+4Djp6Md1KODXJxgGQPKngRmWyn10oCKFzNHOQ=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

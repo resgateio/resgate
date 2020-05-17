@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/resgateio/resgate/server"
+	"github.com/raphaelpereira/resgate/server"
 )
 
 // Test that the server starts and stops the server without error

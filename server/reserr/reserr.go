@@ -54,8 +54,8 @@ const (
 )
 
 // Pre-defined RES errors
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#pre-defined-errors
-// https://github.com/resgateio/resgate/blob/master/docs/res-client-protocol.md#pre-defined-errors
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-service-protocol.md#pre-defined-errors
+// https://github.com/raphaelpereira/resgate/blob/master/docs/res-client-protocol.md#pre-defined-errors
 var (
 	ErrAccessDenied        = &Error{Code: CodeAccessDenied, Message: "Access denied"}
 	ErrDisposing           = &Error{Code: CodeInternalError, Message: "Internal error: disposing connection"}

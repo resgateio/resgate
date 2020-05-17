@@ -3,9 +3,9 @@ package rescache
 import (
 	"sync"
 
-	"github.com/resgateio/resgate/server/codec"
-	"github.com/resgateio/resgate/server/mq"
-	"github.com/resgateio/resgate/server/reserr"
+	"github.com/raphaelpereira/resgate/server/codec"
+	"github.com/raphaelpereira/resgate/server/mq"
+	"github.com/raphaelpereira/resgate/server/reserr"
 )
 
 // ResourceType is an enum representing a resource type
