@@ -215,7 +215,7 @@ func (c *Client) listener(ch chan *nats.Msg, stopped chan struct{}) {
 		if ok && rc.isReq {
 			// Is the first character a-z or A-Z?
 			// Then it is a meta response
-			if len(msg.Data) > 0 && (msg.Data[0]|32)-'a' < 26 {
+			if len(msg.Data) > 0 && (msg.Data[0]|32) >= 'a' && (msg.Data[0]|32) <= 'z' {
 				c.parseMeta(msg, rc)
 				c.mu.Unlock()
 				c.Tracef("==> (%s): %s", inboxSubstr(msg.Subject), msg.Data)
