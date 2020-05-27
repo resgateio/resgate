@@ -159,3 +159,57 @@ func TestUnsubscribeOnOverlappingLinkedCollection(t *testing.T) {
 		c.GetEvent(t).Equals(t, "test.collection.secondparent.custom", event)
 	})
 }
+
+func TestUnsubscribe_FollowedByResourceResponse_IncludesResource(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		model := resourceData("test.model")
+
+		// Send subscribe request
+		creq := c.Request("subscribe.test.model", nil)
+		// Handle model get and access request
+		mreqs := s.GetParallelRequests(t, 2)
+		mreqs.GetRequest(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+		req := mreqs.GetRequest(t, "access.test.model")
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+
+		// Validate client response and validate
+		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model":`+model+`}}`))
+
+		// Send client request
+		creq = c.Request("call.test.getModel", nil)
+		req = s.GetRequest(t)
+		req.AssertSubject(t, "access.test")
+		req.RespondSuccess(json.RawMessage(`{"get":true,"call":"*"}`))
+		// Get call request
+		req = s.GetRequest(t)
+		req.AssertSubject(t, "call.test.getModel")
+		req.RespondResource("test.model")
+		// Validate client response
+		cresp := creq.GetResponse(t)
+		cresp.AssertResult(t, json.RawMessage(`{"rid":"test.model"}`))
+
+		// Call unsubscribe
+		c.Request("unsubscribe.test.model", nil).GetResponse(t)
+
+		// Call unsubscribe
+		c.Request("unsubscribe.test.model", nil).GetResponse(t)
+
+		// Send client request
+		creq = c.Request("call.test.getModel", nil)
+		req = s.GetRequest(t)
+		req.AssertSubject(t, "access.test")
+		req.RespondSuccess(json.RawMessage(`{"get":true,"call":"*"}`))
+		// Get call request
+		req = s.GetRequest(t)
+		req.AssertSubject(t, "call.test.getModel")
+		req.RespondResource("test.model")
+		// Access request
+		req = s.GetRequest(t)
+		req.AssertSubject(t, "access.test.model")
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+		// Validate client response
+		cresp = creq.GetResponse(t)
+		cresp.AssertResult(t, json.RawMessage(`{"rid":"test.model","models":{"test.model":`+model+`}}`))
+	})
+}
