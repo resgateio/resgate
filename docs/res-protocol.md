@@ -94,11 +94,16 @@ null                         // null
 
 ## Resource references
 
-A resource reference is a JSON objects with the following parameter:
+A resource reference is a link to a resource. A *soft reference* is a resource reference which will not automatically be followed by the gateway. The resource reference is a JSON objects with the following parameters:
 
 **rid**  
 Resource ID of the referenced resource.  
 MUST be a valid [resource ID](#resource-ids).
+
+**soft**  
+Flag telling if the reference is a soft resource reference.  
+May be omitted if the reference is not a soft reference.  
+MUST be a boolean.
 
 ## Messaging system
 

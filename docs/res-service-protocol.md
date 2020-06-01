@@ -152,14 +152,16 @@ MUST be a string.
 ### Result
 
 **get**  
-Flag if the client has access to get (read) the resource.  
+Flag telling if the client has access to get (read) the resource, including any
+resource recursively referenced by non-soft [resource
+references](res-protocol.md#resource-references).  
 May be omitted if client has no get access.  
-MUST be a boolean
+MUST be a boolean.
 
 **call**  
 A comma separated list of methods that the client can call. Eg. `"set,foo,bar"`.  
 May be omitted if client is not allowed to call any methods.  
-Value may be a single asterisk character (`"*"`) if client is allowed to call any method.  
+Value may be a single asterisk character (`"*"`) if client is allowed to call any method.
 
 ### Error
 
