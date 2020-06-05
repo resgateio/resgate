@@ -14,20 +14,42 @@ func (c *commonData) CustomEvent() json.RawMessage { return json.RawMessage(`{"f
 // subscribeToTestModel makes a successful subscription to test.model
 // Returns the connection ID (cid)
 func subscribeToTestModel(t *testing.T, s *Session, c *Conn) string {
-	model := resourceData("test.model")
+	return subscribeToResource(t, s, c, "test.model")
+}
+
+func subscribeToResource(t *testing.T, s *Session, c *Conn, rid string) string {
+	rsrc, ok := resources[rid]
+	if !ok {
+		panic("no resource named " + rid)
+	}
+	var r string
+	if rsrc.typ == typeError {
+		b, _ := json.Marshal(rsrc.err)
+		r = string(b)
+	} else {
+		r = rsrc.data
+	}
 
 	// Send subscribe request
-	creq := c.Request("subscribe.test.model", nil)
+	creq := c.Request("subscribe."+rid, nil)
 
 	// Handle model get and access request
 	mreqs := s.GetParallelRequests(t, 2)
-	mreqs.GetRequest(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
-	req := mreqs.GetRequest(t, "access.test.model")
+	// Handle access
+	req := mreqs.GetRequest(t, "access."+rid)
 	cid := req.PathPayload(t, "cid").(string)
 	req.RespondSuccess(json.RawMessage(`{"get":true}`))
-
-	// Validate client response and validate
-	creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model":`+model+`}}`))
+	// Handle resource and validate client response
+	switch rsrc.typ {
+	case typeModel:
+		mreqs.GetRequest(t, "get."+rid).RespondSuccess(json.RawMessage(`{"model":` + r + `}`))
+		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"`+rid+`":`+r+`}}`))
+	case typeCollection:
+		mreqs.GetRequest(t, "get."+rid).RespondSuccess(json.RawMessage(`{"collection":` + r + `}`))
+		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"collections":{"`+rid+`":`+r+`}}`))
+	default:
+		panic("invalid type")
+	}
 
 	return cid
 }
@@ -82,22 +104,7 @@ func subscribeToTestModelParentExt(t *testing.T, s *Session, c *Conn, childIsSub
 // subscribeToTestCollection makes a successful subscription to test.collection
 // Returns the connection ID (cid) of the access request
 func subscribeToTestCollection(t *testing.T, s *Session, c *Conn) string {
-	collection := resourceData("test.collection")
-
-	// Send subscribe request
-	creq := c.Request("subscribe.test.collection", nil)
-
-	// Handle collection get and access request
-	mreqs := s.GetParallelRequests(t, 2)
-	mreqs.GetRequest(t, "get.test.collection").RespondSuccess(json.RawMessage(`{"collection":` + collection + `}`))
-	req := mreqs.GetRequest(t, "access.test.collection")
-	cid := req.PathPayload(t, "cid").(string)
-	req.RespondSuccess(json.RawMessage(`{"get":true}`))
-
-	// Validate client response and validate
-	creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"collections":{"test.collection":`+collection+`}}`))
-
-	return cid
+	return subscribeToResource(t, s, c, "test.collection")
 }
 
 // subscribeToTestCollectionParent makes a successful subscription to test.collection.parent

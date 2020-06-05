@@ -58,43 +58,59 @@ func TestSystemResetTriggersGetRequestOnCollection(t *testing.T) {
 	})
 }
 
-// Test that a system.reset event on modified model generates change event
-func TestSystemResetGeneratesChangeEventOnModel(t *testing.T) {
-	runTest(t, func(s *Session) {
-		c := s.Connect()
+func TestSystemReset_WithUpdatedResource_GeneratesEvents(t *testing.T) {
+	type event struct {
+		Event   string
+		Payload string
+	}
+	tbl := []struct {
+		RID            string
+		ResetResponse  string
+		ExpectedEvents []event
+	}{
+		{"test.model", `{"model":{"string":"foo","int":42,"bool":true,"null":null}}`, []event{}},
+		{"test.model", `{"model":{"string":"bar","int":42,"bool":true}}`, []event{
+			{"change", `{"values":{"string":"bar","null":{"action":"delete"}}}`},
+		}},
+		{"test.model", `{"model":{"string":"foo","int":42,"bool":true,"null":null,"child":{"rid":"test.model","soft":true}}}`, []event{
+			{"change", `{"values":{"child":{"rid":"test.model","soft":true}}}`},
+		}},
+		{"test.model.soft", `{"model":{"name":"soft","child":null}}`, []event{
+			{"change", `{"values":{"child":null}}`},
+		}},
+		{"test.collection", `{"collection":["foo",42,true,null]}`, []event{}},
+		{"test.collection", `{"collection":[42,"new",true,null]}`, []event{
+			{"remove", `{"idx":0}`},
+			{"add", `{"idx":1,"value":"new"}`},
+		}},
+		{"test.collection", `{"collection":["foo",42,true,null,{"rid":"test.model","soft":true}]}`, []event{
+			{"add", `{"idx":4,"value":{"rid":"test.model","soft":true}}`},
+		}},
+		{"test.collection.soft", `{"collection":["soft"]}`, []event{
+			{"remove", `{"idx":1}`},
+		}},
+	}
 
-		// Get model
-		subscribeToTestModel(t, s, c)
+	for i, l := range tbl {
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
+			c := s.Connect()
 
-		// Send system reset
-		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+			// Get collection
+			subscribeToResource(t, s, c, l.RID)
 
-		// Validate a get request is sent
-		s.GetRequest(t).AssertSubject(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":{"string":"bar","int":42,"bool":true}}`))
+			// Send system reset
+			s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
 
-		// Validate no events are sent to client
-		c.GetEvent(t).AssertEventName(t, "test.model.change").AssertData(t, json.RawMessage(`{"values":{"string":"bar","null":{"action":"delete"}}}`))
-	})
-}
+			// Validate a get request is sent
+			s.GetRequest(t).AssertSubject(t, "get."+l.RID).RespondSuccess(json.RawMessage(l.ResetResponse))
 
-// Test that a system.reset event on modified collection generates add and remove events
-func TestSystemResetGeneratesAddRemoveEventsOnCollection(t *testing.T) {
-	runTest(t, func(s *Session) {
-		c := s.Connect()
-
-		// Get collection
-		subscribeToTestCollection(t, s, c)
-
-		// Send system reset
-		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
-
-		// Validate a get request is sent
-		s.GetRequest(t).AssertSubject(t, "get.test.collection").RespondSuccess(json.RawMessage(`{"collection":[42,"new",true,null]}`))
-
-		// Validate no events are sent to client
-		c.GetEvent(t).AssertEventName(t, "test.collection.remove").AssertData(t, json.RawMessage(`{"idx":0}`))
-		c.GetEvent(t).AssertEventName(t, "test.collection.add").AssertData(t, json.RawMessage(`{"idx":1,"value":"new"}`))
-	})
+			for _, ev := range l.ExpectedEvents {
+				// Validate no events are sent to client
+				c.GetEvent(t).AssertEventName(t, l.RID+"."+ev.Event).AssertData(t, json.RawMessage(ev.Payload))
+			}
+			c.AssertNoEvent(t, l.RID)
+		})
+	}
 }
 
 // Test that a system.reset event triggers a re-access call on subscribed resources
@@ -272,6 +288,44 @@ func TestSystemReset_InternalErrorResponseOnCollection_LogsError(t *testing.T) {
 		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
 		// Respond to get request with system.notFound error
 		s.GetRequest(t).AssertSubject(t, "get.test.collection").RespondError(reserr.ErrInternalError)
+		// Validate no delete event is sent to client
+		c.AssertNoEvent(t, "test.collection")
+		// Validate subsequent events are sent to client
+		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.collection.custom", common.CustomEvent())
+		// Assert error is logged
+		s.AssertErrorsLogged(t, 1)
+	})
+}
+
+func TestSystemReset_MismatchingResourceTypeResponseOnModel_LogsError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get model
+		subscribeToTestModel(t, s, c)
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+		// Respond to get request with mismatching type
+		s.GetRequest(t).AssertSubject(t, "get.test.model").RespondSuccess(json.RawMessage(`{"collection":["foo",42,true,null]}`))
+		// Validate no delete event is sent to client
+		c.AssertNoEvent(t, "test.model")
+		// Validate subsequent events are sent to client
+		s.ResourceEvent("test.model", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.model.custom", common.CustomEvent())
+		// Assert error is logged
+		s.AssertErrorsLogged(t, 1)
+	})
+}
+
+func TestSystemReset_MismatchingResourceTypeResponseOnCollection_LogsError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get collection
+		subscribeToTestCollection(t, s, c)
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+		// Respond to get request with mismatching type
+		s.GetRequest(t).AssertSubject(t, "get.test.collection").RespondSuccess(json.RawMessage(`{"model":{"string":"foo","int":42,"bool":true,"null":null}}`))
 		// Validate no delete event is sent to client
 		c.AssertNoEvent(t, "test.collection")
 		// Validate subsequent events are sent to client

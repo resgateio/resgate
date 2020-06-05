@@ -185,118 +185,144 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 func TestSubscribe(t *testing.T) {
 	event := json.RawMessage(`{"foo":"bar"}`)
 
-	responses := map[string][]string{
-		// Model responses
-		"test.model":              {"test.model"},
-		"test.model.parent":       {"test.model.parent", "test.model"},
-		"test.model.grandparent":  {"test.model.grandparent", "test.model.parent", "test.model"},
-		"test.model.secondparent": {"test.model.secondparent", "test.model"},
-		"test.model.brokenchild":  {"test.model.brokenchild", "test.err.notFound"},
-		// Cyclic model responses
-		"test.m.a": {"test.m.a"},
-		"test.m.b": {"test.m.b", "test.m.c"},
-		"test.m.d": {"test.m.d", "test.m.e", "test.m.f"},
-		"test.m.g": {"test.m.d", "test.m.e", "test.m.f", "test.m.g"},
-		"test.m.h": {"test.m.d", "test.m.e", "test.m.f", "test.m.h"},
-		// Collection responses
-		"test.collection":              {"test.collection"},
-		"test.collection.parent":       {"test.collection.parent", "test.collection"},
-		"test.collection.grandparent":  {"test.collection.grandparent", "test.collection.parent", "test.collection"},
-		"test.collection.secondparent": {"test.collection.secondparent", "test.collection"},
-		"test.collection.brokenchild":  {"test.collection.brokenchild", "test.err.notFound"},
-		// Cyclic collection responses
-		"test.c.a": {"test.c.a"},
-		"test.c.b": {"test.c.b", "test.c.c"},
-		"test.c.d": {"test.c.d", "test.c.e", "test.c.f"},
-		"test.c.g": {"test.c.d", "test.c.e", "test.c.f", "test.c.g"},
-		"test.c.h": {"test.c.d", "test.c.e", "test.c.f", "test.c.h"},
+	responses := map[string]map[string][]struct {
+		RID      string
+		Resource *resource
+	}{
+		versionLatest: {
+			// Model responses
+			"test.model":              {{"test.model", nil}},
+			"test.model.parent":       {{"test.model.parent", nil}, {"test.model", nil}},
+			"test.model.grandparent":  {{"test.model.grandparent", nil}, {"test.model.parent", nil}, {"test.model", nil}},
+			"test.model.secondparent": {{"test.model.secondparent", nil}, {"test.model", nil}},
+			"test.model.brokenchild":  {{"test.model.brokenchild", nil}, {"test.err.notFound", nil}},
+			"test.model.soft":         {{"test.model.soft", nil}},
+			"test.model.soft.parent":  {{"test.model.soft.parent", nil}, {"test.model.soft", nil}},
+			// Cyclic model responses
+			"test.m.a": {{"test.m.a", nil}},
+			"test.m.b": {{"test.m.b", nil}, {"test.m.c", nil}},
+			"test.m.d": {{"test.m.d", nil}, {"test.m.e", nil}, {"test.m.f", nil}},
+			"test.m.g": {{"test.m.d", nil}, {"test.m.e", nil}, {"test.m.f", nil}, {"test.m.g", nil}},
+			"test.m.h": {{"test.m.d", nil}, {"test.m.e", nil}, {"test.m.f", nil}, {"test.m.h", nil}},
+			// Collection responses
+			"test.collection":              {{"test.collection", nil}},
+			"test.collection.parent":       {{"test.collection.parent", nil}, {"test.collection", nil}},
+			"test.collection.grandparent":  {{"test.collection.grandparent", nil}, {"test.collection.parent", nil}, {"test.collection", nil}},
+			"test.collection.secondparent": {{"test.collection.secondparent", nil}, {"test.collection", nil}},
+			"test.collection.brokenchild":  {{"test.collection.brokenchild", nil}, {"test.err.notFound", nil}},
+			"test.collection.soft":         {{"test.collection.soft", nil}},
+			"test.collection.soft.parent":  {{"test.collection.soft.parent", nil}, {"test.collection.soft", nil}},
+			// Cyclic collection responses
+			"test.c.a": {{"test.c.a", nil}},
+			"test.c.b": {{"test.c.b", nil}, {"test.c.c", nil}},
+			"test.c.d": {{"test.c.d", nil}, {"test.c.e", nil}, {"test.c.f", nil}},
+			"test.c.g": {{"test.c.d", nil}, {"test.c.e", nil}, {"test.c.f", nil}, {"test.c.g", nil}},
+			"test.c.h": {{"test.c.d", nil}, {"test.c.e", nil}, {"test.c.f", nil}, {"test.c.h", nil}},
+		},
+		"1.2.0": {
+			// Model responses
+			"test.model.soft":        {{"test.model.soft", &resource{typeModel, `{"name":"soft","child":"test.model"}`, nil}}},
+			"test.model.soft.parent": {{"test.model.soft.parent", nil}, {"test.model.soft", &resource{typeModel, `{"name":"soft","child":"test.model"}`, nil}}},
+			// Collection responses
+			"test.collection.soft":        {{"test.collection.soft", &resource{typeCollection, `["soft","test.collection"]`, nil}}},
+			"test.collection.soft.parent": {{"test.collection.soft.parent", nil}, {"test.collection.soft", &resource{typeCollection, `["soft","test.collection"]`, nil}}},
+		},
 	}
 
-	for i, l := range sequenceTable {
-		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
-			var creq *ClientRequest
-			var req *Request
+	for _, set := range sequenceSets {
+		for i, l := range set.Table {
+			runNamedTest(t, fmt.Sprintf("#%d for client version %s", i+1, set.Version), func(s *Session) {
+				var creq *ClientRequest
+				var req *Request
 
-			c := s.Connect()
+				c := s.ConnectWithVersion(set.Version)
 
-			creqs := make(map[string]*ClientRequest)
-			reqs := make(map[string]*Request)
-			sentResources := make(map[string]bool)
+				creqs := make(map[string]*ClientRequest)
+				reqs := make(map[string]*Request)
+				sentResources := make(map[string]bool)
 
-			for _, ev := range l {
-				switch ev.Event {
-				case "subscribe":
-					creqs[ev.RID] = c.Request("subscribe."+ev.RID, nil)
-				case "access":
-					for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
-						treq := s.GetRequest(t)
-						reqs[treq.Subject] = treq
-					}
-					req.RespondSuccess(json.RawMessage(`{"get":true}`))
-				case "accessDenied":
-					for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
-						treq := s.GetRequest(t)
-						reqs[treq.Subject] = treq
-					}
-					req.RespondSuccess(json.RawMessage(`{"get":false}`))
-				case "get":
-					for req = reqs["get."+ev.RID]; req == nil; req = reqs["get."+ev.RID] {
-						req = s.GetRequest(t)
-						reqs[req.Subject] = req
-					}
-					rsrc := resources[ev.RID]
-					switch rsrc.typ {
-					case typeModel:
-						req.RespondSuccess(json.RawMessage(`{"model":` + rsrc.data + `}`))
-					case typeCollection:
-						req.RespondSuccess(json.RawMessage(`{"collection":` + rsrc.data + `}`))
-					case typeError:
-						req.RespondError(rsrc.err)
-					}
-				case "response":
-					creq = creqs[ev.RID]
-					rids := responses[ev.RID]
-					models := make(map[string]json.RawMessage)
-					collections := make(map[string]json.RawMessage)
-					errors := make(map[string]*reserr.Error)
-					for _, rid := range rids {
-						if sentResources[rid] {
-							continue
+				for _, ev := range l {
+					switch ev.Event {
+					case "subscribe":
+						creqs[ev.RID] = c.Request("subscribe."+ev.RID, nil)
+					case "access":
+						for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
+							treq := s.GetRequest(t)
+							reqs[treq.Subject] = treq
 						}
-						rsrc := resources[rid]
+						req.RespondSuccess(json.RawMessage(`{"get":true}`))
+					case "accessDenied":
+						for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
+							treq := s.GetRequest(t)
+							reqs[treq.Subject] = treq
+						}
+						req.RespondSuccess(json.RawMessage(`{"get":false}`))
+					case "get":
+						for req = reqs["get."+ev.RID]; req == nil; req = reqs["get."+ev.RID] {
+							req = s.GetRequest(t)
+							reqs[req.Subject] = req
+						}
+						rsrc := resources[ev.RID]
 						switch rsrc.typ {
 						case typeModel:
-							models[rid] = json.RawMessage(rsrc.data)
+							req.RespondSuccess(json.RawMessage(`{"model":` + rsrc.data + `}`))
 						case typeCollection:
-							collections[rid] = json.RawMessage(rsrc.data)
+							req.RespondSuccess(json.RawMessage(`{"collection":` + rsrc.data + `}`))
 						case typeError:
-							errors[rid] = rsrc.err
+							req.RespondError(rsrc.err)
 						}
-						sentResources[rid] = true
+					case "response":
+						creq = creqs[ev.RID]
+						respResources := responses[set.Version][ev.RID]
+						models := make(map[string]json.RawMessage)
+						collections := make(map[string]json.RawMessage)
+						errors := make(map[string]*reserr.Error)
+						for _, rr := range respResources {
+							if sentResources[rr.RID] {
+								continue
+							}
+							var rsrc resource
+							if rr.Resource == nil {
+								rsrc = resources[rr.RID]
+							} else {
+								rsrc = *rr.Resource
+							}
+							switch rsrc.typ {
+							case typeModel:
+								models[rr.RID] = json.RawMessage(rsrc.data)
+							case typeCollection:
+								collections[rr.RID] = json.RawMessage(rsrc.data)
+							case typeError:
+								errors[rr.RID] = rsrc.err
+							}
+							sentResources[rr.RID] = true
+						}
+						m := make(map[string]interface{})
+						if len(models) > 0 {
+							m["models"] = models
+						}
+						if len(collections) > 0 {
+							m["collections"] = collections
+						}
+						if len(errors) > 0 {
+							m["errors"] = errors
+						}
+						creq.GetResponse(t).AssertResult(t, m)
+					case "errorResponse":
+						creq = creqs[ev.RID]
+						creq.GetResponse(t).AssertIsError(t)
+					case "event":
+						s.ResourceEvent(ev.RID, "custom", event)
+						c.GetEvent(t).Equals(t, ev.RID+".custom", event)
+					case "noevent":
+						s.ResourceEvent(ev.RID, "custom", event)
+						c.AssertNoEvent(t, ev.RID)
+					case "nosubscription":
+						s.NoSubscriptions(t, ev.RID)
 					}
-					m := make(map[string]interface{})
-					if len(models) > 0 {
-						m["models"] = models
-					}
-					if len(collections) > 0 {
-						m["collections"] = collections
-					}
-					if len(errors) > 0 {
-						m["errors"] = errors
-					}
-					creq.GetResponse(t).AssertResult(t, m)
-				case "errorResponse":
-					creq = creqs[ev.RID]
-					creq.GetResponse(t).AssertIsError(t)
-				case "event":
-					s.ResourceEvent(ev.RID, "custom", event)
-					c.GetEvent(t).Equals(t, ev.RID+".custom", event)
-				case "noevent":
-					s.ResourceEvent(ev.RID, "custom", event)
-					c.AssertNoEvent(t, ev.RID)
 				}
-			}
-		})
+			})
+		}
 	}
 }
 

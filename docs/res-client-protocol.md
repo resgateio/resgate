@@ -50,7 +50,7 @@ The resource that is subscribed to with a [subscribe request](#subscribe-request
 It is possible to make multiple direct subscriptions on a resource. It will be considered directly subscribed until an equal number of [unsubscribe requests](#unsubscribe-request) has been made.
 
 ## Indirect subscription
-A resource that is referred to with a [resource reference](res-protocol.md#values) by a [directly subscribed](#direct-subscription) resource, or by an indirectly subscribed resource, will be considered *indirectly subscribed*. Cyclic references where none of the resources are directly subscribed will not be considered subscribed.
+A resource that is referred to with a non-soft [resource reference](res-protocol.md#values) by a [directly subscribed](#direct-subscription) resource, or by an indirectly subscribed resource, will be considered *indirectly subscribed*. Cyclic references where none of the resources are directly subscribed will not be considered subscribed.
 
 
 ## Resource set

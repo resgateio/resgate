@@ -16,7 +16,8 @@ import (
 const timeoutSeconds = 1
 
 var (
-	versionRequest = json.RawMessage(`{"protocol":"1.999.999"}`)
+	versionLatest  = "1.999.999"
+	versionRequest = json.RawMessage(fmt.Sprintf(`{"protocol":"%s"}`, versionLatest))
 	versionResult  = json.RawMessage(fmt.Sprintf(`{"protocol":"%s"}`, server.ProtocolVersion))
 )
 
@@ -79,6 +80,20 @@ func (s *Session) Connect() *Conn {
 
 	// Send version connect
 	creq := c.Request("version", versionRequest)
+	cresp := creq.GetResponse(s.t)
+	cresp.AssertResult(s.t, versionResult)
+	return c
+}
+
+// ConnectWithVersion makes a new mock client websocket connection
+// that handshakes with the version string provided.
+func (s *Session) ConnectWithVersion(version string) *Conn {
+	c := s.connect(make(chan *ClientEvent, 256), nil)
+
+	// Send version connect
+	creq := c.Request("version", struct {
+		Protocol string `json:"protocol"`
+	}{version})
 	cresp := creq.GetResponse(s.t)
 	cresp.AssertResult(s.t, versionResult)
 	return c

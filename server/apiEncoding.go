@@ -214,13 +214,8 @@ func (e *encoderJSON) encodeSubscription(s *Subscription, wrap bool) error {
 			if i > 0 {
 				e.b.WriteByte(',')
 			}
-			if v.Type == codec.ValueTypeResource {
-				sc := s.Ref(v.RID)
-				if err := e.encodeSubscription(sc, true); err != nil {
-					return err
-				}
-			} else {
-				e.b.Write(v.RawMessage)
+			if err := e.encodeValue(s, v); err != nil {
+				return err
 			}
 		}
 		e.b.WriteByte(']')
@@ -247,13 +242,8 @@ func (e *encoderJSON) encodeSubscription(s *Subscription, wrap bool) error {
 			e.b.Write(dta)
 			e.b.WriteByte(':')
 
-			if v.Type == codec.ValueTypeResource {
-				sc := s.Ref(v.RID)
-				if err := e.encodeSubscription(sc, true); err != nil {
-					return err
-				}
-			} else {
-				e.b.Write(v.RawMessage)
+			if err := e.encodeValue(s, v); err != nil {
+				return err
 			}
 		}
 		e.b.WriteByte('}')
@@ -262,6 +252,27 @@ func (e *encoderJSON) encodeSubscription(s *Subscription, wrap bool) error {
 	// Remove itself from path
 	e.path = e.path[:len(e.path)-1]
 
+	return nil
+}
+
+func (e *encoderJSON) encodeValue(s *Subscription, v codec.Value) error {
+	switch v.Type {
+	case codec.ValueTypeReference:
+		sc := s.Ref(v.RID)
+		if err := e.encodeSubscription(sc, true); err != nil {
+			return err
+		}
+	case codec.ValueTypeSoftReference:
+		e.b.Write([]byte(`{"href":`))
+		dta, err := json.Marshal(RIDToPath(v.RID, e.apiPath))
+		if err != nil {
+			return err
+		}
+		e.b.Write(dta)
+		e.b.WriteByte('}')
+	default:
+		e.b.Write(v.RawMessage)
+	}
 	return nil
 }
 
@@ -338,13 +349,8 @@ func (e *encoderJSONFlat) encodeSubscription(s *Subscription) error {
 			if i > 0 {
 				e.b.WriteByte(',')
 			}
-			if v.Type == codec.ValueTypeResource {
-				sc := s.Ref(v.RID)
-				if err := e.encodeSubscription(sc); err != nil {
-					return err
-				}
-			} else {
-				e.b.Write(v.RawMessage)
+			if err := e.encodeValue(s, v); err != nil {
+				return err
 			}
 		}
 		e.b.WriteByte(']')
@@ -368,13 +374,8 @@ func (e *encoderJSONFlat) encodeSubscription(s *Subscription) error {
 			e.b.Write(dta)
 			e.b.WriteByte(':')
 
-			if v.Type == codec.ValueTypeResource {
-				sc := s.Ref(v.RID)
-				if err := e.encodeSubscription(sc); err != nil {
-					return err
-				}
-			} else {
-				e.b.Write(v.RawMessage)
+			if err := e.encodeValue(s, v); err != nil {
+				return err
 			}
 		}
 		e.b.WriteByte('}')
@@ -382,6 +383,27 @@ func (e *encoderJSONFlat) encodeSubscription(s *Subscription) error {
 
 	// Remove itself from path
 	e.path = e.path[:len(e.path)-1]
+	return nil
+}
+
+func (e *encoderJSONFlat) encodeValue(s *Subscription, v codec.Value) error {
+	switch v.Type {
+	case codec.ValueTypeReference:
+		sc := s.Ref(v.RID)
+		if err := e.encodeSubscription(sc); err != nil {
+			return err
+		}
+	case codec.ValueTypeSoftReference:
+		e.b.Write([]byte(`{"href":`))
+		dta, err := json.Marshal(RIDToPath(v.RID, e.apiPath))
+		if err != nil {
+			return err
+		}
+		e.b.Write(dta)
+		e.b.WriteByte('}')
+	default:
+		e.b.Write(v.RawMessage)
+	}
 	return nil
 }
 

@@ -175,9 +175,10 @@ type ValueType byte
 // Value type constants
 const (
 	ValueTypeNone ValueType = iota
-	ValueTypePrimitive
-	ValueTypeResource
 	ValueTypeDelete
+	ValueTypePrimitive
+	ValueTypeReference
+	ValueTypeSoftReference
 )
 
 // Value represents a RES value
@@ -191,7 +192,14 @@ type Value struct {
 // ValueObject represents a resource reference or an action
 type ValueObject struct {
 	RID    *string `json:"rid"`
+	Soft   bool    `json:"soft"`
 	Action *string `json:"action"`
+}
+
+// IsProper returns true if the value's type is either a primitive or a
+// reference.
+func (v Value) IsProper() bool {
+	return v.Type >= ValueTypePrimitive
 }
 
 // DeleteValue is a predeclared delete action value
@@ -231,10 +239,14 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 			if mvo.Action != nil || *mvo.RID == "" {
 				return errInvalidValue
 			}
-			v.Type = ValueTypeResource
 			v.RID = *mvo.RID
 			if !IsValidRID(v.RID, true) {
 				return errInvalidValue
+			}
+			if mvo.Soft {
+				v.Type = ValueTypeSoftReference
+			} else {
+				v.Type = ValueTypeReference
 			}
 		} else {
 			// Must be an action of type actionDelete
@@ -261,7 +273,9 @@ func (v Value) Equal(w Value) bool {
 	switch v.Type {
 	case ValueTypePrimitive:
 		return bytes.Equal(v.RawMessage, w.RawMessage)
-	case ValueTypeResource:
+	case ValueTypeReference:
+		fallthrough
+	case ValueTypeSoftReference:
 		return v.RID == w.RID
 	}
 
@@ -320,14 +334,14 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 		}
 		// Assert model only has proper values
 		for _, v := range res.Model {
-			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
+			if !v.IsProper() {
 				return nil, errInvalidResponse
 			}
 		}
 	} else if res.Collection != nil {
 		// Assert collection only has proper values
 		for _, v := range res.Collection {
-			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
+			if !v.IsProper() {
 				return nil, errInvalidResponse
 			}
 		}
@@ -397,14 +411,14 @@ func DecodeEventQueryResponse(payload []byte) (*EventQueryResult, error) {
 		}
 		// Assert model only has proper values
 		for _, v := range res.Model {
-			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
+			if !v.IsProper() {
 				return nil, errInvalidResponse
 			}
 		}
 	case res.Collection != nil:
 		// Assert collection only has proper values
 		for _, v := range res.Collection {
-			if v.Type != ValueTypeResource && v.Type != ValueTypePrimitive {
+			if !v.IsProper() {
 				return nil, errInvalidResponse
 			}
 		}
@@ -483,8 +497,7 @@ func DecodeAddEvent(data json.RawMessage) (*AddEvent, error) {
 	}
 
 	// Assert it is a proper value
-	t := d.Value.Type
-	if t != ValueTypeResource && t != ValueTypePrimitive {
+	if !d.Value.IsProper() {
 		return nil, errInvalidValue
 	}
 

@@ -2,6 +2,10 @@
 
 All changes to the RES Protocol will be documented in this file.
 
+## Unreleased
+
+* #157 Soft resource references.
+
 ## v1.2.0 - [Resgate v1.4.0](compare/v1.3.0...v1.4.0) - 2019-11-20
 
 * #127 Resource response on query request.
