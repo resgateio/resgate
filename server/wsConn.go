@@ -467,8 +467,8 @@ func (c *wsConn) handleResourceResult(refRID string, cb func(result interface{},
 	})
 }
 
-func (c *wsConn) UnsubscribeResource(rid string, cb func(ok bool)) {
-	cb(c.UnsubscribeByRID(rid))
+func (c *wsConn) UnsubscribeResource(rid string, count int, cb func(ok bool)) {
+	cb(c.UnsubscribeByRID(rid, count))
 }
 
 func (c *wsConn) subscribe(rid string, direct bool) (*Subscription, error) {
@@ -507,17 +507,17 @@ func (c *wsConn) Unsubscribe(sub *Subscription, direct bool, count int, tryDelet
 	c.removeCount(sub, direct, count, tryDelete)
 }
 
-func (c *wsConn) UnsubscribeByRID(rid string) bool {
+func (c *wsConn) UnsubscribeByRID(rid string, count int) bool {
 	if c.disposing {
 		return false
 	}
 
 	sub, ok := c.subs[rid]
-	if !ok || sub.direct == 0 {
+	if !ok || sub.direct < count {
 		return false
 	}
 
-	c.removeCount(sub, true, 1, true)
+	c.removeCount(sub, true, count, true)
 	return true
 }
 

@@ -15,7 +15,7 @@ type Requester interface {
 	Reply(data []byte)
 	GetResource(rid string, callback func(data *Resources, err error))
 	SubscribeResource(rid string, callback func(data *Resources, err error))
-	UnsubscribeResource(rid string, callback func(ok bool))
+	UnsubscribeResource(rid string, count int, callback func(ok bool))
 	CallResource(rid, action string, params interface{}, callback func(result interface{}, err error))
 	AuthResource(rid, action string, params interface{}, callback func(result interface{}, err error))
 	NewResource(rid string, params interface{}, callback func(result interface{}, err error))
@@ -99,6 +99,11 @@ type CallResourceResult struct {
 	*Resources
 }
 
+// UnsubscribeRequest represents the params of an unsubscribe request
+type UnsubscribeRequest struct {
+	Count *int `json:"count"`
+}
+
 var (
 	errMissingID = errors.New("Request is missing id property")
 )
@@ -121,7 +126,7 @@ func HandleRequest(data []byte, req Requester) error {
 	if idx < 0 {
 		if r.Method == "version" {
 			var vr VersionRequest
-			if data != nil && !bytes.Equal(r.Params, nullBytes) {
+			if len(r.Params) > 0 && !bytes.Equal(r.Params, nullBytes) {
 				err := json.Unmarshal(r.Params, &vr)
 				if err != nil {
 					req.Reply(r.ErrorResponse(reserr.ErrInvalidParams))
@@ -181,7 +186,23 @@ func HandleRequest(data []byte, req Requester) error {
 			}
 		})
 	case "unsubscribe":
-		req.UnsubscribeResource(rid, func(ok bool) {
+		count := 1
+		if len(r.Params) > 0 && !bytes.Equal(r.Params, nullBytes) {
+			var ur UnsubscribeRequest
+			err := json.Unmarshal(r.Params, &ur)
+			if err != nil {
+				req.Reply(r.ErrorResponse(reserr.ErrInvalidParams))
+				return nil
+			}
+			if ur.Count != nil {
+				count = *ur.Count
+				if count <= 0 {
+					req.Reply(r.ErrorResponse(reserr.ErrInvalidParams))
+					return nil
+				}
+			}
+		}
+		req.UnsubscribeResource(rid, count, func(ok bool) {
 			if ok {
 				req.Reply(r.SuccessResponse(nil))
 			} else {
