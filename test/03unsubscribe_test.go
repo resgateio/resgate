@@ -193,7 +193,7 @@ func TestUnsubscribe_FollowedByResourceResponse_IncludesResource(t *testing.T) {
 
 			// Call unsubscribe
 			if useCount {
-				c.Request("unsubscribe.test.model", json.RawMessage(`{"count":1}`)).GetResponse(t)
+				c.Request("unsubscribe.test.model", json.RawMessage(`{"count":2}`)).GetResponse(t)
 			} else {
 				c.Request("unsubscribe.test.model", json.RawMessage(`{}`)).GetResponse(t)
 				c.Request("unsubscribe.test.model", nil).GetResponse(t)
