@@ -40,14 +40,14 @@ The RES-Client protocol is used in communication between the client and the gate
 
 A core concept in the RES-Client protocol is the subscriptions. A client may subscribe to resources by making [subscribe requests](#subscribe-request) with the unique [resource ID](res-protocol.md#resource-ids), or by getting a resource response on a [call request](#call-request) or [auth request](#auth-request).
 
-A resource may be subscribed to [directly](#direct-subscription) or [indirectly](#indirect-subscription). Any reference to *subscription*, or a resource being *subscribed* to, in this document should be interpreted as both *direct* and *indirect* subscriptions, unless specified.
+A resource may be subscribed to [directly](#direct-subscription) or [indirectly](#indirect-subscription). Any reference in this document to *subscription* or a resource being *subscribed* to, should be interpreted as both *direct* and *indirect* subscriptions, unless specified.
 
 The client will receive [events](#events) on anything that happens on a subscribed resource. A subscription lasts as long as the resource has direct or indirect subscriptions, or when the connection to the gateway is closed.
 
 ## Direct subscription
 The resource that is subscribed to with a [subscribe request](#subscribe-request), or returned as a resource response to a [call request](#call-request) or [auth request](#auth-request) will be considered *directly subscribed*.
 
-It is possible to make multiple direct subscriptions on a resource. It will be considered directly subscribed until an equal number of [unsubscribe requests](#unsubscribe-request) has been made.
+It is possible to have multiple direct subscriptions on a resource. It will be considered directly subscribed until the same number of subscriptions are matched using one ore more [unsubscribe requests](#unsubscribe-request).
 
 ## Indirect subscription
 A resource that is referred to with a non-soft [resource reference](res-protocol.md#values) by a [directly subscribed](#direct-subscription) resource, or by an indirectly subscribed resource, will be considered *indirectly subscribed*. Cyclic references where none of the resources are directly subscribed will not be considered subscribed.
@@ -235,22 +235,29 @@ Any [resource reference](res-protocol.md#values) that fails will not lead to an 
 
 ## Unsubscribe request
 
-Unsubscribe requests are sent by the client to unsubscribe to a previous made [direct subscription](#direct-subscription).
+Unsubscribe requests are sent by the client to unsubscribe to previous [direct subscriptions](#direct-subscription).
 
 The resource will only be considered unsubscribed when there are no more [direct](#direct-subscription) or [indirect](#indirect-subscription) subscriptions.
+
+If the **count** property is omitted in the request, the value of 1 is assumed.
 
 **method**  
 `unsubscribe.<resourceID>`
 
 ### Parameters
-The request has no parameters.
+The request parameters are optional.  
+It not omitted, the parameters object SHOULD have the following property:
+
+**count**  
+The number of direct subscriptions to unsubscribe to.  
+MUST be a number greater than 0.
 
 ### Result
 The result has no payload.
 
 ### Error
 
-An error response with code `system.noSubscription` will be sent if the resource has no direct subscription.
+An error response with code `system.noSubscription` will be sent if the resource has no direct subscription, or if *count* exceeds the number of direct subscriptions. If so, the number of direct subscriptions will be unaffected.
 
 
 ## Get request
