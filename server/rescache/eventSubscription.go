@@ -15,6 +15,7 @@ type ResourceType byte
 const (
 	TypeCollection ResourceType = ResourceType(stateCollection)
 	TypeModel      ResourceType = ResourceType(stateModel)
+	TypeStatic     ResourceType = ResourceType(stateStatic)
 	TypeError      ResourceType = ResourceType(stateError)
 )
 
@@ -102,7 +103,7 @@ func (e *EventSubscription) addSubscriber(sub Subscriber) {
 			defer e.mu.Lock()
 			sub.Loaded(nil, rs.err)
 
-		// stateModel or stateCollection
+		// stateModel, stateCollection, or stateStatic
 		default:
 			e.mu.Unlock()
 			defer e.mu.Lock()
@@ -307,10 +308,17 @@ func (e *EventSubscription) handleQueryEvent(subj string, payload []byte) {
 				// Handle collection response
 				case result.Collection != nil:
 					if rs.state != stateCollection {
-						e.cache.Errorf("Error processing query event for %s?%s: non-model payload on model %s", e.ResourceName, rs.query, data)
+						e.cache.Errorf("Error processing query event for %s?%s: non-collection payload on collection %s", e.ResourceName, rs.query, data)
 						return
 					}
 					rs.processResetCollection(result.Collection)
+				// Handle static response
+				case result.Static != nil:
+					if rs.state != stateStatic {
+						e.cache.Errorf("Error processing query event for %s?%s: non-static payload on static %s", e.ResourceName, rs.query, data)
+						return
+					}
+					rs.processResetStatic(result.Static)
 				}
 			})
 		})
