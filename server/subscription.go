@@ -207,6 +207,7 @@ func (s *Subscription) Loaded(resourceSub *rescache.ResourceSubscription, err er
 
 		s.setResource()
 		if s.err != nil {
+			resourceSub.Unsubscribe(s)
 			s.doneLoading()
 			return
 		}
@@ -232,7 +233,11 @@ func (s *Subscription) setResource() {
 	case rescache.TypeModel:
 		s.setModel()
 	case rescache.TypeStatic:
-		s.setStatic()
+		if s.c.ProtocolVersion() <= versionStaticResource {
+			s.err = reserr.ErrUnsupportedFeature
+		} else {
+			s.setStatic()
+		}
 	default:
 		err := fmt.Errorf("subscription %s: unknown resource type", s.rid)
 		s.c.Errorf("Error loading %s", err)

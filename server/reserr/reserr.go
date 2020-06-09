@@ -46,6 +46,7 @@ const (
 	CodeTimeout             = "system.timeout"
 	CodeInvalidRequest      = "system.invalidRequest"
 	CodeUnsupportedProtocol = "system.unsupportedProtocol"
+	CodeUnsupportedFeature  = "system.unsupportedFeature"
 	// HTTP only error codes
 	CodeBadRequest         = "system.badRequest"
 	CodeMethodNotAllowed   = "system.methodNotAllowed"
@@ -68,6 +69,7 @@ var (
 	ErrTimeout             = &Error{Code: CodeTimeout, Message: "Request timeout"}
 	ErrInvalidRequest      = &Error{Code: CodeInvalidRequest, Message: "Invalid request"}
 	ErrUnsupportedProtocol = &Error{Code: CodeUnsupportedProtocol, Message: "Unsupported protocol"}
+	ErrUnsupportedFeature  = &Error{Code: CodeUnsupportedFeature, Message: "Unsupported feature"}
 	// HTTP only errors
 	ErrBadRequest         = &Error{Code: CodeBadRequest, Message: "Bad request"}
 	ErrMethodNotAllowed   = &Error{Code: CodeMethodNotAllowed, Message: "Method not allowed"}

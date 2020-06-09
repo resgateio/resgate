@@ -146,6 +146,7 @@ Code | Message | Meaning
 `system.noSubscription` | No subscription | The resource has no direct subscription
 `system.invalidRequest` | Invalid request | Invalid request
 `system.unsupportedProtocol` | Unsupported protocol | RES protocol version is not supported
+`system.unsupportedFeature` | Unsupported feature | Feature requires a client supporting a higher RES protocol version
 
 
 # Requests
