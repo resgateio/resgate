@@ -218,6 +218,10 @@ func TestSubscribe(t *testing.T) {
 			"test.c.d": {{"test.c.d", nil}, {"test.c.e", nil}, {"test.c.f", nil}},
 			"test.c.g": {{"test.c.d", nil}, {"test.c.e", nil}, {"test.c.f", nil}, {"test.c.g", nil}},
 			"test.c.h": {{"test.c.d", nil}, {"test.c.e", nil}, {"test.c.f", nil}, {"test.c.h", nil}},
+			// Static responses
+			"test.static":                  {{"test.static", nil}},
+			"test.static.modelparent":      {{"test.static.modelparent", nil}, {"test.static", nil}},
+			"test.static.collectionparent": {{"test.static.collectionparent", nil}, {"test.static", nil}},
 		},
 		"1.2.0": {
 			// Model responses
@@ -226,6 +230,9 @@ func TestSubscribe(t *testing.T) {
 			// Collection responses
 			"test.collection.soft":        {{"test.collection.soft", &resource{typeCollection, `["soft","test.collection"]`, nil}}},
 			"test.collection.soft.parent": {{"test.collection.soft.parent", nil}, {"test.collection.soft", &resource{typeCollection, `["soft","test.collection"]`, nil}}},
+			// Static responses
+			"test.static.modelparent":      {{"test.static.modelparent", nil}, {"test.static", &resource{typeError, "", reserr.ErrUnsupportedFeature}}},
+			"test.static.collectionparent": {{"test.static.collectionparent", nil}, {"test.static", &resource{typeError, "", reserr.ErrUnsupportedFeature}}},
 		},
 	}
 
@@ -268,6 +275,8 @@ func TestSubscribe(t *testing.T) {
 							req.RespondSuccess(json.RawMessage(`{"model":` + rsrc.data + `}`))
 						case typeCollection:
 							req.RespondSuccess(json.RawMessage(`{"collection":` + rsrc.data + `}`))
+						case typeStatic:
+							req.RespondSuccess(json.RawMessage(`{"static":` + rsrc.data + `}`))
 						case typeError:
 							req.RespondError(rsrc.err)
 						}
@@ -276,6 +285,7 @@ func TestSubscribe(t *testing.T) {
 						respResources := responses[set.Version][ev.RID]
 						models := make(map[string]json.RawMessage)
 						collections := make(map[string]json.RawMessage)
+						statics := make(map[string]json.RawMessage)
 						errors := make(map[string]*reserr.Error)
 						for _, rr := range respResources {
 							if sentResources[rr.RID] {
@@ -292,6 +302,8 @@ func TestSubscribe(t *testing.T) {
 								models[rr.RID] = json.RawMessage(rsrc.data)
 							case typeCollection:
 								collections[rr.RID] = json.RawMessage(rsrc.data)
+							case typeStatic:
+								statics[rr.RID] = json.RawMessage(rsrc.data)
 							case typeError:
 								errors[rr.RID] = rsrc.err
 							}
@@ -303,6 +315,9 @@ func TestSubscribe(t *testing.T) {
 						}
 						if len(collections) > 0 {
 							m["collections"] = collections
+						}
+						if len(statics) > 0 {
+							m["statics"] = statics
 						}
 						if len(errors) > 0 {
 							m["errors"] = errors

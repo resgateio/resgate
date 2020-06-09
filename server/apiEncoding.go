@@ -250,7 +250,7 @@ func (e *encoderJSON) encodeSubscription(s *Subscription, wrap bool) error {
 
 	case rescache.TypeStatic:
 		if wrap {
-			e.b.Write([]byte(`,"data":`))
+			e.b.Write([]byte(`,"static":`))
 		}
 		e.b.Write(s.Static())
 	}
