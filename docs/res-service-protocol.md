@@ -186,11 +186,15 @@ MUST be a string.
 
 **model**  
 An object containing the named properties and [values](res-protocol.md#values) of the model.  
-MUST be omitted if *collection* is provided.
+MUST be omitted if *collection* or *static* is provided.
 
 **collection**  
 An ordered array containing the [values](res-protocol.md#values) of the collection.  
-MUST be omitted if *model* is provided.
+MUST be omitted if *model* or *static* is provided.
+
+**static**  
+An arbitrary JSON value.  
+MUST be omitted if *model* or *collection* is provided.
 
 **query**  
 Normalized query without the question mark separator.  
@@ -328,7 +332,7 @@ A set request is used to update or delete a model's properties.
 **Parameters**  
 The parameters SHOULD be a key/value object describing the properties to be changed. Each property should have a new [value](res-protocol.md#values) or a [delete action](#delete-action). Unchanged properties SHOULD NOT be included.  
 If any of the model properties are changed, a [model change event](#model-change-event) MUST be sent prior to sending the response.  
-MUST NOT be sent on [collections](res-protocol.md#collections).
+SHOULD NOT be sent on [collections](res-protocol.md#collections) or [statics](res-protocol.md#statics).
 
 ## New call request
 
@@ -374,7 +378,7 @@ When a resource is modified, the service MUST send the defined events that descr
 `event.<resourceName>.change`
 
 Change events are sent when a [model](res-protocol.md#models)'s properties has been changed.  
-MUST NOT be sent on [collections](res-protocol.md#collections).  
+MUST NOT be sent on other resource types.  
 The event payload has the following parameter:
 
 **values**  
@@ -405,7 +409,7 @@ A delete action is a JSON object used when a property has been deleted from a mo
 
 Add events are sent when a value is added to a [collection](res-protocol.md#collections).  
 Any previous value at the same index or higher will implicitly be shifted one step to a higher index.  
-MUST NOT be sent on [models](res-protocol.md#models).  
+MUST NOT be sent on other resource types.  
 The event payload has the following parameters:
 
 **value**  
@@ -430,7 +434,7 @@ MUST be a number that is zero or greater and less than or equal to the length of
 
 Remove events are sent when a value is removed from a [collection](res-protocol.md#collections).  
 Any previous value at a higher index will implicitly be shifted one step to a lower index.  
-MUST NOT be sent on [models](res-protocol.md#models).  
+MUST NOT be sent on other resource types.  
 The event payload has the following parameter:
 
 **idx**  
@@ -551,7 +555,7 @@ Eg. `messageService.>` - Pattern that matches all resources owned by *messageSer
 
 # Query resources
 
-A query resource is a resource where its model properties or collection values may vary based on the query. It is used to request partial or filtered resources, such as for searches, sorting, or pagination.
+A query resource is a resource where its model, collection, or static values may vary based on the query. It is used to request partial or filtered resources, such as for searches, sorting, or pagination.
 
 ## Query event
 
@@ -600,17 +604,22 @@ MUST be a string.
 An array of events for the query resource.  
 MUST be an array of [event query objects](#event-query-object)  
 May be omitted if there are no events.  
-Must be omitted if *model* or *collection* is provided.
+Must be omitted if *model*, *collection*, or *static* is provided.
 
 **model**  
 An object containing the named properties and [values](res-protocol.md#values) of the model.  
-Must be omitted if *events* or *collection* is provided.
+Must be omitted if *events*, *collection*, or *static* is provided.
 Must be omitted if the query resource is not a model.
 
 **collection**  
 An ordered array containing the [values](res-protocol.md#values) of the collection.  
-Must be omitted if *events* or *model* is provided.
+Must be omitted if *events*, *model*, or *static* is provided.
 Must be omitted if the query resource is not a collection.
+
+**static**  
+An arbitrary JSON value.  
+Must be omitted if *events*, *model*, or *collection* is provided.
+Must be omitted if the query resource is not a static.
 
 **Example result payload with events**
 ```json
