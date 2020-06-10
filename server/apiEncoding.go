@@ -247,6 +247,12 @@ func (e *encoderJSON) encodeSubscription(s *Subscription, wrap bool) error {
 			}
 		}
 		e.b.WriteByte('}')
+
+	case rescache.TypeStatic:
+		if wrap {
+			e.b.Write([]byte(`,"static":`))
+		}
+		e.b.Write(s.Static())
 	}
 
 	// Remove itself from path
@@ -379,6 +385,9 @@ func (e *encoderJSONFlat) encodeSubscription(s *Subscription) error {
 			}
 		}
 		e.b.WriteByte('}')
+
+	case rescache.TypeStatic:
+		e.b.Write(s.Static())
 	}
 
 	// Remove itself from path

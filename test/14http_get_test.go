@@ -81,6 +81,10 @@ func TestHTTPGet(t *testing.T) {
 				"test.c.d":                     `[{"href":"/api/test/c/e","collection":[{"href":"/api/test/c/d"}]},{"href":"/api/test/c/f","collection":[{"href":"/api/test/c/d"}]}]`,
 				"test.c.g":                     `[{"href":"/api/test/c/e","collection":[{"href":"/api/test/c/d","collection":[{"href":"/api/test/c/e"},{"href":"/api/test/c/f","collection":[{"href":"/api/test/c/d"}]}]}]},{"href":"/api/test/c/f","collection":[{"href":"/api/test/c/d","collection":[{"href":"/api/test/c/e","collection":[{"href":"/api/test/c/d"}]},{"href":"/api/test/c/f"}]}]}]`,
 				"test.c.h":                     `[{"href":"/api/test/c/e","collection":[{"href":"/api/test/c/d","collection":[{"href":"/api/test/c/e"},{"href":"/api/test/c/f","collection":[{"href":"/api/test/c/d"}]}]}]}]`,
+				// Static responses
+				"test.static":                  resourceData("test.static"),
+				"test.static.modelparent":      `{"ref":{"href":"/api/test/static","static":` + resourceData("test.static") + `}}`,
+				"test.static.collectionparent": `["foo",{"href":"/api/test/static","static":` + resourceData("test.static") + `}]`,
 			},
 		},
 		{
@@ -112,6 +116,10 @@ func TestHTTPGet(t *testing.T) {
 				"test.c.d":                     `[[{"href":"/api/test/c/d"}],[{"href":"/api/test/c/d"}]]`,
 				"test.c.g":                     `[[[{"href":"/api/test/c/e"},[{"href":"/api/test/c/d"}]]],[[[{"href":"/api/test/c/d"}],{"href":"/api/test/c/f"}]]]`,
 				"test.c.h":                     `[[[{"href":"/api/test/c/e"},[{"href":"/api/test/c/d"}]]]]`,
+				// Static responses
+				"test.static":                  resourceData("test.static"),
+				"test.static.modelparent":      `{"ref":` + resourceData("test.static") + `}`,
+				"test.static.collectionparent": `["foo",` + resourceData("test.static") + `]`,
 			},
 		},
 	}
@@ -157,6 +165,8 @@ func TestHTTPGet(t *testing.T) {
 								req.RespondSuccess(json.RawMessage(`{"model":` + rsrc.data + `}`))
 							case typeCollection:
 								req.RespondSuccess(json.RawMessage(`{"collection":` + rsrc.data + `}`))
+							case typeStatic:
+								req.RespondSuccess(json.RawMessage(`{"static":` + rsrc.data + `}`))
 							case typeError:
 								req.RespondError(rsrc.err)
 							}

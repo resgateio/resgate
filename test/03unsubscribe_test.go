@@ -161,6 +161,23 @@ func TestUnsubscribeOnOverlappingLinkedCollection(t *testing.T) {
 	})
 }
 
+// Test that a client can unsubscribe to a static
+func TestUnsubscribeStatic(t *testing.T) {
+	runTest(t, func(s *Session) {
+		event := json.RawMessage(`{"foo":"bar"}`)
+
+		c := s.Connect()
+		subscribeToResource(t, s, c, "test.static")
+
+		// Call unsubscribe
+		c.Request("unsubscribe.test.static", nil).GetResponse(t)
+
+		// Send event on static and validate no event was sent to client
+		s.ResourceEvent("test.static", "custom", event)
+		c.AssertNoEvent(t, "test.static")
+	})
+}
+
 func TestUnsubscribe_FollowedByResourceResponse_IncludesResource(t *testing.T) {
 	for useCount := true; useCount; useCount = false {
 		runNamedTest(t, fmt.Sprintf("with useCount set to %+v", useCount), func(s *Session) {

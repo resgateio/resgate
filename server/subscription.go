@@ -45,6 +45,7 @@ type Subscription struct {
 	typ             rescache.ResourceType
 	model           *rescache.Model
 	collection      *rescache.Collection
+	static          json.RawMessage
 	refs            map[string]*reference
 	err             error
 	queueFlag       uint8
@@ -158,16 +159,21 @@ func (s *Subscription) Error() error {
 	return s.err
 }
 
-// ModelValues returns the subscriptions model values.
+// ModelValues returns the subscription's model values.
 // Panics if the subscription is not a loaded model.
 func (s *Subscription) ModelValues() map[string]codec.Value {
 	return s.model.Values
 }
 
-// CollectionValues returns the subscriptions collection values.
+// CollectionValues returns the subscription's collection values.
 // Panics if the subscription is not a loaded collection.
 func (s *Subscription) CollectionValues() []codec.Value {
 	return s.collection.Values
+}
+
+// Static returns the subscription's static data.
+func (s *Subscription) Static() json.RawMessage {
+	return s.static
 }
 
 // Ref returns the referenced subscription, or nil if subscription has no such reference.
@@ -201,6 +207,7 @@ func (s *Subscription) Loaded(resourceSub *rescache.ResourceSubscription, err er
 
 		s.setResource()
 		if s.err != nil {
+			resourceSub.Unsubscribe(s)
 			s.doneLoading()
 			return
 		}
@@ -225,6 +232,12 @@ func (s *Subscription) setResource() {
 		s.setCollection()
 	case rescache.TypeModel:
 		s.setModel()
+	case rescache.TypeStatic:
+		if s.c.ProtocolVersion() <= versionStaticResource {
+			s.err = reserr.ErrUnsupportedFeature
+		} else {
+			s.setStatic()
+		}
 	default:
 		err := fmt.Errorf("subscription %s: unknown resource type", s.rid)
 		s.c.Errorf("Error loading %s", err)
@@ -354,6 +367,13 @@ func (s *Subscription) populateResources(r *rpc.Resources) {
 			r.Models = make(map[string]interface{})
 		}
 		r.Models[s.rid] = s.model
+
+	case rescache.TypeStatic:
+		// Create Statics map if needed
+		if r.Statics == nil {
+			r.Statics = make(map[string]interface{})
+		}
+		r.Statics[s.rid] = s.static
 	}
 
 	s.state = stateToSend
@@ -396,6 +416,13 @@ func (s *Subscription) populateResourcesLegacy(r *rpc.Resources) {
 			r.Models = make(map[string]interface{})
 		}
 		r.Models[s.rid] = (*rescache.Legacy120Model)(s.model)
+
+	case rescache.TypeStatic:
+		// Create Statics map if needed
+		if r.Statics == nil {
+			r.Statics = make(map[string]interface{})
+		}
+		r.Statics[s.rid] = s.static
 	}
 
 	s.state = stateToSend
@@ -429,6 +456,14 @@ func (s *Subscription) setCollection() {
 		}
 	}
 	s.collection = c
+}
+
+// setStatic gets the static json from the resourceSubscription and stores it.
+func (s *Subscription) setStatic() {
+	st := s.resourceSub.GetStatic()
+	s.queueEvents(queueReasonLoading)
+	s.resourceSub.Release()
+	s.static = st
 }
 
 // subscribeRef subscribes to any resource reference value
@@ -562,6 +597,8 @@ func (s *Subscription) processEvent(event *rescache.ResourceEvent) {
 		s.processCollectionEvent(event)
 	case rescache.TypeModel:
 		s.processModelEvent(event)
+	case rescache.TypeStatic:
+		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Payload))
 	default:
 		s.c.Errorf("Subscription %s: Unknown resource type: %d", s.rid, s.resourceSub.GetResourceType())
 	}

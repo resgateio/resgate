@@ -66,6 +66,7 @@ type GetResponse struct {
 type GetResult struct {
 	Model      map[string]Value `json:"model"`
 	Collection []Value          `json:"collection"`
+	Static     json.RawMessage  `json:"static"`
 	Query      string           `json:"query"`
 }
 
@@ -115,6 +116,7 @@ type EventQueryResult struct {
 	Events     []*EventQueryEvent `json:"events"`
 	Model      map[string]Value   `json:"model"`
 	Collection []Value            `json:"collection"`
+	Static     json.RawMessage    `json:"static"`
 }
 
 // EventQueryEvent represents an event in the response of a RES-server query request
@@ -329,7 +331,7 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 	// Assert we got either a model or a collection
 	res := r.Result
 	if res.Model != nil {
-		if res.Collection != nil {
+		if res.Collection != nil || res.Static != nil {
 			return nil, errInvalidResponse
 		}
 		// Assert model only has proper values
@@ -339,13 +341,16 @@ func DecodeGetResponse(payload []byte) (*GetResult, error) {
 			}
 		}
 	} else if res.Collection != nil {
+		if res.Static != nil {
+			return nil, errInvalidResponse
+		}
 		// Assert collection only has proper values
 		for _, v := range res.Collection {
 			if !v.IsProper() {
 				return nil, errInvalidResponse
 			}
 		}
-	} else {
+	} else if res.Static == nil {
 		return nil, errInvalidResponse
 	}
 
