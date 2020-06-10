@@ -58,6 +58,27 @@ func TestSystemResetTriggersGetRequestOnCollection(t *testing.T) {
 	})
 }
 
+// Test that a system.reset event triggers get requests on matching static
+func TestSystemResetTriggersGetRequestOnStatic(t *testing.T) {
+	runTest(t, func(s *Session) {
+		static := resourceData("test.static")
+
+		c := s.Connect()
+
+		// Get static
+		subscribeToResource(t, s, c, "test.static")
+
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+
+		// Validate a get request is sent
+		s.GetRequest(t).AssertSubject(t, "get.test.static").RespondSuccess(json.RawMessage(`{"static":` + static + `}`))
+
+		// Validate no events are sent to client
+		c.AssertNoEvent(t, "test.static")
+	})
+}
+
 func TestSystemReset_WithUpdatedResource_GeneratesEvents(t *testing.T) {
 	type event struct {
 		Event   string
@@ -89,6 +110,7 @@ func TestSystemReset_WithUpdatedResource_GeneratesEvents(t *testing.T) {
 		{"test.collection.soft", `{"collection":["soft"]}`, []event{
 			{"remove", `{"idx":1}`},
 		}},
+		{"test.static", `{"static":{"foo":null}}`, []event{}},
 	}
 
 	for i, l := range tbl {
@@ -260,6 +282,23 @@ func TestSystemReset_NotFoundResponseOnCollection_GeneratesDeleteEvent(t *testin
 	})
 }
 
+func TestSystemReset_NotFoundResponseOnStatic_GeneratesDeleteEvent(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get model
+		subscribeToResource(t, s, c, "test.static")
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+		// Respond to get request with system.notFound error
+		s.GetRequest(t).AssertSubject(t, "get.test.static").RespondError(reserr.ErrNotFound)
+		// Validate delete event is sent to client
+		c.GetEvent(t).AssertEventName(t, "test.static.delete").AssertData(t, nil)
+		// Validate subsequent events are not sent to client
+		s.ResourceEvent("test.static", "custom", common.CustomEvent())
+		c.AssertNoEvent(t, "test.static")
+	})
+}
+
 func TestSystemReset_InternalErrorResponseOnModel_LogsError(t *testing.T) {
 	runTest(t, func(s *Session) {
 		c := s.Connect()
@@ -298,6 +337,25 @@ func TestSystemReset_InternalErrorResponseOnCollection_LogsError(t *testing.T) {
 	})
 }
 
+func TestSystemReset_InternalErrorResponseOnStatic_LogsError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get static
+		subscribeToResource(t, s, c, "test.static")
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+		// Respond to get request with system.notFound error
+		s.GetRequest(t).AssertSubject(t, "get.test.static").RespondError(reserr.ErrInternalError)
+		// Validate no delete event is sent to client
+		c.AssertNoEvent(t, "test.static")
+		// Validate subsequent events are sent to client
+		s.ResourceEvent("test.static", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.static.custom", common.CustomEvent())
+		// Assert error is logged
+		s.AssertErrorsLogged(t, 1)
+	})
+}
+
 func TestSystemReset_MismatchingResourceTypeResponseOnModel_LogsError(t *testing.T) {
 	runTest(t, func(s *Session) {
 		c := s.Connect()
@@ -325,12 +383,31 @@ func TestSystemReset_MismatchingResourceTypeResponseOnCollection_LogsError(t *te
 		// Send system reset
 		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
 		// Respond to get request with mismatching type
-		s.GetRequest(t).AssertSubject(t, "get.test.collection").RespondSuccess(json.RawMessage(`{"model":{"string":"foo","int":42,"bool":true,"null":null}}`))
+		s.GetRequest(t).AssertSubject(t, "get.test.collection").RespondSuccess(json.RawMessage(`{"static":{"foo":{"bar":[null],"baz":42}}}`))
 		// Validate no delete event is sent to client
 		c.AssertNoEvent(t, "test.collection")
 		// Validate subsequent events are sent to client
 		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
 		c.GetEvent(t).Equals(t, "test.collection.custom", common.CustomEvent())
+		// Assert error is logged
+		s.AssertErrorsLogged(t, 1)
+	})
+}
+
+func TestSystemReset_MismatchingResourceTypeResponseOnStatic_LogsError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get static
+		subscribeToResource(t, s, c, "test.static")
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+		// Respond to get request with mismatching type
+		s.GetRequest(t).AssertSubject(t, "get.test.static").RespondSuccess(json.RawMessage(`{"model":{"string":"foo","int":42,"bool":true,"null":null}}`))
+		// Validate no delete event is sent to client
+		c.AssertNoEvent(t, "test.static")
+		// Validate subsequent events are sent to client
+		s.ResourceEvent("test.static", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.static.custom", common.CustomEvent())
 		// Assert error is logged
 		s.AssertErrorsLogged(t, 1)
 	})
