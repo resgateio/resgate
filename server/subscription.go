@@ -266,7 +266,7 @@ func (s *Subscription) onLoaded(rcb *readyCallback) {
 // It will lock the subscription and queue any events until ReleaseRPCResources is called.
 func (s *Subscription) GetRPCResources() *rpc.Resources {
 	r := &rpc.Resources{}
-	if s.c.ProtocolVersion() <= versionSoftResourceReference {
+	if s.c.ProtocolVersion() <= versionSoftResourceReferenceAndDataValue {
 		s.populateResourcesLegacy(r)
 	} else {
 		s.populateResources(r)
@@ -605,9 +605,11 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 
 				s.unqueueEvents(queueReasonLoading)
 			})
+		case codec.ValueTypeData:
+			fallthrough
 		case codec.ValueTypeSoftReference:
-			if s.c.ProtocolVersion() <= versionSoftResourceReference {
-				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEvent{Idx: idx, Value: v.RID}))
+			if s.c.ProtocolVersion() <= versionSoftResourceReferenceAndDataValue {
+				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEvent{Idx: idx, Value: rescache.Legacy120Value(v)}))
 				break
 			}
 			fallthrough
@@ -667,7 +669,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 		// Quick exit if there are no new unsent subscriptions
 		if subs == nil {
 			// Legacy behavior
-			if s.c.ProtocolVersion() <= versionSoftResourceReference {
+			if s.c.ProtocolVersion() <= versionSoftResourceReferenceAndDataValue {
 				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: rescache.Legacy120ValueMap(event.Changed)}))
 			} else {
 				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Changed}))
@@ -693,7 +695,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 				r := &rpc.Resources{}
 
 				// Legacy behavior
-				if s.c.ProtocolVersion() <= versionSoftResourceReference {
+				if s.c.ProtocolVersion() <= versionSoftResourceReferenceAndDataValue {
 					for _, sub := range subs {
 						sub.populateResourcesLegacy(r)
 					}

@@ -29,15 +29,21 @@ func TestAddRemoveEventsOnCachedCollection(t *testing.T) {
 		EventName          string // Name of the event. Either add or remove.
 		EventPayload       string // Event payload (raw JSON)
 		ExpectedCollection string // Expected collection after event (raw JSON)
+		ExpectedEvent      string // Expected event payload (empty means same as EventPayload)
 	}{
-		{"test.collection", "add", `{"idx":0,"value":"bar"}`, `["bar","foo",42,true,null]`},
-		{"test.collection", "add", `{"idx":1,"value":"bar"}`, `["foo","bar",42,true,null]`},
-		{"test.collection", "add", `{"idx":4,"value":"bar"}`, `["foo",42,true,null,"bar"]`},
-		{"test.collection", "add", `{"idx":0,"value":{"rid":"test.collection.soft","soft":true}}`, `[{"rid":"test.collection.soft","soft":true},"foo",42,true,null]`},
-		{"test.collection", "remove", `{"idx":0}`, `[42,true,null]`},
-		{"test.collection", "remove", `{"idx":1}`, `["foo",true,null]`},
-		{"test.collection", "remove", `{"idx":3}`, `["foo",42,true]`},
-		{"test.collection.soft", "remove", `{"idx":1}`, `["soft"]`},
+		{"test.collection", "add", `{"idx":0,"value":"bar"}`, `["bar","foo",42,true,null]`, ""},
+		{"test.collection", "add", `{"idx":1,"value":"bar"}`, `["foo","bar",42,true,null]`, ""},
+		{"test.collection", "add", `{"idx":4,"value":"bar"}`, `["foo",42,true,null,"bar"]`, ""},
+		{"test.collection", "add", `{"idx":0,"value":{"rid":"test.collection.soft","soft":true}}`, `[{"rid":"test.collection.soft","soft":true},"foo",42,true,null]`, ""},
+		{"test.collection", "add", `{"idx":0,"value":{"data":{"foo":["bar"]}}}`, `[{"data":{"foo":["bar"]}},"foo",42,true,null]`, ""},
+		{"test.collection", "add", `{"idx":0,"value":{"data":12}}`, `[12,"foo",42,true,null]`, `{"idx":0,"value":12}`},
+		{"test.collection", "remove", `{"idx":0}`, `[42,true,null]`, ""},
+		{"test.collection", "remove", `{"idx":1}`, `["foo",true,null]`, ""},
+		{"test.collection", "remove", `{"idx":3}`, `["foo",42,true]`, ""},
+		{"test.collection.soft", "remove", `{"idx":1}`, `["soft"]`, ""},
+		{"test.collection.data", "remove", `{"idx":1}`, `["data",{"data":{"foo":["bar"]}},{"data":[{"foo":"bar"}]}]`, ""},
+		{"test.collection.data", "remove", `{"idx":2}`, `["data",12,{"data":[{"foo":"bar"}]}]`, ""},
+		{"test.collection.data", "remove", `{"idx":3}`, `["data",12,{"data":{"foo":["bar"]}}]`, ""},
 	}
 
 	for i, l := range tbl {
@@ -50,7 +56,11 @@ func TestAddRemoveEventsOnCachedCollection(t *testing.T) {
 
 				// Send event on collection and validate client event
 				s.ResourceEvent(l.RID, l.EventName, json.RawMessage(l.EventPayload))
-				c.GetEvent(t).Equals(t, l.RID+"."+l.EventName, json.RawMessage(l.EventPayload))
+				expectedEvent := l.ExpectedEvent
+				if expectedEvent == "" {
+					expectedEvent = l.EventPayload
+				}
+				c.GetEvent(t).Equals(t, l.RID+"."+l.EventName, json.RawMessage(expectedEvent))
 
 				if sameClient {
 					c.Request("unsubscribe."+l.RID, nil).GetResponse(t)

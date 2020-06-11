@@ -29,6 +29,25 @@ func TestLegacy120Model_MarshalJSON_ReturnsSoftReferenceAsString(t *testing.T) {
 	AssertEqualJSON(t, "Legacy120Model.MarshalJSON", json.RawMessage(out), json.RawMessage(expected))
 }
 
+func TestLegacy120Model_MarshalJSON_ReturnsDataValuePlaceholder(t *testing.T) {
+	var v map[string]codec.Value
+	dta := []byte(`{"name":"data","primitive":{"data":12},"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"bar"}]}}`)
+	expected := []byte(`{"name":"data","primitive":12,"object":"[Data]","array":"[Data]"}`)
+	err := json.Unmarshal(dta, &v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := &rescache.Model{Values: v}
+	lm := (*rescache.Legacy120Model)(m)
+
+	out, err := lm.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	AssertEqualJSON(t, "Legacy120Model.MarshalJSON", json.RawMessage(out), json.RawMessage(expected))
+}
+
 func TestLegacy120Collection_MarshalJSON_ReturnsSoftReferenceAsString(t *testing.T) {
 	var v []codec.Value
 	dta := []byte(`["softparent",{"rid":"test.model","soft":true}]`)
@@ -48,7 +67,26 @@ func TestLegacy120Collection_MarshalJSON_ReturnsSoftReferenceAsString(t *testing
 	AssertEqualJSON(t, "Legacy120Collection.MarshalJSON", json.RawMessage(out), json.RawMessage(expected))
 }
 
-func TestLegacy120Value_MarshalJSON__ReturnsSoftReferenceAsString(t *testing.T) {
+func TestLegacy120Collection_MarshalJSON_ReturnsDataValuePlaceholder(t *testing.T) {
+	var v []codec.Value
+	dta := []byte(`["data",{"data":12},{"data":{"foo":["bar"]}},{"data":[{"foo":"bar"}]}]`)
+	expected := []byte(`["data",12,"[Data]","[Data]"]`)
+	err := json.Unmarshal(dta, &v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := &rescache.Collection{Values: v}
+	lm := (*rescache.Legacy120Collection)(m)
+
+	out, err := lm.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	AssertEqualJSON(t, "Legacy120Collection.MarshalJSON", json.RawMessage(out), json.RawMessage(expected))
+}
+
+func TestLegacy120Value_MarshalJSON_ReturnsSoftReferenceAsString(t *testing.T) {
 	var v codec.Value
 	dta := []byte(`{"rid":"test.model","soft":true}`)
 	expected := []byte(`"test.model"`)

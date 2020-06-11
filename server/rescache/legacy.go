@@ -8,19 +8,19 @@ import (
 )
 
 // Legacy120Model marshals a model compatible with version 1.2.0
-// (versionSoftResourceReference) and below.
+// (versionSoftResourceReferenceAndDataValue) and below.
 type Legacy120Model Model
 
 // Legacy120Collection marshals a collection compatible with version 1.2.0
-// (versionSoftResourceReference) and below.
+// (versionSoftResourceReferenceAndDataValue) and below.
 type Legacy120Collection Collection
 
 // Legacy120Value marshals a value compatible with version 1.2.0
-// (versionSoftResourceReference) and below.
+// (versionSoftResourceReferenceAndDataValue) and below.
 type Legacy120Value codec.Value
 
 // Legacy120ValueMap marshals a map of values compatible with version 1.2.0
-// (versionSoftResourceReference) and below.
+// (versionSoftResourceReferenceAndDataValue) and below.
 type Legacy120ValueMap map[string]codec.Value
 
 var legacyDataPlaceholderBytes = []byte(`"[Data]"`)
