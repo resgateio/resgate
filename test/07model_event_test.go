@@ -60,6 +60,9 @@ func TestChangeEventOnCachedModel(t *testing.T) {
 		{"test.model", `{"values":{"soft":{"rid":"test.model.soft","soft":true}}}`, `{"values":{"soft":{"rid":"test.model.soft","soft":true}}}`, `{"string":"foo","int":42,"bool":true,"null":null,"soft":{"rid":"test.model.soft","soft":true}}`, 0},
 		{"test.model.soft", `{"values":{"child":null}}`, `{"values":{"child":null}}`, `{"name":"soft","child":null}`, 0},
 		{"test.model.soft", `{"values":{"child":{"action":"delete"}}}`, `{"values":{"child":{"action":"delete"}}}`, `{"name":"soft"}`, 0},
+		{"test.model.data", `{"values":{"primitive":{"data":13}}}`, `{"values":{"primitive":13}}`, `{"name":"data","primitive":13,"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"bar"}]}}`, 0},
+		{"test.model.data", `{"values":{"object":{"data":{"foo":["baz"]}}}}`, `{"values":{"object":{"data":{"foo":["baz"]}}}}`, `{"name":"data","primitive":12,"object":{"data":{"foo":["baz"]}},"array":{"data":[{"foo":"bar"}]}}`, 0},
+		{"test.model.data", `{"values":{"array":{"data":[{"foo":"baz"}]}}}`, `{"values":{"array":{"data":[{"foo":"baz"}]}}}`, `{"name":"data","primitive":12,"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"baz"}]}}`, 0},
 
 		// Unchanged values
 		{"test.model", `{"values":{}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
@@ -68,6 +71,9 @@ func TestChangeEventOnCachedModel(t *testing.T) {
 		{"test.model", `{"values":{"invalid":{"action":"delete"}}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
 		{"test.model", `{"values":{"null":null,"string":"bar"}}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`, 0},
 		{"test.model.soft", `{"values":{"child":{"rid":"test.model","soft":true}}}`, "", `{"name":"soft","child":{"rid":"test.model","soft":true}}`, 0},
+		{"test.model.data", `{"values":{}}`, "", `{"name":"data","primitive":12,"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"bar"}]}}`, 0},
+		{"test.model.data", `{"values":{"primitive":12,"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"bar"}]}}}`, "", `{"name":"data","primitive":12,"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"bar"}]}}`, 0},
+		{"test.model", `{"values":{"null":{"data":null}}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
 
 		// Model change event v1.0 legacy behavior
 		{"test.model", `{"string":"bar","int":-12}`, `{"values":{"string":"bar","int":-12}}`, `{"string":"bar","int":-12,"bool":true,"null":null}`, 1},

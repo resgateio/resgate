@@ -198,6 +198,8 @@ func TestSubscribe(t *testing.T) {
 			"test.model.brokenchild":  {{"test.model.brokenchild", nil}, {"test.err.notFound", nil}},
 			"test.model.soft":         {{"test.model.soft", nil}},
 			"test.model.soft.parent":  {{"test.model.soft.parent", nil}, {"test.model.soft", nil}},
+			"test.model.data":         {{"test.model.data", &resource{typeModel, `{"name":"data","primitive":12,"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"bar"}]}}`, nil}}},
+			"test.model.data.parent":  {{"test.model.data.parent", nil}, {"test.model.data", &resource{typeModel, `{"name":"data","primitive":12,"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"bar"}]}}`, nil}}},
 			// Cyclic model responses
 			"test.m.a": {{"test.m.a", nil}},
 			"test.m.b": {{"test.m.b", nil}, {"test.m.c", nil}},
@@ -212,6 +214,8 @@ func TestSubscribe(t *testing.T) {
 			"test.collection.brokenchild":  {{"test.collection.brokenchild", nil}, {"test.err.notFound", nil}},
 			"test.collection.soft":         {{"test.collection.soft", nil}},
 			"test.collection.soft.parent":  {{"test.collection.soft.parent", nil}, {"test.collection.soft", nil}},
+			"test.collection.data":         {{"test.collection.data", &resource{typeCollection, `["data",12,{"data":{"foo":["bar"]}},{"data":[{"foo":"bar"}]}]`, nil}}},
+			"test.collection.data.parent":  {{"test.collection.data.parent", nil}, {"test.collection.data", &resource{typeCollection, `["data",12,{"data":{"foo":["bar"]}},{"data":[{"foo":"bar"}]}]`, nil}}},
 			// Cyclic collection responses
 			"test.c.a": {{"test.c.a", nil}},
 			"test.c.b": {{"test.c.b", nil}, {"test.c.c", nil}},
@@ -223,9 +227,13 @@ func TestSubscribe(t *testing.T) {
 			// Model responses
 			"test.model.soft":        {{"test.model.soft", &resource{typeModel, `{"name":"soft","child":"test.model"}`, nil}}},
 			"test.model.soft.parent": {{"test.model.soft.parent", nil}, {"test.model.soft", &resource{typeModel, `{"name":"soft","child":"test.model"}`, nil}}},
+			"test.model.data":        {{"test.model.data", &resource{typeModel, `{"name":"data","primitive":12,"object":"[Data]","array":"[Data]"}`, nil}}},
+			"test.model.data.parent": {{"test.model.data.parent", nil}, {"test.model.data", &resource{typeModel, `{"name":"data","primitive":12,"object":"[Data]","array":"[Data]"}`, nil}}},
 			// Collection responses
 			"test.collection.soft":        {{"test.collection.soft", &resource{typeCollection, `["soft","test.collection"]`, nil}}},
 			"test.collection.soft.parent": {{"test.collection.soft.parent", nil}, {"test.collection.soft", &resource{typeCollection, `["soft","test.collection"]`, nil}}},
+			"test.collection.data":        {{"test.collection.data", &resource{typeCollection, `["data",12,"[Data]","[Data]"]`, nil}}},
+			"test.collection.data.parent": {{"test.collection.data.parent", nil}, {"test.collection.data", &resource{typeCollection, `["data",12,"[Data]","[Data]"]`, nil}}},
 		},
 	}
 
