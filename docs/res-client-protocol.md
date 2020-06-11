@@ -56,36 +56,27 @@ A resource that is referred to with a non-soft [resource reference](res-protocol
 ## Resource set
 Any request or event resulting in new subscriptions will contain a set of resources that contains any subscribed resource previously not subscribed by the client.
 
-The set is grouped by type, `models`, `collections`, `statics`, and `errors`. Each group is represented by a key/value object where the key is the [resource ID](res-protocol.md#resource-ids), and the value is the [model](res-protocol.md#models), [collection](res-protocol.md#collections), [static](res-protocol.md#statics), or [error](#error-object).
+The set is grouped by type, `models`, `collections`, and `errors`. Each group is represented by a key/value object where the key is the [resource ID](res-protocol.md#resource-ids), and the value is the [model](res-protocol.md#models), [collection](res-protocol.md#collections), or [error](#error-object).
 
 **Example**
 ```json
 {
   "models": {
-    "messageService.overview?start=0&limit=3": {
-      "total": 123,
-      "lastSent": 1136239445,
-      "messages": { "rid": "messageService.messages?start=0&limit=3" }
+    "messageService.message.1": {
+      "id": 1,
+      "msg": "foo"
+    },
+    "messageService.message.2": {
+      "id": 2,
+      "msg": "bar"
     }
   },
   "collections": {
-    "messageService.messages?start=0&limit=3": [
+    "messageService.messages": [
         { "rid": "messageService.message.1" },
         { "rid": "messageService.message.2" },
         { "rid": "messageService.message.3" }
     ]
-  },
-  "statics": {
-     "messageService.message.1": {
-      "id": 1,
-      "msg": "Application started.",
-      "data": null
-    },
-    "messageService.message.2": {
-      "id": 2,
-      "msg": "Email sent to {recipient}.",
-      "data": { "recipient": "info@example.com" }
-    }
   },
   "errors": {
     "messageService.message.3": {
@@ -233,10 +224,6 @@ May be omitted if no new models were subscribed.
 [Resource set](#resource-set) collections.  
 May be omitted if no new collections were subscribed.
 
-**statics**  
-[Resource set](#resource-set) statics.  
-May be omitted if no new statics were subscribed.
-
 **errors**  
 [Resource set](#resource-set) errors.  
 May be omitted if no subscribed resources encountered errors.
@@ -293,10 +280,6 @@ May be omitted if no new models were retrieved.
 [Resource set](#resource-set) collections.  
 May be omitted if no new collections were retrieved.
 
-**statics**  
-[Resource set](#resource-set) statics.  
-May be omitted if no new statics were retrieved.
-
 **errors**  
 [Resource set](#resource-set) errors.  
 May be omitted if no retrieved resources encountered errors.
@@ -341,11 +324,6 @@ MUST be omitted if **payload** is set.
 May be omitted if no new collections were subscribed.  
 MUST be omitted if **payload** is set.
 
-**statics**  
-[Resource set](#resource-set) statics.  
-May be omitted if no new statics were subscribed.  
-MUST be omitted if **payload** is set.
-
 **errors**  
 [Resource set](#resource-set) errors.  
 May be omitted if no subscribed resources encountered errors.  
@@ -388,16 +366,6 @@ MUST be omitted if **payload** is set.
 May be omitted if no new collections were subscribed.  
 MUST be omitted if **payload** is set.
 
-**statics**  
-[Resource set](#resource-set) statics.  
-May be omitted if no new statics were subscribed.  
-MUST be omitted if **payload** is set.
-
-**errors**  
-[Resource set](#resource-set) errors.  
-May be omitted if no subscribed resources encountered errors.  
-MUST be omitted if **payload** is set.
-
 ### Error
 An error response will be sent if the method couldn't be called, or if the authentication failed.
 
@@ -428,10 +396,6 @@ May be omitted if no new models were subscribed.
 **collections**  
 [Resource set](#resource-set) collections.  
 May be omitted if no new collections were subscribed.
-
-**statics**  
-[Resource set](#resource-set) statics.  
-May be omitted if no new statics were subscribed.
 
 **errors**  
 [Resource set](#resource-set) errors.  
@@ -487,10 +451,6 @@ May be omitted if no new models were subscribed.
 [Resource set](#resource-set) collections.  
 May be omitted if no new collections were subscribed.
 
-**statics**  
-[Resource set](#resource-set) statics.  
-May be omitted if no new statics were subscribed.
-
 **errors**  
 [Resource set](#resource-set) errors.  
 May be omitted if no subscribed resources encountered errors.
@@ -539,10 +499,6 @@ May be omitted if no new models were subscribed.
 **collections**  
 [Resource set](#resource-set) collections.  
 May be omitted if no new collections were subscribed.
-
-**statics**  
-[Resource set](#resource-set) statics.  
-May be omitted if no new statics were subscribed.
 
 **errors**  
 [Resource set](#resource-set) errors.  

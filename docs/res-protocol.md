@@ -9,7 +9,6 @@
   * [Resource IDs](#resource-ids)
   * [Models](#models)
   * [Collections](#collections)
-  * [Statics](#statics)
   * [Values](#values)
   * [Resource references](#resource-references)
   * [Messaging system](#messaging-system)
@@ -35,7 +34,7 @@ This document gives an overview of the protocol and its features, and describes 
 
 ## Resources
 
-RES protocol is built around a concept of resources. A resource may be either be a [*model*](#models), a [*collection*](#collections), or a [*static*](#statics). Each resource (model, collection, or static) is identified by a unique [*resource ID*](#resource-ids), also called *rid* for short.
+RES protocol is built around a concept of resources. A resource may be either be a [*model*](#models) or a [*collection*](#collections). Each resource (model or collection) is identified by a unique [*resource ID*](#resource-ids), also called *rid* for short.
 
 ## Resource IDs
  A *resource ID* is a string that consist of a *resource name* and an optional *query*.
@@ -76,19 +75,6 @@ A collection is an ordered list of [values](#values) represented by a JSON array
 **Example**
 ```json
 [ "admin", "tester", "developer" ]
-```
-
-## Statics
-
-A static resource is immutable arbitrary data represented by any JSON value.
-
-**Example**
-```json
-{
-  "timestamp": 1136239445,
-  "log": "Email sent to {to}.",
-  "params": { "to": "info@example.com" }
-}
 ```
 
 ## Values
