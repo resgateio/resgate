@@ -270,6 +270,8 @@ func (e *encoderJSON) encodeValue(s *Subscription, v codec.Value) error {
 		}
 		e.b.Write(dta)
 		e.b.WriteByte('}')
+	case codec.ValueTypeData:
+		e.b.Write(v.Inner)
 	default:
 		e.b.Write(v.RawMessage)
 	}
@@ -401,6 +403,8 @@ func (e *encoderJSONFlat) encodeValue(s *Subscription, v codec.Value) error {
 		}
 		e.b.Write(dta)
 		e.b.WriteByte('}')
+	case codec.ValueTypeData:
+		e.b.Write(v.Inner)
 	default:
 		e.b.Write(v.RawMessage)
 	}
