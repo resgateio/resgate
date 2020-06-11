@@ -50,7 +50,7 @@ The resource that is subscribed to with a [subscribe request](#subscribe-request
 It is possible to have multiple direct subscriptions on a resource. It will be considered directly subscribed until the same number of subscriptions are matched using one ore more [unsubscribe requests](#unsubscribe-request).
 
 ## Indirect subscription
-A resource that is referred to with a non-soft [resource reference](res-protocol.md#values) by a [directly subscribed](#direct-subscription) resource, or by an indirectly subscribed resource, will be considered *indirectly subscribed*. Cyclic references where none of the resources are directly subscribed will not be considered subscribed.
+A resource that is referred to with a non-soft [resource reference](res-protocol.md#resource-references) by a [directly subscribed](#direct-subscription) resource, or by an indirectly subscribed resource, will be considered *indirectly subscribed*. Cyclic references where none of the resources are directly subscribed will not be considered subscribed.
 
 
 ## Resource set
@@ -231,7 +231,7 @@ May be omitted if no subscribed resources encountered errors.
 ### Error
 
 An error response will be sent if the resource couldn't be subscribed to.  
-Any [resource reference](res-protocol.md#values) that fails will not lead to an error response, but the error will be added to the [resource set](#resource-set) errors.
+Any [resource reference](res-protocol.md#resource-references) that fails will not lead to an error response, but the error will be added to the [resource set](#resource-set) errors.
 
 ## Unsubscribe request
 
@@ -287,7 +287,7 @@ May be omitted if no retrieved resources encountered errors.
 ### Error
 
 An error response will be sent if the resource couldn't be retrieved.  
-Any [resource reference](res-protocol.md#values) that fails will not lead to an error response, but the error will be added to the [resource set](#resource-set) errors.
+Any [resource reference](res-protocol.md#resource-references) that fails will not lead to an error response, but the error will be added to the [resource set](#resource-set) errors.
 
 
 ## Call request
@@ -427,7 +427,7 @@ Event data. The payload is defined by the event type.
 ## Model change event
 
 Change events are sent when a [model](res-protocol.md#models)'s properties has been changed.  
-Will result in new [indirect subscriptions](#indirect-subscription) if changed properties contain [resource references](res-protocol.md#values) previously not subscribed.  
+Will result in new [indirect subscriptions](#indirect-subscription) if changed properties contain [resource references](res-protocol.md#resource-references) previously not subscribed.  
 Change events are only sent on [models](res-protocol.md#models).
 
 **event**  
@@ -474,7 +474,7 @@ A delete action is a JSON object used when a property has been deleted from a mo
 
 ## Collection add event
 Add events are sent when a value is added to a [collection](res-protocol.md#collections).  
-Will result in one or more new [indirect subscriptions](#indirect-subscription) if added value is a [resource references](res-protocol.md#values) previously not subscribed.  
+Will result in one or more new [indirect subscriptions](#indirect-subscription) if added value is a [resource references](res-protocol.md#resource-references) previously not subscribed.  
 Add events are only sent on [collections](res-protocol.md#collections).
 
 **event**  
