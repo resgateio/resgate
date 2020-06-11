@@ -24,7 +24,6 @@ type resourceType byte
 const (
 	typeModel resourceType = iota
 	typeCollection
-	typeStatic
 	typeError
 )
 
@@ -90,11 +89,6 @@ var resources = map[string]resource{
 
 	"test.c.g": {typeCollection, `[{"rid":"test.c.e"},{"rid":"test.c.f"}]`, nil},
 	"test.c.h": {typeCollection, `[{"rid":"test.c.e"}]`, nil},
-
-	// Static resources
-	"test.static":                  {typeStatic, `{"foo":{"bar":[null],"baz":42}}`, nil},
-	"test.static.modelparent":      {typeModel, `{"ref":{"rid":"test.static"}}`, nil},
-	"test.static.collectionparent": {typeCollection, `["foo",{"rid":"test.static"}]`, nil},
 
 	// Errors
 	"test.err.notFound":      {typeError, "", reserr.ErrNotFound},
@@ -321,32 +315,6 @@ var sequenceSets = []sequenceSet{
 				{"response", "test.c.d"},
 				{"response", "test.c.h"},
 			},
-			// Static test
-			{
-				{"subscribe", "test.static"},
-				{"access", "test.static"},
-				{"get", "test.static"},
-				{"response", "test.static"},
-				{"event", "test.static"},
-			},
-			{
-				{"subscribe", "test.static.modelparent"},
-				{"access", "test.static.modelparent"},
-				{"get", "test.static.modelparent"},
-				{"get", "test.static"},
-				{"response", "test.static.modelparent"},
-				{"event", "test.static.modelparent"},
-				{"event", "test.static"},
-			},
-			{
-				{"subscribe", "test.static.collectionparent"},
-				{"access", "test.static.collectionparent"},
-				{"get", "test.static.collectionparent"},
-				{"get", "test.static"},
-				{"response", "test.static.collectionparent"},
-				{"event", "test.static.collectionparent"},
-				{"event", "test.static"},
-			},
 			// Access test
 			{
 				{"subscribe", "test.model.parent"},
@@ -394,25 +362,6 @@ var sequenceSets = []sequenceSet{
 				{"response", "test.model.soft.parent"},
 				{"event", "test.model.soft.parent"},
 				{"event", "test.model.soft"},
-			},
-			// Static tests
-			{
-				{"subscribe", "test.static.modelparent"},
-				{"access", "test.static.modelparent"},
-				{"get", "test.static.modelparent"},
-				{"get", "test.static"},
-				{"response", "test.static.modelparent"},
-				{"event", "test.static.modelparent"},
-				{"noevent", "test.static"},
-			},
-			{
-				{"subscribe", "test.static.collectionparent"},
-				{"access", "test.static.collectionparent"},
-				{"get", "test.static.collectionparent"},
-				{"get", "test.static"},
-				{"response", "test.static.collectionparent"},
-				{"event", "test.static.collectionparent"},
-				{"noevent", "test.static"},
 			},
 		},
 	},

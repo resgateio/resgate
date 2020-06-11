@@ -4,5 +4,4 @@ package server
 const (
 	versionCallResourceResponse  = 1001001
 	versionSoftResourceReference = 1002000
-	versionStaticResource        = 1002000
 )

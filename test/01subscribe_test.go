@@ -34,7 +34,7 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 	modelGetResponse := json.RawMessage(`{"model":` + model + `}`)
 	fullAccess := json.RawMessage(`{"get":true}`)
 	noAccess := json.RawMessage(`{"get":false}`)
-	modelClientResponse := json.RawMessage(`{"models":{"test.resource":` + model + `}}`)
+	modelClientResponse := json.RawMessage(`{"models":{"test.model":` + model + `}}`)
 
 	// *reserr.Error implies an error response. requestTimeout implies a timeout. Otherwise success.
 	tbl := []struct {
@@ -97,11 +97,6 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 		{json.RawMessage(`{"collection":["prop",{"action":"delete"}]}`), fullAccess, reserr.CodeInternalError},
 		{json.RawMessage(`{"collection":["prop",{"action":"unknown"}]}`), fullAccess, reserr.CodeInternalError},
 		{json.RawMessage(`{"collection":["prop",{"unknown":"property"}]}`), fullAccess, reserr.CodeInternalError},
-		// Multiple resource types
-		{json.RawMessage(`{"model":{"foo":"bar"},"collection":[1,2,3],"static":{"foo":["bar"]}}`), fullAccess, reserr.CodeInternalError},
-		{json.RawMessage(`{"model":{"foo":"bar"},"collection":[1,2,3]}`), fullAccess, reserr.CodeInternalError},
-		{json.RawMessage(`{"model":{"foo":"bar"},"static":{"foo":["bar"]}}`), fullAccess, reserr.CodeInternalError},
-		{json.RawMessage(`{"collection":[1,2,3],"static":{"foo":["bar"]}}`), fullAccess, reserr.CodeInternalError},
 		// Invalid get error response
 		{[]byte(`{"error":[]}`), fullAccess, reserr.CodeInternalError},
 		{[]byte(`{"error":{"message":"missing code"}}`), fullAccess, ""},
@@ -124,16 +119,16 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 					var creq *ClientRequest
 					switch method {
 					case "get":
-						creq = c.Request("get.test.resource", nil)
+						creq = c.Request("get.test.model", nil)
 					case "subscribe":
-						creq = c.Request("subscribe.test.resource", nil)
+						creq = c.Request("subscribe.test.model", nil)
 					}
 					mreqs := s.GetParallelRequests(t, 2)
 
 					var req *Request
 					if getFirst {
 						// Send get response
-						req = mreqs.GetRequest(t, "get.test.resource")
+						req = mreqs.GetRequest(t, "get.test.model")
 						if l.GetResponse == requestTimeout {
 							req.Timeout()
 						} else if err, ok := l.GetResponse.(*reserr.Error); ok {
@@ -146,7 +141,7 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 					}
 
 					// Send access response
-					req = mreqs.GetRequest(t, "access.test.resource")
+					req = mreqs.GetRequest(t, "access.test.model")
 					if l.AccessResponse == requestTimeout {
 						req.Timeout()
 					} else if err, ok := l.AccessResponse.(*reserr.Error); ok {
@@ -159,7 +154,7 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 
 					if !getFirst {
 						// Send get response
-						req := mreqs.GetRequest(t, "get.test.resource")
+						req := mreqs.GetRequest(t, "get.test.model")
 						if l.GetResponse == nil {
 							req.Timeout()
 						} else if err, ok := l.GetResponse.(*reserr.Error); ok {
@@ -223,10 +218,6 @@ func TestSubscribe(t *testing.T) {
 			"test.c.d": {{"test.c.d", nil}, {"test.c.e", nil}, {"test.c.f", nil}},
 			"test.c.g": {{"test.c.d", nil}, {"test.c.e", nil}, {"test.c.f", nil}, {"test.c.g", nil}},
 			"test.c.h": {{"test.c.d", nil}, {"test.c.e", nil}, {"test.c.f", nil}, {"test.c.h", nil}},
-			// Static responses
-			"test.static":                  {{"test.static", nil}},
-			"test.static.modelparent":      {{"test.static.modelparent", nil}, {"test.static", nil}},
-			"test.static.collectionparent": {{"test.static.collectionparent", nil}, {"test.static", nil}},
 		},
 		"1.2.0": {
 			// Model responses
@@ -235,9 +226,6 @@ func TestSubscribe(t *testing.T) {
 			// Collection responses
 			"test.collection.soft":        {{"test.collection.soft", &resource{typeCollection, `["soft","test.collection"]`, nil}}},
 			"test.collection.soft.parent": {{"test.collection.soft.parent", nil}, {"test.collection.soft", &resource{typeCollection, `["soft","test.collection"]`, nil}}},
-			// Static responses
-			"test.static.modelparent":      {{"test.static.modelparent", nil}, {"test.static", &resource{typeError, "", reserr.ErrUnsupportedFeature}}},
-			"test.static.collectionparent": {{"test.static.collectionparent", nil}, {"test.static", &resource{typeError, "", reserr.ErrUnsupportedFeature}}},
 		},
 	}
 
@@ -280,8 +268,6 @@ func TestSubscribe(t *testing.T) {
 							req.RespondSuccess(json.RawMessage(`{"model":` + rsrc.data + `}`))
 						case typeCollection:
 							req.RespondSuccess(json.RawMessage(`{"collection":` + rsrc.data + `}`))
-						case typeStatic:
-							req.RespondSuccess(json.RawMessage(`{"static":` + rsrc.data + `}`))
 						case typeError:
 							req.RespondError(rsrc.err)
 						}
@@ -290,7 +276,6 @@ func TestSubscribe(t *testing.T) {
 						respResources := responses[set.Version][ev.RID]
 						models := make(map[string]json.RawMessage)
 						collections := make(map[string]json.RawMessage)
-						statics := make(map[string]json.RawMessage)
 						errors := make(map[string]*reserr.Error)
 						for _, rr := range respResources {
 							if sentResources[rr.RID] {
@@ -307,8 +292,6 @@ func TestSubscribe(t *testing.T) {
 								models[rr.RID] = json.RawMessage(rsrc.data)
 							case typeCollection:
 								collections[rr.RID] = json.RawMessage(rsrc.data)
-							case typeStatic:
-								statics[rr.RID] = json.RawMessage(rsrc.data)
 							case typeError:
 								errors[rr.RID] = rsrc.err
 							}
@@ -320,9 +303,6 @@ func TestSubscribe(t *testing.T) {
 						}
 						if len(collections) > 0 {
 							m["collections"] = collections
-						}
-						if len(statics) > 0 {
-							m["statics"] = statics
 						}
 						if len(errors) > 0 {
 							m["errors"] = errors
@@ -382,51 +362,4 @@ func TestSubscribe_WithCIDPlaceholder_ReplacesCID(t *testing.T) {
 		s.ResourceEvent("test."+cid+".model", "custom", event)
 		c.GetEvent(t).AssertEventName(t, "test.{cid}.model.custom")
 	})
-}
-
-func TestSubscribe_MultipleClientSubscribingResource_FetchedFromCache(t *testing.T) {
-	tbl := []struct {
-		RID string
-	}{
-		{"test.model"},
-		{"test.collection"},
-		{"test.static"},
-	}
-	for i, l := range tbl {
-		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
-			rid := l.RID
-			c1 := s.Connect()
-			subscribeToResource(t, s, c1, rid)
-
-			// Connect with second client
-			c2 := s.Connect()
-			// Send subscribe request
-			c2req := c2.Request("subscribe."+rid, nil)
-			s.GetRequest(t).
-				AssertSubject(t, "access."+rid).
-				RespondSuccess(json.RawMessage(`{"get":true}`))
-			// Handle resource and validate client response
-			rsrc, ok := resources[rid]
-			if !ok {
-				panic("no resource named " + rid)
-			}
-			var r string
-			if rsrc.typ == typeError {
-				b, _ := json.Marshal(rsrc.err)
-				r = string(b)
-			} else {
-				r = rsrc.data
-			}
-			switch rsrc.typ {
-			case typeModel:
-				c2req.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"`+rid+`":`+r+`}}`))
-			case typeCollection:
-				c2req.GetResponse(t).AssertResult(t, json.RawMessage(`{"collections":{"`+rid+`":`+r+`}}`))
-			case typeStatic:
-				c2req.GetResponse(t).AssertResult(t, json.RawMessage(`{"statics":{"`+rid+`":`+r+`}}`))
-			default:
-				panic("invalid type")
-			}
-		})
-	}
 }

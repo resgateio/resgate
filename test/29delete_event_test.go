@@ -31,19 +31,6 @@ func TestDeleteEvent_OnCollection_SentToClient(t *testing.T) {
 	})
 }
 
-func TestDeleteEvent_OnStatic_SentToClient(t *testing.T) {
-	runTest(t, func(s *Session) {
-		c := s.Connect()
-		subscribeToResource(t, s, c, "test.static")
-
-		// Send delete event
-		s.ResourceEvent("test.static", "delete", nil)
-
-		// Validate the delete event is sent to client
-		c.GetEvent(t).Equals(t, "test.static.delete", nil)
-	})
-}
-
 func TestDeleteEvent_AndCustomEventOnModel_CustomEventNotSentToClient(t *testing.T) {
 	runTest(t, func(s *Session) {
 		c := s.Connect()
@@ -67,19 +54,6 @@ func TestDeleteEvent_AndCustomEventOnCollection_CustomEventNotSentToClient(t *te
 		// Send custom event on collection and validate no event
 		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
 		c.AssertNoEvent(t, "test.collection")
-	})
-}
-
-func TestDeleteEvent_AndCustomEventOnStatic_CustomEventNotSentToClient(t *testing.T) {
-	runTest(t, func(s *Session) {
-		c := s.Connect()
-		subscribeToResource(t, s, c, "test.static")
-		// Send delete event
-		s.ResourceEvent("test.static", "delete", nil)
-		c.GetEvent(t).Equals(t, "test.static.delete", nil)
-		// Send custom event on static and validate no event
-		s.ResourceEvent("test.static", "custom", common.CustomEvent())
-		c.AssertNoEvent(t, "test.static")
 	})
 }
 
@@ -179,21 +153,5 @@ func TestDeleteEvent_OnCollectionQueuedForEviction_DoesNothing(t *testing.T) {
 
 		// Validate the delete event is sent to client
 		c.AssertNoEvent(t, "test.collection")
-	})
-}
-
-func TestDeleteEvent_OnStaticQueuedForEviction_DoesNothing(t *testing.T) {
-	runTest(t, func(s *Session) {
-		c := s.Connect()
-		subscribeToResource(t, s, c, "test.static")
-
-		// Unsubscribe to resource
-		c.Request("unsubscribe.test.static", nil).GetResponse(t)
-
-		// Send delete event
-		s.ResourceEvent("test.static", "delete", nil)
-
-		// Validate the delete event is sent to client
-		c.AssertNoEvent(t, "test.static")
 	})
 }

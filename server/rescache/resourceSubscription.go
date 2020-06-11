@@ -16,7 +16,6 @@ const (
 	stateRequested
 	stateCollection
 	stateModel
-	stateStatic
 )
 
 // Model represents a RES model
@@ -68,7 +67,6 @@ type ResourceSubscription struct {
 	// Three types of values stored
 	model      *Model
 	collection *Collection
-	static     json.RawMessage
 	err        error
 }
 
@@ -108,14 +106,6 @@ func (rs *ResourceSubscription) GetCollection() *Collection {
 func (rs *ResourceSubscription) GetModel() *Model {
 	rs.e.mu.Lock()
 	return rs.model
-}
-
-// GetStatic will lock the EventSubscription for any changes
-// and return the static json.
-// The lock must be released by calling Release
-func (rs *ResourceSubscription) GetStatic() json.RawMessage {
-	rs.e.mu.Lock()
-	return rs.static
 }
 
 // Release releases the lock obtained by calling GetCollection or GetModel
@@ -174,8 +164,8 @@ func (rs *ResourceSubscription) handleEvent(r *ResourceEvent) {
 }
 
 func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
-	if rs.state != stateModel {
-		rs.e.cache.Errorf("Error processing event %s.%s: change event on non-model", rs.e.ResourceName, r.Event)
+	if rs.state == stateCollection {
+		rs.e.cache.Errorf("Error processing event %s.%s: change event on collection", rs.e.ResourceName, r.Event)
 		return false
 	}
 
@@ -230,8 +220,8 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 }
 
 func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
-	if rs.state != stateCollection {
-		rs.e.cache.Errorf("Error processing event %s.%s: add event on non-collection", rs.e.ResourceName, r.Event)
+	if rs.state == stateModel {
+		rs.e.cache.Errorf("Error processing event %s.%s: add event on model", rs.e.ResourceName, r.Event)
 		return false
 	}
 
@@ -265,8 +255,8 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 }
 
 func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
-	if rs.state != stateCollection {
-		rs.e.cache.Errorf("Error processing event %s.%s: remove event on non-collection", rs.e.ResourceName, r.Event)
+	if rs.state == stateModel {
+		rs.e.cache.Errorf("Error processing event %s.%s: remove event on model", rs.e.ResourceName, r.Event)
 		return false
 	}
 
@@ -423,19 +413,12 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (n
 		return
 	}
 
-	switch {
-	case result.Model != nil:
-		// Model
+	if result.Model != nil {
 		nrs.model = &Model{Values: result.Model}
 		nrs.state = stateModel
-	case result.Collection != nil:
-		// Collection
+	} else {
 		nrs.collection = &Collection{Values: result.Collection}
 		nrs.state = stateCollection
-	default:
-		// Static
-		nrs.static = result.Static
-		nrs.state = stateStatic
 	}
 	return
 }
@@ -471,7 +454,7 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 	// or an error in the service's response
 	if err == nil {
 		result, err = codec.DecodeGetResponse(payload)
-		if err == nil && ((rs.state == stateModel && result.Model == nil) || (rs.state == stateCollection && result.Collection == nil) || (rs.state == stateStatic && result.Static == nil)) {
+		if err == nil && ((rs.state == stateModel && result.Model == nil) || (rs.state == stateCollection && result.Collection == nil)) {
 			err = errors.New("mismatching resource type")
 		}
 	}
@@ -494,8 +477,6 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 		rs.processResetModel(result.Model)
 	case stateCollection:
 		rs.processResetCollection(result.Collection)
-	case stateStatic:
-		rs.processResetStatic(result.Static)
 	}
 }
 
@@ -534,10 +515,6 @@ func (rs *ResourceSubscription) processResetCollection(collection []codec.Value)
 	for _, r := range events {
 		rs.handleEvent(r)
 	}
-}
-
-func (rs *ResourceSubscription) processResetStatic(static json.RawMessage) {
-	rs.static = static
 }
 
 func lcs(a, b []codec.Value) []*ResourceEvent {

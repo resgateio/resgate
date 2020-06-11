@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
-
-	"github.com/resgateio/resgate/server/reserr"
 )
 
 // Test change event effect on cached model
@@ -161,25 +159,4 @@ func TestLegacy120AddRemoveEvents_OnCachedCollection(t *testing.T) {
 			})
 		}
 	}
-}
-
-func TestLegacy120Subscribe_StaticResource_ReturnsErrorUnsupportedFeature(t *testing.T) {
-	runTest(t, func(s *Session) {
-		static := resourceData("test.static")
-		c := s.ConnectWithVersion("1.2.0")
-
-		creq := c.Request("subscribe.test.static", nil)
-
-		// Handle static get and access request
-		mreqs := s.GetParallelRequests(t, 2)
-		req := mreqs.GetRequest(t, "access.test.static")
-		req.RespondSuccess(json.RawMessage(`{"get":true}`))
-		req = mreqs.GetRequest(t, "get.test.static")
-		req.RespondSuccess(json.RawMessage(`{"static":` + static + `}`))
-		// Validate client response
-		creq.GetResponse(t).AssertError(t, reserr.ErrUnsupportedFeature)
-
-		// Send event on model and validate client did get event
-		creq.c.AssertNoEvent(t, "test.static")
-	})
 }

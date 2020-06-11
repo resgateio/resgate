@@ -54,7 +54,6 @@ type ErrorResponse struct {
 type Resources struct {
 	Models      map[string]interface{}   `json:"models,omitempty"`
 	Collections map[string]interface{}   `json:"collections,omitempty"`
-	Statics     map[string]interface{}   `json:"statics,omitempty"`
 	Errors      map[string]*reserr.Error `json:"errors,omitempty"`
 }
 

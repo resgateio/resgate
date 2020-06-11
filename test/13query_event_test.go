@@ -721,23 +721,6 @@ func TestQueryEvent_DeleteEventOnCollection_DeletesFromCache(t *testing.T) {
 	})
 }
 
-func TestQueryEvent_DeleteEventOnStatic_DeletesFromCache(t *testing.T) {
-	runTest(t, func(s *Session) {
-		c := s.Connect()
-		subscribeToQueryResource(t, s, c, "test.static", "q=foo&f=bar", "q=foo&f=bar")
-		// Send query event
-		s.ResourceEvent("test.static", "query", json.RawMessage(`{"subject":"_EVENT_01_"}`))
-		// Respond to query request with an error
-		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[{"event":"delete"},{"event":"custom","data":{"foo":"bar"}}]}`))
-		// Validate only delete event is sent to client
-		c.GetEvent(t).AssertEventName(t, "test.static?q=foo&f=bar.delete").AssertData(t, nil)
-		c.AssertNoEvent(t, "test.static")
-		// Validate subsequent query events does not send request
-		s.ResourceEvent("test.static", "query", json.RawMessage(`{"subject":"_EVENT_02_"}`))
-		c.AssertNoNATSRequest(t, "test.static")
-	})
-}
-
 func TestQueryEvent_MultipleClientsWithDifferentQueries_SendsMultipleQueryRequest(t *testing.T) {
 	runTest(t, func(s *Session) {
 		c1 := s.Connect()
