@@ -92,7 +92,7 @@ null  // null
 { "rid": "example.user.42" }             // resource reference
 { "rid": "example.page.2", "soft":true } // soft reference
 { "data": { "foo": [ "bar" ] }}          // data value
-{ "data": 42 }                           // data value interchangable with the primitive 42
+{ "data": 42 }                           // data value interchangeable with the primitive 42
 ```
 
 ## Primitives

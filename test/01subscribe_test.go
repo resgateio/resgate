@@ -34,7 +34,7 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 	modelGetResponse := json.RawMessage(`{"model":` + model + `}`)
 	fullAccess := json.RawMessage(`{"get":true}`)
 	noAccess := json.RawMessage(`{"get":false}`)
-	modelClientResponse := json.RawMessage(`{"models":{"test.model":` + model + `}}`)
+	modelClientResponse := json.RawMessage(`{"models":{"test.resource":` + model + `}}`)
 
 	// *reserr.Error implies an error response. requestTimeout implies a timeout. Otherwise success.
 	tbl := []struct {
@@ -86,7 +86,6 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 		// Invalid get model or collection response
 		{json.RawMessage(`{"model":["with","array","data"]}`), fullAccess, reserr.CodeInternalError},
 		{json.RawMessage(`{"collection":{"with":"model data"}}`), fullAccess, reserr.CodeInternalError},
-		{json.RawMessage(`{"collection":[1,2],"model":{"and":"model"}}`), fullAccess, reserr.CodeInternalError},
 		{json.RawMessage(`{"model":{"array":[1,2]}}`), fullAccess, reserr.CodeInternalError},
 		{json.RawMessage(`{"model":{"prop":{"action":"delete"}}}`), fullAccess, reserr.CodeInternalError},
 		{json.RawMessage(`{"model":{"prop":{"action":"unknown"}}}`), fullAccess, reserr.CodeInternalError},
@@ -97,6 +96,8 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 		{json.RawMessage(`{"collection":["prop",{"action":"delete"}]}`), fullAccess, reserr.CodeInternalError},
 		{json.RawMessage(`{"collection":["prop",{"action":"unknown"}]}`), fullAccess, reserr.CodeInternalError},
 		{json.RawMessage(`{"collection":["prop",{"unknown":"property"}]}`), fullAccess, reserr.CodeInternalError},
+		// Multiple resource types
+		{json.RawMessage(`{"model":{"foo":"bar"},"collection":[1,2,3]}`), fullAccess, reserr.CodeInternalError},
 		// Invalid get error response
 		{[]byte(`{"error":[]}`), fullAccess, reserr.CodeInternalError},
 		{[]byte(`{"error":{"message":"missing code"}}`), fullAccess, ""},
@@ -119,16 +120,16 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 					var creq *ClientRequest
 					switch method {
 					case "get":
-						creq = c.Request("get.test.model", nil)
+						creq = c.Request("get.test.resource", nil)
 					case "subscribe":
-						creq = c.Request("subscribe.test.model", nil)
+						creq = c.Request("subscribe.test.resource", nil)
 					}
 					mreqs := s.GetParallelRequests(t, 2)
 
 					var req *Request
 					if getFirst {
 						// Send get response
-						req = mreqs.GetRequest(t, "get.test.model")
+						req = mreqs.GetRequest(t, "get.test.resource")
 						if l.GetResponse == requestTimeout {
 							req.Timeout()
 						} else if err, ok := l.GetResponse.(*reserr.Error); ok {
@@ -141,7 +142,7 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 					}
 
 					// Send access response
-					req = mreqs.GetRequest(t, "access.test.model")
+					req = mreqs.GetRequest(t, "access.test.resource")
 					if l.AccessResponse == requestTimeout {
 						req.Timeout()
 					} else if err, ok := l.AccessResponse.(*reserr.Error); ok {
@@ -154,7 +155,7 @@ func TestResponseOnPrimitiveModelRetrieval(t *testing.T) {
 
 					if !getFirst {
 						// Send get response
-						req := mreqs.GetRequest(t, "get.test.model")
+						req := mreqs.GetRequest(t, "get.test.resource")
 						if l.GetResponse == nil {
 							req.Timeout()
 						} else if err, ok := l.GetResponse.(*reserr.Error); ok {
@@ -370,4 +371,48 @@ func TestSubscribe_WithCIDPlaceholder_ReplacesCID(t *testing.T) {
 		s.ResourceEvent("test."+cid+".model", "custom", event)
 		c.GetEvent(t).AssertEventName(t, "test.{cid}.model.custom")
 	})
+}
+
+func TestSubscribe_MultipleClientsSubscribingResource_FetchedFromCache(t *testing.T) {
+	tbl := []struct {
+		RID string
+	}{
+		{"test.model"},
+		{"test.collection"},
+	}
+	for i, l := range tbl {
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
+			rid := l.RID
+			c1 := s.Connect()
+			subscribeToResource(t, s, c1, rid)
+
+			// Connect with second client
+			c2 := s.Connect()
+			// Send subscribe request
+			c2req := c2.Request("subscribe."+rid, nil)
+			s.GetRequest(t).
+				AssertSubject(t, "access."+rid).
+				RespondSuccess(json.RawMessage(`{"get":true}`))
+			// Handle resource and validate client response
+			rsrc, ok := resources[rid]
+			if !ok {
+				panic("no resource named " + rid)
+			}
+			var r string
+			if rsrc.typ == typeError {
+				b, _ := json.Marshal(rsrc.err)
+				r = string(b)
+			} else {
+				r = rsrc.data
+			}
+			switch rsrc.typ {
+			case typeModel:
+				c2req.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"`+rid+`":`+r+`}}`))
+			case typeCollection:
+				c2req.GetResponse(t).AssertResult(t, json.RawMessage(`{"collections":{"`+rid+`":`+r+`}}`))
+			default:
+				panic("invalid type")
+			}
+		})
+	}
 }
