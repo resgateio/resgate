@@ -8,5 +8,5 @@ const (
 
 const (
 	versionCallResourceResponse              = 1002000
-	versionSoftResourceReferenceAndDataValue = versionLatest
+	versionSoftResourceReferenceAndDataValue = 1002001
 )
