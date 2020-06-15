@@ -8,25 +8,27 @@ import (
 )
 
 // Legacy120Model marshals a model compatible with version 1.2.0
-// (versionSoftResourceReference) and below.
+// (versionSoftResourceReferenceAndDataValue) and below.
 type Legacy120Model Model
 
 // Legacy120Collection marshals a collection compatible with version 1.2.0
-// (versionSoftResourceReference) and below.
+// (versionSoftResourceReferenceAndDataValue) and below.
 type Legacy120Collection Collection
 
 // Legacy120Value marshals a value compatible with version 1.2.0
-// (versionSoftResourceReference) and below.
+// (versionSoftResourceReferenceAndDataValue) and below.
 type Legacy120Value codec.Value
 
 // Legacy120ValueMap marshals a map of values compatible with version 1.2.0
-// (versionSoftResourceReference) and below.
+// (versionSoftResourceReferenceAndDataValue) and below.
 type Legacy120ValueMap map[string]codec.Value
+
+var legacyDataPlaceholderBytes = []byte(`"[Data]"`)
 
 // MarshalJSON creates a JSON encoded representation of the model
 func (m *Legacy120Model) MarshalJSON() ([]byte, error) {
 	for _, v := range m.Values {
-		if v.Type == codec.ValueTypeSoftReference {
+		if v.Type == codec.ValueTypeSoftReference || v.Type == codec.ValueTypeData {
 			return Legacy120ValueMap(m.Values).MarshalJSON()
 		}
 	}
@@ -36,7 +38,7 @@ func (m *Legacy120Model) MarshalJSON() ([]byte, error) {
 // MarshalJSON creates a JSON encoded representation of the model
 func (c *Legacy120Collection) MarshalJSON() ([]byte, error) {
 	for _, v := range c.Values {
-		if v.Type == codec.ValueTypeSoftReference {
+		if v.Type == codec.ValueTypeSoftReference || v.Type == codec.ValueTypeData {
 			goto LegacyMarshal
 		}
 	}
@@ -57,6 +59,9 @@ LegacyMarshal:
 func (v Legacy120Value) MarshalJSON() ([]byte, error) {
 	if v.Type == codec.ValueTypeSoftReference {
 		return json.Marshal(v.RID)
+	}
+	if v.Type == codec.ValueTypeData {
+		return legacyDataPlaceholderBytes, nil
 	}
 	return v.RawMessage, nil
 }

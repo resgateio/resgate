@@ -345,7 +345,7 @@ For new models, the parameters SHOULD be an object containing the named properti
 For new collections, the parameters SHOULD be an ordered array containing the [values](res-protocol.md#values) of the collection.
 
 **Result**  
-MUST be a [resource reference](res-protocol.md#values) to the new resource.
+MUST be a [resource reference](res-protocol.md#resource-references) to the new resource.
 
 
 # Events
@@ -380,6 +380,7 @@ The event payload has the following parameter:
 **values**  
 A key/value object describing the properties that was changed.  
 Each property should have a new [value](res-protocol.md#values) or a [delete action](#delete-action).  
+For changes in [data values](res-protocol.md#data-values), the value is changed in its entirety.  
 Unchanged properties SHOULD NOT be included.  
 
 **Example payload**
@@ -406,6 +407,7 @@ A delete action is a JSON object used when a property has been deleted from a mo
 Add events are sent when a value is added to a [collection](res-protocol.md#collections).  
 Any previous value at the same index or higher will implicitly be shifted one step to a higher index.  
 MUST NOT be sent on [models](res-protocol.md#models).  
+Values cannot be added to arrays inside [data values](res-protocol.md#data-values), but the data value must be changed in its entirety.  
 The event payload has the following parameters:
 
 **value**  
@@ -431,6 +433,7 @@ MUST be a number that is zero or greater and less than or equal to the length of
 Remove events are sent when a value is removed from a [collection](res-protocol.md#collections).  
 Any previous value at a higher index will implicitly be shifted one step to a lower index.  
 MUST NOT be sent on [models](res-protocol.md#models).  
+Values cannot be removed from arrays inside [data values](res-protocol.md#data-values), but the data value must be changed in its entirety.  
 The event payload has the following parameter:
 
 **idx**  
