@@ -1,6 +1,6 @@
 # The RES-Service Protocol Specification
 
-*Version: [1.2.0](res-protocol-semver.md)*
+*Version: [1.2.1](res-protocol-semver.md)*
 
 ## Table of contents
 - [Introduction](#introduction)

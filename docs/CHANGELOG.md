@@ -2,10 +2,11 @@
 
 All changes to the RES Protocol will be documented in this file.
 
-## Unreleased
+## v1.2.1 - [Resgate v1.6.0](compare/v1.4.0...v1.6.0) - 2020-06-15
 
 * #157 Soft resource references.
 * #161 Unsubscribe count field.
+* #165 Data values.
 
 ## v1.2.0 - [Resgate v1.4.0](compare/v1.3.0...v1.4.0) - 2019-11-20
 
