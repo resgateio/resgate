@@ -46,27 +46,38 @@ func TestChangeEventPriorToGetResponseIsDiscarded(t *testing.T) {
 // Test change event effect on cached model
 func TestChangeEventOnCachedModel(t *testing.T) {
 	tbl := []struct {
+		RID                 string // RID of resource to subscribe to
 		ChangeEvent         string // Change event to send (raw JSON)
 		ExpectedChangeEvent string // Expected event sent to client (raw JSON. Empty means none)
 		ExpectedModel       string // Expected model after event (raw JSON)
 		ExpectedErrors      int
 	}{
-		{`{"values":{"string":"bar","int":-12}}`, `{"values":{"string":"bar","int":-12}}`, `{"string":"bar","int":-12,"bool":true,"null":null}`, 0},
-		{`{"values":{"string":"bar"}}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`, 0},
-		{`{"values":{"int":-12}}`, `{"values":{"int":-12}}`, `{"string":"foo","int":-12,"bool":true,"null":null}`, 0},
-		{`{"values":{"new":false}}`, `{"values":{"new":false}}`, `{"string":"foo","int":42,"bool":true,"null":null,"new":false}`, 0},
-		{`{"values":{"int":{"action":"delete"}}}`, `{"values":{"int":{"action":"delete"}}}`, `{"string":"foo","bool":true,"null":null}`, 0},
+		{"test.model", `{"values":{"string":"bar","int":-12}}`, `{"values":{"string":"bar","int":-12}}`, `{"string":"bar","int":-12,"bool":true,"null":null}`, 0},
+		{"test.model", `{"values":{"string":"bar"}}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`, 0},
+		{"test.model", `{"values":{"int":-12}}`, `{"values":{"int":-12}}`, `{"string":"foo","int":-12,"bool":true,"null":null}`, 0},
+		{"test.model", `{"values":{"new":false}}`, `{"values":{"new":false}}`, `{"string":"foo","int":42,"bool":true,"null":null,"new":false}`, 0},
+		{"test.model", `{"values":{"int":{"action":"delete"}}}`, `{"values":{"int":{"action":"delete"}}}`, `{"string":"foo","bool":true,"null":null}`, 0},
+		{"test.model", `{"values":{"soft":{"rid":"test.model.soft","soft":true}}}`, `{"values":{"soft":{"rid":"test.model.soft","soft":true}}}`, `{"string":"foo","int":42,"bool":true,"null":null,"soft":{"rid":"test.model.soft","soft":true}}`, 0},
+		{"test.model.soft", `{"values":{"child":null}}`, `{"values":{"child":null}}`, `{"name":"soft","child":null}`, 0},
+		{"test.model.soft", `{"values":{"child":{"action":"delete"}}}`, `{"values":{"child":{"action":"delete"}}}`, `{"name":"soft"}`, 0},
+		{"test.model.data", `{"values":{"primitive":{"data":13}}}`, `{"values":{"primitive":13}}`, `{"name":"data","primitive":13,"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"bar"}]}}`, 0},
+		{"test.model.data", `{"values":{"object":{"data":{"foo":["baz"]}}}}`, `{"values":{"object":{"data":{"foo":["baz"]}}}}`, `{"name":"data","primitive":12,"object":{"data":{"foo":["baz"]}},"array":{"data":[{"foo":"bar"}]}}`, 0},
+		{"test.model.data", `{"values":{"array":{"data":[{"foo":"baz"}]}}}`, `{"values":{"array":{"data":[{"foo":"baz"}]}}}`, `{"name":"data","primitive":12,"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"baz"}]}}`, 0},
 
 		// Unchanged values
-		{`{"values":{}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
-		{`{"values":{"string":"foo"}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
-		{`{"values":{"string":"foo","int":42}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
-		{`{"values":{"invalid":{"action":"delete"}}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
-		{`{"values":{"null":null,"string":"bar"}}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`, 0},
+		{"test.model", `{"values":{}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
+		{"test.model", `{"values":{"string":"foo"}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
+		{"test.model", `{"values":{"string":"foo","int":42}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
+		{"test.model", `{"values":{"invalid":{"action":"delete"}}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
+		{"test.model", `{"values":{"null":null,"string":"bar"}}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`, 0},
+		{"test.model.soft", `{"values":{"child":{"rid":"test.model","soft":true}}}`, "", `{"name":"soft","child":{"rid":"test.model","soft":true}}`, 0},
+		{"test.model.data", `{"values":{}}`, "", `{"name":"data","primitive":12,"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"bar"}]}}`, 0},
+		{"test.model.data", `{"values":{"primitive":12,"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"bar"}]}}}`, "", `{"name":"data","primitive":12,"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"bar"}]}}`, 0},
+		{"test.model", `{"values":{"null":{"data":null}}}`, "", `{"string":"foo","int":42,"bool":true,"null":null}`, 0},
 
 		// Model change event v1.0 legacy behavior
-		{`{"string":"bar","int":-12}`, `{"values":{"string":"bar","int":-12}}`, `{"string":"bar","int":-12,"bool":true,"null":null}`, 1},
-		{`{"string":"bar"}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`, 1},
+		{"test.model", `{"string":"bar","int":-12}`, `{"values":{"string":"bar","int":-12}}`, `{"string":"bar","int":-12,"bool":true,"null":null}`, 1},
+		{"test.model", `{"string":"bar"}`, `{"values":{"string":"bar"}}`, `{"string":"bar","int":42,"bool":true,"null":null}`, 1},
 	}
 
 	for i, l := range tbl {
@@ -75,31 +86,31 @@ func TestChangeEventOnCachedModel(t *testing.T) {
 				var creq *ClientRequest
 
 				c := s.Connect()
-				subscribeToTestModel(t, s, c)
+				subscribeToResource(t, s, c, l.RID)
 
 				// Send event on model and validate client event
-				s.ResourceEvent("test.model", "change", json.RawMessage(l.ChangeEvent))
+				s.ResourceEvent(l.RID, "change", json.RawMessage(l.ChangeEvent))
 				if l.ExpectedChangeEvent == "" {
-					c.AssertNoEvent(t, "test.model.change")
+					c.AssertNoEvent(t, l.RID+".change")
 				} else {
-					c.GetEvent(t).Equals(t, "test.model.change", json.RawMessage(l.ExpectedChangeEvent))
+					c.GetEvent(t).Equals(t, l.RID+".change", json.RawMessage(l.ExpectedChangeEvent))
 				}
 
 				if sameClient {
-					c.Request("unsubscribe.test.model", nil).GetResponse(t)
+					c.Request("unsubscribe."+l.RID, nil).GetResponse(t)
 					// Subscribe a second time
-					creq = c.Request("subscribe.test.model", nil)
+					creq = c.Request("subscribe."+l.RID, nil)
 				} else {
 					c2 := s.Connect()
 					// Subscribe a second time
-					creq = c2.Request("subscribe.test.model", nil)
+					creq = c2.Request("subscribe."+l.RID, nil)
 				}
 
 				// Handle model access request
-				s.GetRequest(t).AssertSubject(t, "access.test.model").RespondSuccess(json.RawMessage(`{"get":true}`))
+				s.GetRequest(t).AssertSubject(t, "access."+l.RID).RespondSuccess(json.RawMessage(`{"get":true}`))
 
 				// Validate client response
-				creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model":`+l.ExpectedModel+`}}`))
+				creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"`+l.RID+`":`+l.ExpectedModel+`}}`))
 				s.AssertErrorsLogged(t, l.ExpectedErrors)
 			})
 		}
@@ -177,5 +188,50 @@ func TestChangeEventWithChangedResourceReference(t *testing.T) {
 		// Send event on model and validate no event is sent to client
 		s.ResourceEvent("test.model", "custom", common.CustomEvent())
 		c.AssertNoEvent(t, "test.model")
+	})
+}
+
+// Test change event with removed resource reference
+func TestChangeEvent_WithResourceReferenceReplacedBySoftReference_UnsubscribesReference(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestModelParent(t, s, c, false)
+
+		// Send event on model and validate client event
+		s.ResourceEvent("test.model", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.model.custom", common.CustomEvent())
+
+		// Send event on model and validate client event
+		s.ResourceEvent("test.model.parent", "change", json.RawMessage(`{"values":{"child":{"rid":"test.model","soft":true}}}`))
+		c.GetEvent(t).Equals(t, "test.model.parent.change", json.RawMessage(`{"values":{"child":{"rid":"test.model","soft":true}}}`))
+
+		// Send event on collection and validate client event is not sent to client
+		s.ResourceEvent("test.model", "custom", common.CustomEvent())
+		c.AssertNoEvent(t, "test.model")
+	})
+}
+
+// Test change event with new resource reference
+func TestChangeEvent_WithSoftReferenceReplacedByResourceReference_SubscribesReference(t *testing.T) {
+	model := resourceData("test.model")
+
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToResource(t, s, c, "test.model.soft")
+
+		// Send event on model and validate client event
+		s.ResourceEvent("test.model.soft", "change", json.RawMessage(`{"values":{"child":{"rid":"test.model","soft":false}}}`))
+
+		// Handle model get request
+		s.
+			GetRequest(t).
+			AssertSubject(t, "get.test.model").
+			RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+
+		c.GetEvent(t).Equals(t, "test.model.soft.change", json.RawMessage(`{"values":{"child":{"rid":"test.model","soft":false}},"models":{"test.model":`+model+`}}`))
+
+		// Send event on model and validate client event
+		s.ResourceEvent("test.model", "custom", common.CustomEvent())
+		c.GetEvent(t).Equals(t, "test.model.custom", common.CustomEvent())
 	})
 }

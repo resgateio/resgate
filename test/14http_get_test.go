@@ -61,6 +61,10 @@ func TestHTTPGet(t *testing.T) {
 				"test.model.grandparent":  `{"name":"grandparent","child":{"href":"/api/test/model/parent","model":{"name":"parent","child":{"href":"/api/test/model","model":` + resourceData("test.model") + `}}}}`,
 				"test.model.secondparent": `{"name":"secondparent","child":{"href":"/api/test/model","model":` + resourceData("test.model") + `}}`,
 				"test.model.brokenchild":  `{"name":"brokenchild","child":{"href":"/api/test/err/notFound","error":` + resourceData("test.err.notFound") + `}}`,
+				"test.model.soft":         `{"name":"soft","child":{"href":"/api/test/model"}}`,
+				"test.model.soft.parent":  `{"name":"softparent","child":{"href":"/api/test/model/soft","model":{"name":"soft","child":{"href":"/api/test/model"}}}}`,
+				"test.model.data":         `{"name":"data","primitive":12,"object":{"foo":["bar"]},"array":[{"foo":"bar"}]}`,
+				"test.model.data.parent":  `{"name":"dataparent","child":{"href":"/api/test/model/data","model":{"name":"data","primitive":12,"object":{"foo":["bar"]},"array":[{"foo":"bar"}]}}}`,
 				"test.m.a":                `{"a":{"href":"/api/test/m/a"}}`,
 				"test.m.b":                `{"c":{"href":"/api/test/m/c","model":{"b":{"href":"/api/test/m/b"}}}}`,
 				"test.m.d":                `{"e":{"href":"/api/test/m/e","model":{"d":{"href":"/api/test/m/d"}}},"f":{"href":"/api/test/m/f","model":{"d":{"href":"/api/test/m/d"}}}}`,
@@ -72,6 +76,10 @@ func TestHTTPGet(t *testing.T) {
 				"test.collection.grandparent":  `["grandparent",{"href":"/api/test/collection/parent","collection":["parent",{"href":"/api/test/collection","collection":` + resourceData("test.collection") + `}]}]`,
 				"test.collection.secondparent": `["secondparent",{"href":"/api/test/collection","collection":` + resourceData("test.collection") + `}]`,
 				"test.collection.brokenchild":  `["brokenchild",{"href":"/api/test/err/notFound","error":` + resourceData("test.err.notFound") + `}]`,
+				"test.collection.soft":         `["soft",{"href":"/api/test/collection"}]`,
+				"test.collection.soft.parent":  `["softparent",{"href":"/api/test/collection/soft","collection":["soft",{"href":"/api/test/collection"}]}]`,
+				"test.collection.data":         `["data",12,{"foo":["bar"]},[{"foo":"bar"}]]`,
+				"test.collection.data.parent":  `["dataparent",{"href":"/api/test/collection/data","collection":["data",12,{"foo":["bar"]},[{"foo":"bar"}]]}]`,
 				"test.c.a":                     `[{"href":"/api/test/c/a"}]`,
 				"test.c.b":                     `[{"href":"/api/test/c/c","collection":[{"href":"/api/test/c/b"}]}]`,
 				"test.c.d":                     `[{"href":"/api/test/c/e","collection":[{"href":"/api/test/c/d"}]},{"href":"/api/test/c/f","collection":[{"href":"/api/test/c/d"}]}]`,
@@ -88,6 +96,10 @@ func TestHTTPGet(t *testing.T) {
 				"test.model.grandparent":  `{"name":"grandparent","child":{"name":"parent","child":` + resourceData("test.model") + `}}`,
 				"test.model.secondparent": `{"name":"secondparent","child":` + resourceData("test.model") + `}`,
 				"test.model.brokenchild":  `{"name":"brokenchild","child":` + resourceData("test.err.notFound") + `}`,
+				"test.model.soft":         `{"name":"soft","child":{"href":"/api/test/model"}}`,
+				"test.model.soft.parent":  `{"name":"softparent","child":{"name":"soft","child":{"href":"/api/test/model"}}}`,
+				"test.model.data":         `{"name":"data","primitive":12,"object":{"foo":["bar"]},"array":[{"foo":"bar"}]}`,
+				"test.model.data.parent":  `{"name":"dataparent","child":{"name":"data","primitive":12,"object":{"foo":["bar"]},"array":[{"foo":"bar"}]}}`,
 				"test.m.a":                `{"a":{"href":"/api/test/m/a"}}`,
 				"test.m.b":                `{"c":{"b":{"href":"/api/test/m/b"}}}`,
 				"test.m.d":                `{"e":{"d":{"href":"/api/test/m/d"}},"f":{"d":{"href":"/api/test/m/d"}}}`,
@@ -99,6 +111,10 @@ func TestHTTPGet(t *testing.T) {
 				"test.collection.grandparent":  `["grandparent",["parent",` + resourceData("test.collection") + `]]`,
 				"test.collection.secondparent": `["secondparent",` + resourceData("test.collection") + `]`,
 				"test.collection.brokenchild":  `["brokenchild",` + resourceData("test.err.notFound") + `]`,
+				"test.collection.soft":         `["soft",{"href":"/api/test/collection"}]`,
+				"test.collection.soft.parent":  `["softparent",["soft",{"href":"/api/test/collection"}]]`,
+				"test.collection.data":         `["data",12,{"foo":["bar"]},[{"foo":"bar"}]]`,
+				"test.collection.data.parent":  `["dataparent",["data",12,{"foo":["bar"]},[{"foo":"bar"}]]]`,
 				"test.c.a":                     `[{"href":"/api/test/c/a"}]`,
 				"test.c.b":                     `[[{"href":"/api/test/c/b"}]]`,
 				"test.c.d":                     `[[{"href":"/api/test/c/d"}],[{"href":"/api/test/c/d"}]]`,
@@ -109,56 +125,61 @@ func TestHTTPGet(t *testing.T) {
 	}
 
 	for _, enc := range encodings {
-		for i, l := range sequenceTable {
-			runNamedTest(t, fmt.Sprintf("#%d with APIEncoding %#v", i+1, enc.APIEncoding), func(s *Session) {
-				var hreq *HTTPRequest
-				var req *Request
+		for _, set := range sequenceSets {
+			if set.Version != versionLatest {
+				continue
+			}
+			for i, l := range set.Table {
+				runNamedTest(t, fmt.Sprintf("#%d with APIEncoding %#v", i+1, enc.APIEncoding), func(s *Session) {
+					var hreq *HTTPRequest
+					var req *Request
 
-				hreqs := make(map[string]*HTTPRequest)
-				reqs := make(map[string]*Request)
+					hreqs := make(map[string]*HTTPRequest)
+					reqs := make(map[string]*Request)
 
-				for _, ev := range l {
-					switch ev.Event {
-					case "subscribe":
-						url := "/api/" + strings.Replace(ev.RID, ".", "/", -1)
-						hreqs[ev.RID] = s.HTTPRequest("GET", url, nil)
-					case "access":
-						for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
-							treq := s.GetRequest(t)
-							reqs[treq.Subject] = treq
+					for _, ev := range l {
+						switch ev.Event {
+						case "subscribe":
+							url := "/api/" + strings.Replace(ev.RID, ".", "/", -1)
+							hreqs[ev.RID] = s.HTTPRequest("GET", url, nil)
+						case "access":
+							for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
+								treq := s.GetRequest(t)
+								reqs[treq.Subject] = treq
+							}
+							req.RespondSuccess(json.RawMessage(`{"get":true}`))
+						case "accessDenied":
+							for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
+								treq := s.GetRequest(t)
+								reqs[treq.Subject] = treq
+							}
+							req.RespondSuccess(json.RawMessage(`{"get":false}`))
+						case "get":
+							for req = reqs["get."+ev.RID]; req == nil; req = reqs["get."+ev.RID] {
+								req = s.GetRequest(t)
+								reqs[req.Subject] = req
+							}
+							rsrc := resources[ev.RID]
+							switch rsrc.typ {
+							case typeModel:
+								req.RespondSuccess(json.RawMessage(`{"model":` + rsrc.data + `}`))
+							case typeCollection:
+								req.RespondSuccess(json.RawMessage(`{"collection":` + rsrc.data + `}`))
+							case typeError:
+								req.RespondError(rsrc.err)
+							}
+						case "response":
+							hreq = hreqs[ev.RID]
+							hreq.GetResponse(t).Equals(t, http.StatusOK, json.RawMessage(enc.Responses[ev.RID]))
+						case "errorResponse":
+							hreq = hreqs[ev.RID]
+							hreq.GetResponse(t).AssertIsError(t)
 						}
-						req.RespondSuccess(json.RawMessage(`{"get":true}`))
-					case "accessDenied":
-						for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
-							treq := s.GetRequest(t)
-							reqs[treq.Subject] = treq
-						}
-						req.RespondSuccess(json.RawMessage(`{"get":false}`))
-					case "get":
-						for req = reqs["get."+ev.RID]; req == nil; req = reqs["get."+ev.RID] {
-							req = s.GetRequest(t)
-							reqs[req.Subject] = req
-						}
-						rsrc := resources[ev.RID]
-						switch rsrc.typ {
-						case typeModel:
-							req.RespondSuccess(json.RawMessage(`{"model":` + rsrc.data + `}`))
-						case typeCollection:
-							req.RespondSuccess(json.RawMessage(`{"collection":` + rsrc.data + `}`))
-						case typeError:
-							req.RespondError(rsrc.err)
-						}
-					case "response":
-						hreq = hreqs[ev.RID]
-						hreq.GetResponse(t).Equals(t, http.StatusOK, json.RawMessage(enc.Responses[ev.RID]))
-					case "errorResponse":
-						hreq = hreqs[ev.RID]
-						hreq.GetResponse(t).AssertIsError(t)
 					}
-				}
-			}, func(c *server.Config) {
-				c.APIEncoding = enc.APIEncoding
-			})
+				}, func(c *server.Config) {
+					c.APIEncoding = enc.APIEncoding
+				})
+			}
 		}
 	}
 }

@@ -14,20 +14,42 @@ func (c *commonData) CustomEvent() json.RawMessage { return json.RawMessage(`{"f
 // subscribeToTestModel makes a successful subscription to test.model
 // Returns the connection ID (cid)
 func subscribeToTestModel(t *testing.T, s *Session, c *Conn) string {
-	model := resourceData("test.model")
+	return subscribeToResource(t, s, c, "test.model")
+}
+
+func subscribeToResource(t *testing.T, s *Session, c *Conn, rid string) string {
+	rsrc, ok := resources[rid]
+	if !ok {
+		panic("no resource named " + rid)
+	}
+	var r string
+	if rsrc.typ == typeError {
+		b, _ := json.Marshal(rsrc.err)
+		r = string(b)
+	} else {
+		r = rsrc.data
+	}
 
 	// Send subscribe request
-	creq := c.Request("subscribe.test.model", nil)
+	creq := c.Request("subscribe."+rid, nil)
 
 	// Handle model get and access request
 	mreqs := s.GetParallelRequests(t, 2)
-	mreqs.GetRequest(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
-	req := mreqs.GetRequest(t, "access.test.model")
+	// Handle access
+	req := mreqs.GetRequest(t, "access."+rid)
 	cid := req.PathPayload(t, "cid").(string)
 	req.RespondSuccess(json.RawMessage(`{"get":true}`))
-
-	// Validate client response and validate
-	creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model":`+model+`}}`))
+	// Handle resource and validate client response
+	switch rsrc.typ {
+	case typeModel:
+		mreqs.GetRequest(t, "get."+rid).RespondSuccess(json.RawMessage(`{"model":` + r + `}`))
+		creq.GetResponse(t) // .AssertResult(t, json.RawMessage(`{"models":{"`+rid+`":`+r+`}}`))
+	case typeCollection:
+		mreqs.GetRequest(t, "get."+rid).RespondSuccess(json.RawMessage(`{"collection":` + r + `}`))
+		creq.GetResponse(t) // .AssertResult(t, json.RawMessage(`{"collections":{"`+rid+`":`+r+`}}`))
+	default:
+		panic("invalid type")
+	}
 
 	return cid
 }
@@ -82,22 +104,7 @@ func subscribeToTestModelParentExt(t *testing.T, s *Session, c *Conn, childIsSub
 // subscribeToTestCollection makes a successful subscription to test.collection
 // Returns the connection ID (cid) of the access request
 func subscribeToTestCollection(t *testing.T, s *Session, c *Conn) string {
-	collection := resourceData("test.collection")
-
-	// Send subscribe request
-	creq := c.Request("subscribe.test.collection", nil)
-
-	// Handle collection get and access request
-	mreqs := s.GetParallelRequests(t, 2)
-	mreqs.GetRequest(t, "get.test.collection").RespondSuccess(json.RawMessage(`{"collection":` + collection + `}`))
-	req := mreqs.GetRequest(t, "access.test.collection")
-	cid := req.PathPayload(t, "cid").(string)
-	req.RespondSuccess(json.RawMessage(`{"get":true}`))
-
-	// Validate client response and validate
-	creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"collections":{"test.collection":`+collection+`}}`))
-
-	return cid
+	return subscribeToResource(t, s, c, "test.collection")
 }
 
 // subscribeToTestCollectionParent makes a successful subscription to test.collection.parent
@@ -145,75 +152,68 @@ func getCID(t *testing.T, s *Session, c *Conn) string {
 // subscribeToTestQueryModel makes a successful subscription to test.model
 // with a query and the normalized query. Returns the connection ID (cid)
 func subscribeToTestQueryModel(t *testing.T, s *Session, c *Conn, q, normq string) string {
-	model := resourceData("test.model")
-
-	normqj, err := json.Marshal(normq)
-	if err != nil {
-		panic("test: failed to marshal normalized query: " + err.Error())
-	}
-
-	rid := "test.model"
-	if q != "" {
-		rid += "?" + q
-	}
-	qj, err := json.Marshal(rid)
-	if err != nil {
-		panic("test: failed to marshal query: " + err.Error())
-	}
-
-	// Send subscribe request
-	creq := c.Request("subscribe."+rid, nil)
-
-	// Handle model get and access request
-	mreqs := s.GetParallelRequests(t, 2)
-	req := mreqs.GetRequest(t, "get.test.model")
-	if q != "" {
-		req.AssertPathPayload(t, "query", q)
-	}
-	req.RespondSuccess(json.RawMessage(`{"model":` + model + `,"query":` + string(normqj) + `}`))
-	req = mreqs.GetRequest(t, "access.test.model")
-	if q != "" {
-		req.AssertPathPayload(t, "query", q)
-	}
-	cid := req.PathPayload(t, "cid").(string)
-	req.RespondSuccess(json.RawMessage(`{"get":true}`))
-
-	// Validate client response and validate
-	creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{`+string(qj)+`:`+model+`}}`))
-
-	return cid
+	return subscribeToQueryResource(t, s, c, "test.model", q, normq)
 }
 
 // subscribeToTestQueryCollection makes a successful subscription to test.collection
 // with a query and the normalized query. Returns the connection ID (cid)
 func subscribeToTestQueryCollection(t *testing.T, s *Session, c *Conn, q, normq string) string {
-	collection := resourceData("test.collection")
+	return subscribeToQueryResource(t, s, c, "test.collection", q, normq)
+}
+
+func subscribeToQueryResource(t *testing.T, s *Session, c *Conn, rid, q, normq string) string {
+	rsrc, ok := resources[rid]
+	if !ok {
+		panic("no resource named " + rid)
+	}
+	var r string
+	if rsrc.typ == typeError {
+		b, _ := json.Marshal(rsrc.err)
+		r = string(b)
+	} else {
+		r = rsrc.data
+	}
 
 	normqj, err := json.Marshal(normq)
 	if err != nil {
 		panic("test: failed to marshal normalized query: " + err.Error())
 	}
 
-	qj, err := json.Marshal("test.collection?" + q)
+	fullrid := rid
+	if q != "" {
+		fullrid += "?" + q
+	}
+	qj, err := json.Marshal(fullrid)
 	if err != nil {
 		panic("test: failed to marshal query: " + err.Error())
 	}
 
 	// Send subscribe request
-	creq := c.Request("subscribe.test.collection?"+q, nil)
+	creq := c.Request("subscribe."+fullrid, nil)
 
-	// Handle collection get and access request
+	// Handle resource get and access request
 	mreqs := s.GetParallelRequests(t, 2)
-	mreqs.
-		GetRequest(t, "get.test.collection").
-		AssertPathPayload(t, "query", q).
-		RespondSuccess(json.RawMessage(`{"collection":` + collection + `,"query":` + string(normqj) + `}`))
-	req := mreqs.GetRequest(t, "access.test.collection").AssertPathPayload(t, "query", q)
+	// Handle access request
+	req := mreqs.GetRequest(t, "access."+rid)
+	if q != "" {
+		req.AssertPathPayload(t, "query", q)
+	}
 	cid := req.PathPayload(t, "cid").(string)
 	req.RespondSuccess(json.RawMessage(`{"get":true}`))
-
-	// Validate client response and validate
-	creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"collections":{`+string(qj)+`:`+collection+`}}`))
-
+	// Handle resource and validate client response
+	req = mreqs.GetRequest(t, "get."+rid)
+	if q != "" {
+		req.AssertPathPayload(t, "query", q)
+	}
+	switch rsrc.typ {
+	case typeModel:
+		req.RespondSuccess(json.RawMessage(`{"model":` + r + `,"query":` + string(normqj) + `}`))
+		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{`+string(qj)+`:`+r+`}}`))
+	case typeCollection:
+		req.RespondSuccess(json.RawMessage(`{"collection":` + r + `,"query":` + string(normqj) + `}`))
+		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"collections":{`+string(qj)+`:`+r+`}}`))
+	default:
+		panic("invalid type")
+	}
 	return cid
 }

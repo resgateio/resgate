@@ -5,13 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/resgateio/resgate/server"
 	"github.com/resgateio/resgate/server/reserr"
 )
 
 func TestVersion_Request_ReturnsExpectedResponse(t *testing.T) {
-
-	versionResult := json.RawMessage(fmt.Sprintf(`{"protocol":"%s"}`, server.ProtocolVersion))
 
 	tbl := []struct {
 		Params   json.RawMessage

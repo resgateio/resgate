@@ -1,6 +1,6 @@
 # RES Protocol
 
-*Version: [1.2.0](res-protocol-semver.md)*
+*Version: [1.2.1](res-protocol-semver.md)*
 
 ## Table of contents
 - [Introduction](#introduction)
@@ -79,26 +79,47 @@ A collection is an ordered list of [values](#values) represented by a JSON array
 
 ## Values
 
-A value is either a *primitive* or a [resource reference](#resource-references).  
-A primitive is either a JSON `string`, `number`, `true`, `false`, or `null` value.  
+A value is either a [primitive](#primitives), a [resource reference](#resource-references), or a [data value](#data-values).  
 
 ### Example
 ```javascript
-"foo"                        // string
-42                           // number
-true                         // boolean true
-false                        // boolean false
-null                         // null
-{ "rid": "example.user.42" } // resource reference
+"foo" // string
+42    // number
+true  // boolean true
+false // boolean false
+null  // null
+
+{ "rid": "example.user.42" }             // resource reference
+{ "rid": "example.page.2", "soft":true } // soft reference
+{ "data": { "foo": [ "bar" ] }}          // data value
+{ "data": 42 }                           // data value interchangeable with the primitive 42
 ```
+
+## Primitives
+
+A primitive is either a JSON `string`, `number`, `true`, `false`, or `null` value.
 
 ## Resource references
 
-A resource reference is a JSON objects with the following parameter:
+A resource reference is a link to a resource. A *soft reference* is a resource reference which will not automatically be followed by the gateway. The resource reference is a JSON object with the following parameters:
 
 **rid**  
 Resource ID of the referenced resource.  
 MUST be a valid [resource ID](#resource-ids).
+
+**soft**  
+Flag telling if the reference is a soft resource reference.  
+May be omitted if the reference is not a soft reference.  
+MUST be a boolean.
+
+## Data values
+
+A data value contains any JSON value, including nested objects and arrays.  
+If the contained value can be expressed as a [primitive](#primitives), the data value is interchangeable with the primitive.  
+The data value is a JSON object with the following parameter:
+
+**data**  
+The contained JSON value.  
 
 ## Messaging system
 
