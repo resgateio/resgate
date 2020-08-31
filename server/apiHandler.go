@@ -30,6 +30,7 @@ func (s *Service) initAPIHandler() error {
 // setCommonHeaders sets common headers such as Access-Control-*.
 // It returns error if the origin header does not match any allowed origin.
 func (s *Service) setCommonHeaders(w http.ResponseWriter, r *http.Request) error {
+	w.Header().Set("Access-Control-Allow-Headers", "content-type")
 	if s.cfg.allowOrigin[0] == "*" {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		return nil
