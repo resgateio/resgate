@@ -2,6 +2,7 @@ package rescache
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/resgateio/resgate/server/codec"
 	"github.com/resgateio/resgate/server/reserr"
@@ -453,6 +454,9 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 	// or an error in the service's response
 	if err == nil {
 		result, err = codec.DecodeGetResponse(payload)
+		if err == nil && ((rs.state == stateModel && result.Model == nil) || (rs.state == stateCollection && result.Collection == nil)) {
+			err = errors.New("mismatching resource type")
+		}
 	}
 
 	// Get request failed

@@ -173,7 +173,7 @@ func (s *Service) handleCall(w http.ResponseWriter, r *http.Request, rid string,
 }
 
 func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func([]byte, error))) {
-	c := s.newWSConn(nil, r, latestProtocol)
+	c := s.newWSConn(nil, r, versionLatest)
 	if c == nil {
 		httpError(w, reserr.ErrServiceUnavailable, s.enc)
 		return

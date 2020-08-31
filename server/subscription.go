@@ -27,6 +27,7 @@ type ConnSubscriber interface {
 	Enqueue(f func()) bool
 	ExpandCID(string) string
 	Disconnect(reason string)
+	ProtocolVersion() int
 }
 
 // Subscription represents a resource subscription made by a client connection
@@ -265,7 +266,11 @@ func (s *Subscription) onLoaded(rcb *readyCallback) {
 // It will lock the subscription and queue any events until ReleaseRPCResources is called.
 func (s *Subscription) GetRPCResources() *rpc.Resources {
 	r := &rpc.Resources{}
-	s.populateResources(r)
+	if s.c.ProtocolVersion() < versionSoftResourceReferenceAndDataValue {
+		s.populateResourcesLegacy(r)
+	} else {
+		s.populateResources(r)
+	}
 	return r
 }
 
@@ -358,6 +363,48 @@ func (s *Subscription) populateResources(r *rpc.Resources) {
 	}
 }
 
+// populateResourcesLegacy is the same as populateResources, but uses legacy
+// encodings of resources.
+func (s *Subscription) populateResourcesLegacy(r *rpc.Resources) {
+	// Quick exit if resource is already sent
+	if s.state == stateSent || s.state == stateToSend {
+		return
+	}
+
+	// Check for errors
+	err := s.Error()
+	if err != nil {
+		// Create Errors map if needed
+		if r.Errors == nil {
+			r.Errors = make(map[string]*reserr.Error)
+		}
+		r.Errors[s.rid] = reserr.RESError(err)
+		return
+	}
+
+	switch s.typ {
+	case rescache.TypeCollection:
+		// Create Collections map if needed
+		if r.Collections == nil {
+			r.Collections = make(map[string]interface{})
+		}
+		r.Collections[s.rid] = (*rescache.Legacy120Collection)(s.collection)
+
+	case rescache.TypeModel:
+		// Create Models map if needed
+		if r.Models == nil {
+			r.Models = make(map[string]interface{})
+		}
+		r.Models[s.rid] = (*rescache.Legacy120Model)(s.model)
+	}
+
+	s.state = stateToSend
+
+	for _, sc := range s.refs {
+		sc.sub.populateResourcesLegacy(r)
+	}
+}
+
 // setModel subscribes to all resource references in the model.
 func (s *Subscription) setModel() {
 	m := s.resourceSub.GetModel()
@@ -390,7 +437,7 @@ func (s *Subscription) setCollection() {
 // be unsubscribed, s.err set, s.doneLoading called, and false returned.
 // If v is not a resource reference, nothing will happen.
 func (s *Subscription) subscribeRef(v codec.Value) bool {
-	if v.Type != codec.ValueTypeResource {
+	if v.Type != codec.ValueTypeReference {
 		return true
 	}
 
@@ -527,7 +574,7 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 		idx := event.Idx
 
 		switch v.Type {
-		case codec.ValueTypeResource:
+		case codec.ValueTypeReference:
 			rid := v.RID
 			sub, err := s.addReference(rid)
 			if err != nil {
@@ -558,6 +605,14 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 
 				s.unqueueEvents(queueReasonLoading)
 			})
+		case codec.ValueTypeData:
+			fallthrough
+		case codec.ValueTypeSoftReference:
+			if s.c.ProtocolVersion() < versionSoftResourceReferenceAndDataValue {
+				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEvent{Idx: idx, Value: rescache.Legacy120Value(v)}))
+				break
+			}
+			fallthrough
 		case codec.ValueTypePrimitive:
 			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEvent{Idx: idx, Value: v.RawMessage}))
 		}
@@ -566,7 +621,7 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 		// Remove and unsubscribe to model
 		v := event.Value
 
-		if v.Type == codec.ValueTypeResource {
+		if v.Type == codec.ValueTypeReference {
 			s.removeReference(v.RID)
 		}
 		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Payload))
@@ -587,7 +642,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 		var subs []*Subscription
 
 		for _, v := range ch {
-			if v.Type == codec.ValueTypeResource {
+			if v.Type == codec.ValueTypeReference {
 				sub, err := s.addReference(v.RID)
 				if err != nil {
 					s.c.Errorf("Subscription %s: Error subscribing to resource %s: %s", s.rid, v.RID, err)
@@ -606,14 +661,19 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 		// Check for removing changed references after adding references to avoid unsubscribing to
 		// a resource that is going to be subscribed again because it has moved between properties.
 		for k := range ch {
-			if ov, ok := old[k]; ok && ov.Type == codec.ValueTypeResource {
+			if ov, ok := old[k]; ok && ov.Type == codec.ValueTypeReference {
 				s.removeReference(ov.RID)
 			}
 		}
 
 		// Quick exit if there are no new unsent subscriptions
 		if subs == nil {
-			s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Changed}))
+			// Legacy behavior
+			if s.c.ProtocolVersion() < versionSoftResourceReferenceAndDataValue {
+				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: rescache.Legacy120ValueMap(event.Changed)}))
+			} else {
+				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Changed}))
+			}
 			return
 		}
 
@@ -633,10 +693,19 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 				}
 
 				r := &rpc.Resources{}
-				for _, sub := range subs {
-					sub.populateResources(r)
+
+				// Legacy behavior
+				if s.c.ProtocolVersion() < versionSoftResourceReferenceAndDataValue {
+					for _, sub := range subs {
+						sub.populateResourcesLegacy(r)
+					}
+					s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: rescache.Legacy120ValueMap(event.Changed), Resources: r}))
+				} else {
+					for _, sub := range subs {
+						sub.populateResources(r)
+					}
+					s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Changed, Resources: r}))
 				}
-				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Changed, Resources: r}))
 				for _, sub := range subs {
 					sub.ReleaseRPCResources()
 				}

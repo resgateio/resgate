@@ -249,7 +249,7 @@ func usage() {
 
 // version will print out the current resgate and protocol version.
 func version() {
-	fmt.Printf("resgate  v%s\nprotocol v%s", server.Version, server.ProtocolVersion)
+	fmt.Printf("resgate  v%s\nprotocol v%s\n", server.Version, server.ProtocolVersion)
 	os.Exit(0)
 }
 

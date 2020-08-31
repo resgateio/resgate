@@ -1,6 +1,6 @@
 # The RES-Client Protocol Specification
 
-*Version: [1.2.0](res-protocol-semver.md)*
+*Version: [1.2.1](res-protocol-semver.md)*
 
 ## Table of contents
 - [Introduction](#introduction)
@@ -40,17 +40,17 @@ The RES-Client protocol is used in communication between the client and the gate
 
 A core concept in the RES-Client protocol is the subscriptions. A client may subscribe to resources by making [subscribe requests](#subscribe-request) with the unique [resource ID](res-protocol.md#resource-ids), or by getting a resource response on a [call request](#call-request) or [auth request](#auth-request).
 
-A resource may be subscribed to [directly](#direct-subscription) or [indirectly](#indirect-subscription). Any reference to *subscription*, or a resource being *subscribed* to, in this document should be interpreted as both *direct* and *indirect* subscriptions, unless specified.
+A resource may be subscribed to [directly](#direct-subscription) or [indirectly](#indirect-subscription). Any reference in this document to *subscription* or a resource being *subscribed* to, should be interpreted as both *direct* and *indirect* subscriptions, unless specified.
 
 The client will receive [events](#events) on anything that happens on a subscribed resource. A subscription lasts as long as the resource has direct or indirect subscriptions, or when the connection to the gateway is closed.
 
 ## Direct subscription
 The resource that is subscribed to with a [subscribe request](#subscribe-request), or returned as a resource response to a [call request](#call-request) or [auth request](#auth-request) will be considered *directly subscribed*.
 
-It is possible to make multiple direct subscriptions on a resource. It will be considered directly subscribed until an equal number of [unsubscribe requests](#unsubscribe-request) has been made.
+It is possible to have multiple direct subscriptions on a resource. It will be considered directly subscribed until the same number of subscriptions are matched using one ore more [unsubscribe requests](#unsubscribe-request).
 
 ## Indirect subscription
-A resource that is referred to with a [resource reference](res-protocol.md#values) by a [directly subscribed](#direct-subscription) resource, or by an indirectly subscribed resource, will be considered *indirectly subscribed*. Cyclic references where none of the resources are directly subscribed will not be considered subscribed.
+A resource that is referred to with a non-soft [resource reference](res-protocol.md#resource-references) by a [directly subscribed](#direct-subscription) resource, or by an indirectly subscribed resource, will be considered *indirectly subscribed*. Cyclic references where none of the resources are directly subscribed will not be considered subscribed.
 
 
 ## Resource set
@@ -231,26 +231,33 @@ May be omitted if no subscribed resources encountered errors.
 ### Error
 
 An error response will be sent if the resource couldn't be subscribed to.  
-Any [resource reference](res-protocol.md#values) that fails will not lead to an error response, but the error will be added to the [resource set](#resource-set) errors.
+Any [resource reference](res-protocol.md#resource-references) that fails will not lead to an error response, but the error will be added to the [resource set](#resource-set) errors.
 
 ## Unsubscribe request
 
-Unsubscribe requests are sent by the client to unsubscribe to a previous made [direct subscription](#direct-subscription).
+Unsubscribe requests are sent by the client to unsubscribe to previous [direct subscriptions](#direct-subscription).
 
 The resource will only be considered unsubscribed when there are no more [direct](#direct-subscription) or [indirect](#indirect-subscription) subscriptions.
+
+If the **count** property is omitted in the request, the value of 1 is assumed.
 
 **method**  
 `unsubscribe.<resourceID>`
 
 ### Parameters
-The request has no parameters.
+The request parameters are optional.  
+It not omitted, the parameters object SHOULD have the following property:
+
+**count**  
+The number of direct subscriptions to unsubscribe to.  
+MUST be a number greater than 0.
 
 ### Result
 The result has no payload.
 
 ### Error
 
-An error response with code `system.noSubscription` will be sent if the resource has no direct subscription.
+An error response with code `system.noSubscription` will be sent if the resource has no direct subscription, or if *count* exceeds the number of direct subscriptions. If so, the number of direct subscriptions will be unaffected.
 
 
 ## Get request
@@ -280,7 +287,7 @@ May be omitted if no retrieved resources encountered errors.
 ### Error
 
 An error response will be sent if the resource couldn't be retrieved.  
-Any [resource reference](res-protocol.md#values) that fails will not lead to an error response, but the error will be added to the [resource set](#resource-set) errors.
+Any [resource reference](res-protocol.md#resource-references) that fails will not lead to an error response, but the error will be added to the [resource set](#resource-set) errors.
 
 
 ## Call request
@@ -420,7 +427,7 @@ Event data. The payload is defined by the event type.
 ## Model change event
 
 Change events are sent when a [model](res-protocol.md#models)'s properties has been changed.  
-Will result in new [indirect subscriptions](#indirect-subscription) if changed properties contain [resource references](res-protocol.md#values) previously not subscribed.  
+Will result in new [indirect subscriptions](#indirect-subscription) if changed properties contain [resource references](res-protocol.md#resource-references) previously not subscribed.  
 Change events are only sent on [models](res-protocol.md#models).
 
 **event**  
@@ -467,7 +474,7 @@ A delete action is a JSON object used when a property has been deleted from a mo
 
 ## Collection add event
 Add events are sent when a value is added to a [collection](res-protocol.md#collections).  
-Will result in one or more new [indirect subscriptions](#indirect-subscription) if added value is a [resource references](res-protocol.md#values) previously not subscribed.  
+Will result in one or more new [indirect subscriptions](#indirect-subscription) if added value is a [resource references](res-protocol.md#resource-references) previously not subscribed.  
 Add events are only sent on [collections](res-protocol.md#collections).
 
 **event**  

@@ -1,6 +1,12 @@
 package server
 
-// Last protocol version where a specific feature was not supported.
+// Protocol versions
 const (
-	versionCallResourceResponse = 1001001
+	versionLatest = 1002001 // MAJOR * 1000000 + MINOR * 1000 + PATCH
+	versionLegacy = 1001001
+)
+
+const (
+	versionCallResourceResponse              = 1002000
+	versionSoftResourceReferenceAndDataValue = 1002001
 )

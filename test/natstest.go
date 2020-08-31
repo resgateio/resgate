@@ -182,6 +182,19 @@ func (c *NATSTestClient) HasSubscriptions(t *testing.T, rids ...string) {
 	}
 }
 
+// NoSubscriptions asserts that there isn't any subscription for the given
+// resource IDs.
+func (c *NATSTestClient) NoSubscriptions(t *testing.T, rids ...string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for _, rid := range rids {
+		if _, ok := c.subs["event."+rid]; ok {
+			t.Fatalf("expected no subscription for event.%s.*, but found one", rid)
+		}
+	}
+}
+
 // ResourceEvent sends a resource event to resgate. The subject will be "event."+rid+"."+event .
 // It panics if there is no subscription for such event.
 func (c *NATSTestClient) ResourceEvent(rid string, event string, payload interface{}) {
