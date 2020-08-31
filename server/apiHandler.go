@@ -32,6 +32,7 @@ func (s *Service) initAPIHandler() error {
 func (s *Service) setCommonHeaders(w http.ResponseWriter, r *http.Request) error {
 	if s.cfg.allowOrigin[0] == "*" {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "content-type")
 		return nil
 	}
 
@@ -42,10 +43,12 @@ func (s *Service) setCommonHeaders(w http.ResponseWriter, r *http.Request) error
 	if len(origin) > 0 && origin[0] != "null" {
 		if matchesOrigins(s.cfg.allowOrigin, origin[0]) {
 			w.Header().Set("Access-Control-Allow-Origin", origin[0])
+			w.Header().Set("Access-Control-Allow-Headers", "content-type")
 			w.Header().Set("Vary", "Origin")
 		} else {
 			// No matching origin
 			w.Header().Set("Access-Control-Allow-Origin", s.cfg.allowOrigin[0])
+			w.Header().Set("Access-Control-Allow-Headers", "content-type")
 			w.Header().Set("Vary", "Origin")
 			return reserr.ErrForbiddenOrigin
 		}
