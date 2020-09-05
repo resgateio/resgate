@@ -59,7 +59,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Methods", s.cfg.allowMethods)
 		reqHeaders := r.Header["Access-Control-Request-Headers"]
 		if len(reqHeaders) > 0 {
-			w.Header()["Access-Control-Allow-Headers"] = reqHeaders
+			w.Header().Set("Access-Control-Allow-Headers", strings.Join(reqHeaders, ", "))
 		}
 		return
 	}
