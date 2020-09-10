@@ -50,9 +50,9 @@ It has the following structure:
 
 `<type>.<resourceName>.<method>`
 
-* type - the request type. May be either `access`, `get`, `call`, or `auth`.
-* resourceName - the resource name of the [resource ID](res-protocol.md#resource-ids).
-* method - the request method. Only used for `call` or `auth` type requests.
+* *type* - the request type. May be either `access`, `get`, `call`, or `auth`.
+* *resourceName* - the resource name of the [resource ID](res-protocol.md#resource-ids).
+* *method* - the request method. Only used for `call` or `auth` type requests.
 
 ## Request payload
 
@@ -121,9 +121,11 @@ It should contain the following key:
 
 **timeout**  
 Sets the request timeout. The value is the new timeout in milliseconds calculated from when the requester receives the pre-response. The requester should honor this timeout.  
-Example payload (15 second timeout):  
-`timeout:"15000"`
+Example payload (15 second timeout):
 
+```text
+timeout:"15000"
+```
 
 # Request types
 
@@ -486,7 +488,7 @@ Payload is defined by the service, and will be passed to the client without alte
 
 # Connection events
 
-Connection events are sent for specific [connection ID's (cid)](#res-protocol.md#connection-ids), and are listened to by the gateways. These events allow for the services to control the state of the connections.  
+Connection events are sent for specific [connection ID's (cid)](res-protocol.md#connection-ids), and are listened to by the gateways. These events allow for the services to control the state of the connections.  
 
 ## Connection token event
 
@@ -545,7 +547,8 @@ May be omitted.
 
 ### Resource name pattern
 A resource name pattern is a string used for matching resource names.  
-The pattern may use the following wild cards:  
+The pattern may use the following wild cards:
+
 * The asterisk (`*`) matches any part at any level of the resource name.  
 Eg. `userService.user.*.roles` - Pattern that matches the roles collection of all users.
 * The greater than symbol (`>`) matches one or more parts at the end of a resource name, and must be the last part.  

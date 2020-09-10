@@ -42,3 +42,32 @@ func TestHTTPOptions_AllowOrigin_ExpectedResponseHeaders(t *testing.T) {
 		})
 	}
 }
+
+func TestHTTPOptions_RequestHeaders_ExpectedResponseHeaders(t *testing.T) {
+	tbl := []struct {
+		RequestHeaders         []string          // Request's Origin header. Empty means no Origin header.
+		ExpectedHeaders        map[string]string // Expected response Headers
+		ExpectedMissingHeaders []string          // Expected response headers not to be included
+	}{
+		{[]string{"Content-Type"}, map[string]string{"Access-Control-Allow-Headers": "Content-Type"}, nil},
+		{[]string{"X-PINGOTHER", "Content-Type"}, map[string]string{"Access-Control-Allow-Headers": "X-PINGOTHER, Content-Type"}, nil},
+		{[]string{"X-PINGOTHER", "Content-Type", "Authorization"}, map[string]string{"Access-Control-Allow-Headers": "X-PINGOTHER, Content-Type, Authorization"}, nil},
+		{nil, nil, []string{"Access-Control-Allow-Headers"}},
+	}
+
+	for i, l := range tbl {
+		l := l
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
+			hreq := s.HTTPRequest("OPTIONS", "/api/test/model", nil, func(req *http.Request) {
+				if len(l.RequestHeaders) > 0 {
+					req.Header["Access-Control-Request-Headers"] = l.RequestHeaders
+				}
+			})
+			// Validate http response
+			hreq.GetResponse(t).
+				Equals(t, http.StatusOK, nil).
+				AssertHeaders(t, l.ExpectedHeaders).
+				AssertMissingHeaders(t, l.ExpectedMissingHeaders)
+		})
+	}
+}

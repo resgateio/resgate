@@ -57,6 +57,10 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 	err := s.setCommonHeaders(w, r)
 	if r.Method == "OPTIONS" {
 		w.Header().Set("Access-Control-Allow-Methods", s.cfg.allowMethods)
+		reqHeaders := r.Header["Access-Control-Request-Headers"]
+		if len(reqHeaders) > 0 {
+			w.Header().Set("Access-Control-Allow-Headers", strings.Join(reqHeaders, ", "))
+		}
 		return
 	}
 	if err != nil {
