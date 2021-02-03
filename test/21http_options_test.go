@@ -49,9 +49,9 @@ func TestHTTPOptions_RequestHeaders_ExpectedResponseHeaders(t *testing.T) {
 		ExpectedHeaders        map[string]string // Expected response Headers
 		ExpectedMissingHeaders []string          // Expected response headers not to be included
 	}{
-		{[]string{"Content-Type"}, map[string]string{"Access-Control-Allow-Headers": "Content-Type"}, nil},
-		{[]string{"X-PINGOTHER", "Content-Type"}, map[string]string{"Access-Control-Allow-Headers": "X-PINGOTHER, Content-Type"}, nil},
-		{[]string{"X-PINGOTHER", "Content-Type", "Authorization"}, map[string]string{"Access-Control-Allow-Headers": "X-PINGOTHER, Content-Type, Authorization"}, nil},
+		{[]string{"Content-Type"}, map[string]string{"Access-Control-Allow-Headers": "Content-Type"}, []string{"Access-Control-Allow-Credentials"}},
+		{[]string{"X-PINGOTHER", "Content-Type"}, map[string]string{"Access-Control-Allow-Headers": "X-PINGOTHER, Content-Type"}, []string{"Access-Control-Allow-Credentials"}},
+		{[]string{"X-PINGOTHER", "Content-Type", "Authorization"}, map[string]string{"Access-Control-Allow-Headers": "X-PINGOTHER, Content-Type, Authorization"}, []string{"Access-Control-Allow-Credentials"}},
 		{nil, nil, []string{"Access-Control-Allow-Headers"}},
 	}
 
@@ -70,4 +70,18 @@ func TestHTTPOptions_RequestHeaders_ExpectedResponseHeaders(t *testing.T) {
 				AssertMissingHeaders(t, l.ExpectedMissingHeaders)
 		})
 	}
+}
+
+func TestHTTPOptions_HeaderAuth_HasExpectedResponseHeaders(t *testing.T) {
+
+	runTest(t, func(s *Session) {
+		hreq := s.HTTPRequest("OPTIONS", "/api/test/model", nil)
+		// Validate http response
+		hreq.GetResponse(t).
+			Equals(t, http.StatusOK, nil).
+			AssertHeaders(t, map[string]string{"Access-Control-Allow-Credentials": "true"})
+	}, func(cfg *server.Config) {
+		headerAuth := "vault.method"
+		cfg.HeaderAuth = &headerAuth
+	})
 }
