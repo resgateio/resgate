@@ -257,11 +257,11 @@ func TestHTTPGet_AllowOrigin_ExpectedResponse(t *testing.T) {
 		ExpectedMissingHeaders []string          // Expected response headers not to be included
 		ExpectedBody           interface{}       // Expected response body
 	}{
-		{"http://localhost", "", "*", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "*"}, []string{"Vary"}, successResponse},
-		{"http://localhost", "", "http://localhost", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"}, nil, successResponse},
-		{"https://resgate.io", "", "http://localhost;https://resgate.io", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "https://resgate.io", "Vary": "Origin"}, nil, successResponse},
+		{"http://localhost", "", "*", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "*"}, []string{"Vary", "Access-Control-Allow-Credentials"}, successResponse},
+		{"http://localhost", "", "http://localhost", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"}, []string{"Access-Control-Allow-Credentials"}, successResponse},
+		{"https://resgate.io", "", "http://localhost;https://resgate.io", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "https://resgate.io", "Vary": "Origin"}, []string{"Access-Control-Allow-Credentials"}, successResponse},
 		// Invalid requests
-		{"http://example.com", "", "http://localhost;https://resgate.io", http.StatusForbidden, map[string]string{"Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"}, nil, reserr.ErrForbiddenOrigin},
+		{"http://example.com", "", "http://localhost;https://resgate.io", http.StatusForbidden, map[string]string{"Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"}, []string{"Access-Control-Allow-Credentials"}, reserr.ErrForbiddenOrigin},
 		// No Origin header in request
 		{"", "", "*", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "*"}, []string{"Vary"}, successResponse},
 		{"", "", "http://localhost", http.StatusOK, nil, []string{"Access-Control-Allow-Origin", "Vary"}, successResponse},
@@ -297,6 +297,85 @@ func TestHTTPGet_AllowOrigin_ExpectedResponse(t *testing.T) {
 				AssertMissingHeaders(t, l.ExpectedMissingHeaders)
 		}, func(cfg *server.Config) {
 			cfg.AllowOrigin = &l.AllowOrigin
+		})
+	}
+}
+
+func TestHTTPGet_HeaderAuth_ExpectedResponse(t *testing.T) {
+	model := resourceData("test.model")
+	token := json.RawMessage(`{"user":"foo"}`)
+	successResponse := json.RawMessage(model)
+
+	tbl := []struct {
+		AuthResponse    interface{}       // Response on auth request. requestTimeout means timeout.
+		Token           interface{}       // Token to send. noToken means no token events should be sent.
+		ExpectedHeaders map[string]string // Expected response Headers
+	}{
+		// Without token
+		{requestTimeout, noToken, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		{reserr.ErrNotFound, noToken, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		{[]byte(`{]`), noToken, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		{nil, noToken, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		// With token
+		{requestTimeout, token, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		{reserr.ErrNotFound, token, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		{[]byte(`{]`), token, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		{nil, token, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		// With nil token
+		{requestTimeout, nil, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		{reserr.ErrNotFound, nil, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		{[]byte(`{]`), nil, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		{nil, nil, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+	}
+
+	for i, l := range tbl {
+		l := l
+		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
+			hreq := s.HTTPRequest("GET", "/api/test/model", nil, func(req *http.Request) {
+				req.Header.Set("Origin", "example.com")
+			})
+
+			req := s.GetRequest(t)
+			req.AssertSubject(t, "auth.vault.method")
+			req.AssertPathPayload(t, "header.Origin", []string{"example.com"})
+			// Send token
+			expectedToken := l.Token
+			if l.Token != noToken {
+				cid := req.PathPayload(t, "cid").(string)
+				s.ConnEvent(cid, "token", struct {
+					Token interface{} `json:"token"`
+				}{l.Token})
+			} else {
+				expectedToken = nil
+			}
+			// Respond to auth request
+			if l.AuthResponse == requestTimeout {
+				req.Timeout()
+			} else if err, ok := l.AuthResponse.(*reserr.Error); ok {
+				req.RespondError(err)
+			} else if raw, ok := l.AuthResponse.([]byte); ok {
+				req.RespondRaw(raw)
+			} else {
+				req.RespondSuccess(l.AuthResponse)
+			}
+
+			// Handle model get and access request
+			mreqs := s.GetParallelRequests(t, 2)
+			mreqs.
+				GetRequest(t, "access.test.model").
+				AssertPathPayload(t, "token", expectedToken).
+				RespondSuccess(json.RawMessage(`{"get":true}`))
+			mreqs.
+				GetRequest(t, "get.test.model").
+				RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+
+			// Validate http response
+			hreq.GetResponse(t).
+				Equals(t, http.StatusOK, successResponse).
+				AssertHeaders(t, l.ExpectedHeaders)
+		}, func(cfg *server.Config) {
+			headerAuth := "vault.method"
+			cfg.HeaderAuth = &headerAuth
 		})
 	}
 }

@@ -10,10 +10,14 @@ import (
 )
 
 var (
-	noQueryGetRequest  = []byte(`{}`)
-	errMissingResult   = reserr.InternalError(errors.New("response missing result"))
-	errInvalidResponse = reserr.InternalError(errors.New("invalid service response"))
-	errInvalidValue    = reserr.InternalError(errors.New("invalid value"))
+	noQueryGetRequest               = []byte(`{}`)
+	errMissingResult                = reserr.InternalError(errors.New("response missing result"))
+	errInvalidResponse              = reserr.InternalError(errors.New("invalid service response"))
+	errInvalidValue                 = reserr.InternalError(errors.New("invalid value"))
+	errInvalidValueEmptyRID         = reserr.InternalError(errors.New(`invalid value: resource references requires a non-empty "rid" value`))
+	errInvalidValueAmbiguous        = reserr.InternalError(errors.New(`invalid value: ambiguous value type`))
+	errInvalidValueObjectNotAllowed = reserr.InternalError(errors.New(`invalid value: nested json object must be wrapped as a data value`))
+	errInvalidValueArrayNotAllowed  = reserr.InternalError(errors.New(`invalid value: nested json array must be wrapped as a data value`))
 )
 
 const (
@@ -239,13 +243,16 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 
 		switch {
 		case mvo.RID != nil:
-			// Invalid to have both RID and Action or Data set, or if RID is empty
-			if mvo.Action != nil || mvo.Data != nil || *mvo.RID == "" {
-				return errInvalidValue
+			if *mvo.RID == "" {
+				return errInvalidValueEmptyRID
+			}
+			// Invalid to have both RID and Action or Data set
+			if mvo.Action != nil || mvo.Data != nil {
+				return errInvalidValueAmbiguous
 			}
 			v.RID = *mvo.RID
 			if !IsValidRID(v.RID, true) {
-				return errInvalidValue
+				return reserr.InternalError(errors.New(`invalid value: resource reference rid "` + v.RID + `" is invalid`))
 			}
 			if mvo.Soft {
 				v.Type = ValueTypeSoftReference
@@ -254,8 +261,11 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 			}
 		case mvo.Action != nil:
 			// Invalid to have both Action and Data set, or if action is not actionDelete
-			if mvo.Data != nil || *mvo.Action != actionDelete {
-				return errInvalidValue
+			if mvo.Data != nil {
+				return errInvalidValueAmbiguous
+			}
+			if *mvo.Action != actionDelete {
+				return reserr.InternalError(errors.New(`invalid value: unknown action "` + *mvo.Action + `"`))
 			}
 			v.Type = ValueTypeDelete
 		case mvo.Data != nil:
@@ -269,10 +279,10 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 				v.Type = ValueTypePrimitive
 			}
 		default:
-			return errInvalidValue
+			return errInvalidValueObjectNotAllowed
 		}
 	case '[':
-		return errInvalidValue
+		return errInvalidValueArrayNotAllowed
 	default:
 		v.Type = ValueTypePrimitive
 	}

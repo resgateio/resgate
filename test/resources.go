@@ -104,6 +104,7 @@ var resources = map[string]resource{
 const (
 	requestTimeout uint64 = iota
 	noRequest
+	noToken
 )
 
 type sequenceEvent struct {
