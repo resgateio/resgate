@@ -49,10 +49,8 @@ func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request, protocol 
 		return nil
 	}
 
-	cid := xid.New()
-
 	conn := &wsConn{
-		cid:         cid.String(),
+		cid:         xid.New().String(),
 		ws:          ws,
 		request:     request,
 		serv:        s,
