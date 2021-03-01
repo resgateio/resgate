@@ -3,6 +3,8 @@ package test
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/resgateio/resgate/server/reserr"
 )
 
 // Test that events are not sent to a model fetched with a client get request
@@ -87,5 +89,14 @@ func TestGet_WithCIDPlaceholder_ReplacesCID(t *testing.T) {
 		// Send event on model and validate client did not get event
 		s.ResourceEvent("test."+cid+".model", "custom", event)
 		c.AssertNoEvent(t, "test."+cid+".model")
+	})
+}
+
+func TestGet_LongResourceID_ReturnsErrSubjectTooLong(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		c.Request("get.test."+generateString(10000), nil).
+			GetResponse(t).
+			AssertError(t, reserr.ErrSubjectTooLong)
 	})
 }

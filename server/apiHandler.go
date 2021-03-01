@@ -244,6 +244,8 @@ func httpError(w http.ResponseWriter, err error, enc APIEncoder) {
 		code = http.StatusServiceUnavailable
 	case reserr.CodeForbidden:
 		code = http.StatusForbidden
+	case reserr.CodeSubjectTooLong:
+		code = http.StatusRequestURITooLong
 	default:
 		code = http.StatusBadRequest
 	}

@@ -4,7 +4,7 @@ import "time"
 
 const (
 	// Version is the current version for the server.
-	Version = "1.6.2"
+	Version = "1.6.3"
 
 	// ProtocolVersion is the implemented RES protocol version.
 	ProtocolVersion = "1.2.1"
@@ -26,6 +26,9 @@ const (
 
 	// WSTimeout is the wait time for WebSocket connections to close on shutdown.
 	WSTimeout = 3 * time.Second
+
+	// MQTimeout is the wait time for the messaging client to close on shutdown.
+	MQTimeout = 3 * time.Second
 
 	// WSConnWorkerQueueSize is the size of the queue for each connection worker.
 	WSConnWorkerQueueSize = 256

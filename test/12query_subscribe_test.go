@@ -193,3 +193,19 @@ func TestDifferentQueriesTriggersGetAndAccessRequests(t *testing.T) {
 		subscribeToTestQueryModel(t, s, c, "q=foo&f=baz", "q=foo&f=baz")
 	})
 }
+
+// Test subscribing to query model
+func TestSubscribingToQuery_LongQuery_ReturnModel(t *testing.T) {
+	runTest(t, func(s *Session) {
+		event := json.RawMessage(`{"foo":"bar"}`)
+
+		c := s.Connect()
+		str := generateString(10000)
+		subscribeToTestQueryModel(t, s, c, "q="+str, "q="+str)
+
+		// Send event on non-query model and validate no event is sent to client
+		s.ResourceEvent("test.model", "custom", event)
+		c.AssertNoEvent(t, "test.model")
+		c.AssertNoNATSRequest(t, "test.model")
+	})
+}
