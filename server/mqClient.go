@@ -1,6 +1,8 @@
 package server
 
 import (
+	"time"
+
 	"github.com/resgateio/resgate/server/rescache"
 )
 
@@ -25,7 +27,20 @@ func (s *Service) startMQClient() error {
 
 // stopMQClient closes the connection to the nats server
 func (s *Service) stopMQClient() {
-	s.mq.Close()
+	s.Debugf("Closing messaging client...")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.mq.Close()
+	}()
+
+	select {
+	case <-done:
+		s.Debugf("Messaging client gracefully closed")
+	case <-time.After(MQTimeout):
+		s.Errorf("Closing messaging client timed out. Continuing shutdown.")
+	}
+
 	s.Debugf("Stopping cache workers...")
 	s.cache.Stop()
 	s.Debugf("Cache workers stopped")
