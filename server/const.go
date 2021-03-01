@@ -27,6 +27,9 @@ const (
 	// WSTimeout is the wait time for WebSocket connections to close on shutdown.
 	WSTimeout = 3 * time.Second
 
+	// MQTimeout is the wait time for the messaging client to close on shutdown.
+	MQTimeout = 3 * time.Second
+
 	// WSConnWorkerQueueSize is the size of the queue for each connection worker.
 	WSConnWorkerQueueSize = 256
 

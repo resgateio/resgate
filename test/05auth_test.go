@@ -96,3 +96,23 @@ func TestAuth_WithCIDPlaceholder_ReplacesCID(t *testing.T) {
 			AssertResult(t, json.RawMessage(`{"payload":"zoo"}`))
 	})
 }
+
+func TestAuth_LongResourceMethod_ReturnsErrSubjectTooLong(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		creq := c.Request("auth.test."+generateString(10000), nil)
+
+		creq.GetResponse(t).
+			AssertError(t, reserr.ErrSubjectTooLong)
+	})
+}
+
+func TestAuth_LongResourceID_ReturnsErrSubjectTooLong(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		creq := c.Request("auth.test."+generateString(10000)+".method", nil)
+
+		creq.GetResponse(t).
+			AssertError(t, reserr.ErrSubjectTooLong)
+	})
+}

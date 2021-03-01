@@ -17,7 +17,7 @@ type Client interface {
 	Connect() error
 
 	// SendRequest sends an asynchronous request on a subject, expecting the Response
-	// callback to be called once.
+	// callback to be called once on a separate go routine.
 	SendRequest(subject string, payload []byte, cb Response)
 
 	// Subscribe to all events on a resource namespace.
@@ -37,3 +37,7 @@ type Client interface {
 // ErrRequestTimeout is the error the client should pass to the Response
 // when a call to SendRequest times out
 var ErrRequestTimeout = reserr.ErrTimeout
+
+// ErrSubjectTooLong is the error the client should pass to the Response when
+// the subject exceeds the maximum control line size
+var ErrSubjectTooLong = reserr.ErrSubjectTooLong
