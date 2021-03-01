@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	"github.com/resgateio/resgate/logger"
 	"github.com/resgateio/resgate/server/mq"
 	"github.com/resgateio/resgate/server/reserr"
@@ -108,6 +109,14 @@ func (c *NATSTestClient) Close() {
 // SendRequest sends an asynchronous request on a subject, expecting the Response
 // callback to be called once.
 func (c *NATSTestClient) SendRequest(subj string, payload []byte, cb mq.Response) {
+	// Validate max control line size
+	// 7  = nats inbox prefix length
+	// 22 = nuid size
+	if len(subj)+7+22 > nats.MAX_CONTROL_LINE_SIZE {
+		go cb("", nil, mq.ErrSubjectTooLong)
+		return
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -136,6 +145,11 @@ func (c *NATSTestClient) SendRequest(subj string, payload []byte, cb mq.Response
 // Subscribe to all events on a resource namespace.
 // The namespace has the format "event."+resource
 func (c *NATSTestClient) Subscribe(namespace string, cb mq.Response) (mq.Unsubscriber, error) {
+	// Validate max control line size
+	if len(namespace) > nats.MAX_CONTROL_LINE_SIZE-2 {
+		return nil, mq.ErrSubjectTooLong
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

@@ -45,6 +45,14 @@ func resourceData(rid string) string {
 	return rsrc.data
 }
 
+func generateString(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = 'a'
+	}
+	return string(b)
+}
+
 var resources = map[string]resource{
 	// Model resources
 	"test.model":              {typeModel, `{"string":"foo","int":42,"bool":true,"null":null}`, nil},

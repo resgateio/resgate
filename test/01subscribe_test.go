@@ -416,3 +416,12 @@ func TestSubscribe_MultipleClientsSubscribingResource_FetchedFromCache(t *testin
 		})
 	}
 }
+
+func TestSubscribe_LongResourceID_ReturnsErrSubjectTooLong(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		c.Request("subscribe.test."+generateString(10000), nil).
+			GetResponse(t).
+			AssertError(t, reserr.ErrSubjectTooLong)
+	})
+}

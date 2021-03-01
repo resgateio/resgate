@@ -388,3 +388,54 @@ func TestHTTPPost_HeaderAuth_ExpectedResponse(t *testing.T) {
 		})
 	}
 }
+
+func TestHTTPPost_LongResourceID_ReturnsStatus414(t *testing.T) {
+	longStr := generateString(10000)
+	runTest(t, func(s *Session) {
+		hreq := s.HTTPRequest("POST", "/api/test/"+longStr+"/method", nil)
+
+		// Validate http response
+		hreq.GetResponse(t).
+			AssertError(t, reserr.ErrSubjectTooLong).
+			AssertStatusCode(t, http.StatusRequestURITooLong)
+	})
+}
+
+func TestHTTPPost_LongResourceMethod_ReturnsStatus414(t *testing.T) {
+	longStr := generateString(10000)
+	runTest(t, func(s *Session) {
+		hreq := s.HTTPRequest("POST", "/api/test/"+longStr, nil)
+
+		s.GetRequest(t).
+			AssertSubject(t, "access.test").
+			RespondSuccess(json.RawMessage(`{"get":true,"call":"*"}`))
+
+		// Validate http response
+		hreq.GetResponse(t).
+			AssertError(t, reserr.ErrSubjectTooLong).
+			AssertStatusCode(t, http.StatusRequestURITooLong)
+	})
+}
+
+func TestHTTPCall_LongModelQuery_ReturnsResult(t *testing.T) {
+	query := "q=" + generateString(10000)
+	successResponse := json.RawMessage(`{"foo":"bar"}`)
+
+	runTest(t, func(s *Session) {
+		hreq := s.HTTPRequest("POST", "/api/test/model/method?"+query, nil)
+
+		// Get access request
+		s.GetRequest(t).
+			AssertSubject(t, "access.test.model").
+			AssertPathPayload(t, "query", query).
+			RespondSuccess(json.RawMessage(`{"get":true,"call":"*"}`))
+		// Get call request
+		s.GetRequest(t).
+			AssertSubject(t, "call.test.model.method").
+			AssertPathPayload(t, "query", query).
+			RespondSuccess(successResponse)
+
+		// Validate http response
+		hreq.GetResponse(t).Equals(t, http.StatusOK, successResponse)
+	})
+}

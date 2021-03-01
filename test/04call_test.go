@@ -508,3 +508,27 @@ func TestCall_WithCIDPlaceholder_ReplacesCID(t *testing.T) {
 			AssertResult(t, json.RawMessage(`{"payload":"zoo"}`))
 	})
 }
+
+func TestCall_LongResourceMethod_ReturnsErrSubjectTooLong(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		creq := c.Request("call.test."+generateString(10000), nil)
+
+		s.GetRequest(t).
+			AssertSubject(t, "access.test").
+			RespondSuccess(json.RawMessage(`{"get":true,"call":"*"}`))
+
+		creq.GetResponse(t).
+			AssertError(t, reserr.ErrSubjectTooLong)
+	})
+}
+
+func TestCall_LongResourceID_ReturnsErrSubjectTooLong(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		creq := c.Request("call.test."+generateString(10000)+".method", nil)
+
+		creq.GetResponse(t).
+			AssertError(t, reserr.ErrSubjectTooLong)
+	})
+}

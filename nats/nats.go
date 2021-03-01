@@ -107,11 +107,21 @@ func (c *Client) IsClosed() bool {
 
 // Close closes the client connection.
 func (c *Client) Close() {
+	stopped := c.close()
+	if stopped == nil {
+		return
+	}
+
+	<-stopped
+	c.Debugf("NATS listener stopped")
+}
+
+func (c *Client) close() chan struct{} {
 	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	if c.mq == nil {
-		c.mu.Unlock()
-		return
+		return nil
 	}
 
 	if !c.mq.IsClosed() {
@@ -134,10 +144,7 @@ func (c *Client) Close() {
 	stopped := c.stopped
 	c.stopped = nil
 
-	c.mu.Unlock()
-
-	<-stopped
-	c.Debugf("NATS listener stopped")
+	return stopped
 }
 
 // SetClosedHandler sets the handler when the connection is closed
@@ -156,21 +163,26 @@ func (c *Client) onClose(conn *nats.Conn) {
 func (c *Client) SendRequest(subj string, payload []byte, cb mq.Response) {
 	inbox := nats.NewInbox()
 
+	// Validate max control line size
+	if len(subj)+len(inbox) > nats.MAX_CONTROL_LINE_SIZE {
+		go cb("", nil, mq.ErrSubjectTooLong)
+		return
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	sub, err := c.mq.ChanSubscribe(inbox, c.mqCh)
 	if err != nil {
-		cb("", nil, err)
+		go cb("", nil, err)
 		return
 	}
-
 	c.Tracef("<== (%s) %s: %s", inboxSubstr(inbox), subj, payload)
 
 	err = c.mq.PublishRequest(subj, inbox, payload)
 	if err != nil {
 		sub.Unsubscribe()
-		cb("", nil, err)
+		go cb("", nil, err)
 		return
 	}
 
@@ -181,6 +193,11 @@ func (c *Client) SendRequest(subj string, payload []byte, cb mq.Response) {
 // Subscribe to all events on a resource namespace.
 // The namespace has the format "event."+resource
 func (c *Client) Subscribe(namespace string, cb mq.Response) (mq.Unsubscriber, error) {
+	// Validate max control line size
+	if len(namespace) > nats.MAX_CONTROL_LINE_SIZE-2 {
+		return nil, mq.ErrSubjectTooLong
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
