@@ -345,26 +345,26 @@ func (e *EventSubscription) mqUnsubscribe() bool {
 	return true
 }
 
-func (e *EventSubscription) handleResetResource() {
+func (e *EventSubscription) handleResetResource(t *Throttle) {
 	e.Enqueue(func() {
 		if e.base != nil && e.base.query == "" {
-			e.base.handleResetResource()
+			e.base.handleResetResource(t)
 		}
 
 		for _, rs := range e.queries {
-			rs.handleResetResource()
+			rs.handleResetResource(t)
 		}
 	})
 }
 
-func (e *EventSubscription) handleResetAccess() {
+func (e *EventSubscription) handleResetAccess(t *Throttle) {
 	e.Enqueue(func() {
 		if e.base != nil && e.base.query == "" {
-			e.base.handleResetAccess()
+			e.base.handleResetAccess(t)
 		}
 
 		for _, rs := range e.queries {
-			rs.handleResetAccess()
+			rs.handleResetAccess(t)
 		}
 	})
 }
