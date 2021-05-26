@@ -558,7 +558,7 @@ func (s *Subscription) Event(event *rescache.ResourceEvent) {
 }
 
 func (s *Subscription) processEvent(event *rescache.ResourceEvent) {
-	// Discard events targetting a different internal version
+	// Discard events targeting a different internal version
 	if s.version != event.Version {
 		return
 	}

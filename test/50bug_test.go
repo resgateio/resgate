@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// Test to replicate the bug about possible client resource inconcistency.
+// Test to replicate the bug about possible client resource inconsistency.
 //
 // See: https://github.com/resgateio/resgate/issues/194
 func TestBug_PossibleClientResourceInconsistency(t *testing.T) {

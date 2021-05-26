@@ -51,7 +51,7 @@ type ResourceEvent struct {
 	Value     codec.Value
 	Changed   map[string]codec.Value
 	OldValues map[string]codec.Value
-	// Version is the targetted internal version of the resource
+	// Version is the targeted internal version of the resource
 	Version uint
 	// Update flags if the event causes a version bump. Set by eg. add/remove/change.
 	Update bool
