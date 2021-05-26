@@ -45,6 +45,7 @@ type Subscription struct {
 	typ             rescache.ResourceType
 	model           *rescache.Model
 	collection      *rescache.Collection
+	version         uint
 	refs            map[string]*reference
 	err             error
 	queueFlag       uint8
@@ -407,28 +408,28 @@ func (s *Subscription) populateResourcesLegacy(r *rpc.Resources) {
 
 // setModel subscribes to all resource references in the model.
 func (s *Subscription) setModel() {
-	m := s.resourceSub.GetModel()
 	s.queueEvents(queueReasonLoading)
-	s.resourceSub.Release()
+	m, version := s.resourceSub.GetModel()
 	for _, v := range m.Values {
 		if !s.subscribeRef(v) {
 			return
 		}
 	}
 	s.model = m
+	s.version = version
 }
 
 // setCollection subscribes to all resource references in the collection.
 func (s *Subscription) setCollection() {
-	c := s.resourceSub.GetCollection()
 	s.queueEvents(queueReasonLoading)
-	s.resourceSub.Release()
+	c, version := s.resourceSub.GetCollection()
 	for _, v := range c.Values {
 		if !s.subscribeRef(v) {
 			return
 		}
 	}
 	s.collection = c
+	s.version = version
 }
 
 // subscribeRef subscribes to any resource reference value
@@ -557,6 +558,16 @@ func (s *Subscription) Event(event *rescache.ResourceEvent) {
 }
 
 func (s *Subscription) processEvent(event *rescache.ResourceEvent) {
+	// Discard events targetting a different internal version
+	if s.version != event.Version {
+		return
+	}
+
+	// Bump the version if it is an update
+	if event.Update {
+		s.version++
+	}
+
 	switch s.resourceSub.GetResourceType() {
 	case rescache.TypeCollection:
 		s.processCollectionEvent(event)
