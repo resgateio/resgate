@@ -22,6 +22,10 @@ func subscribeToResource(t *testing.T, s *Session, c *Conn, rid string) string {
 	if !ok {
 		panic("no resource named " + rid)
 	}
+	return subscribeToCustomResource(t, s, c, rid, rsrc)
+}
+
+func subscribeToCustomResource(t *testing.T, s *Session, c *Conn, rid string, rsrc resource) string {
 	var r string
 	if rsrc.typ == typeError {
 		b, _ := json.Marshal(rsrc.err)
