@@ -373,6 +373,24 @@ func (ev *ClientEvent) AssertEventName(t *testing.T, event string) *ClientEvent 
 	return ev
 }
 
+// IsData checks if the data matches, and returns true if it does, otherwise
+// false.
+func (ev *ClientEvent) IsData(data interface{}) bool {
+	var err error
+	dj, err := json.Marshal(data)
+	if err != nil {
+		panic("test: error marshaling assertion data: " + err.Error())
+	}
+
+	var p interface{}
+	err = json.Unmarshal(dj, &p)
+	if err != nil {
+		panic("test: error unmarshaling assertion data: " + err.Error())
+	}
+
+	return reflect.DeepEqual(p, ev.Data)
+}
+
 // AssertData asserts that the event has the expected data
 func (ev *ClientEvent) AssertData(t *testing.T, data interface{}) *ClientEvent {
 	var err error
