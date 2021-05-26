@@ -64,6 +64,9 @@ type ResourceSubscription struct {
 	subs      map[Subscriber]struct{}
 	resetting bool
 	links     []string
+	// version is the internal resource version, starting with 0 and bumped +1
+	// for each modifying event.
+	version uint
 	// Three types of values stored
 	model      *Model
 	collection *Collection
@@ -94,23 +97,17 @@ func (rs *ResourceSubscription) GetError() error {
 
 // GetCollection will lock the EventSubscription for any changes
 // and return the collection string slice.
-// The lock must be released by calling Release
-func (rs *ResourceSubscription) GetCollection() *Collection {
+func (rs *ResourceSubscription) GetCollection() (*Collection, uint) {
 	rs.e.mu.Lock()
-	return rs.collection
+	defer rs.e.mu.Unlock()
+	return rs.collection, rs.version
 }
 
-// GetModel will lock the EventSubscription for any changes
-// and return the model map.
-// The lock must be released by calling Release
-func (rs *ResourceSubscription) GetModel() *Model {
+// GetModel will return the model map and its current version.
+func (rs *ResourceSubscription) GetModel() (*Model, uint) {
 	rs.e.mu.Lock()
-	return rs.model
-}
-
-// Release releases the lock obtained by calling GetCollection or GetModel
-func (rs *ResourceSubscription) Release() {
-	rs.e.mu.Unlock()
+	defer rs.e.mu.Unlock()
+	return rs.model, rs.version
 }
 
 // Unsubscribe cancels the client subscriber's subscription
@@ -135,6 +132,9 @@ func (rs *ResourceSubscription) handleEvent(r *ResourceEvent) {
 	if rs.state <= stateRequested && r.Event != "reaccess" {
 		return
 	}
+
+	// Set event to target current version of the resource.
+	r.Version = rs.version
 
 	switch r.Event {
 	case "change":
@@ -215,7 +215,9 @@ func (rs *ResourceSubscription) handleEventChange(r *ResourceEvent) bool {
 
 	r.Changed = props
 	r.OldValues = rs.model.Values
+	r.Update = true
 	rs.model = &Model{Values: m}
+	rs.version++
 	return true
 }
 
@@ -248,8 +250,10 @@ func (rs *ResourceSubscription) handleEventAdd(r *ResourceEvent) bool {
 	col[idx] = params.Value
 
 	rs.collection = &Collection{Values: col}
+	rs.version++
 	r.Idx = params.Idx
 	r.Value = params.Value
+	r.Update = true
 
 	return true
 }
@@ -282,7 +286,9 @@ func (rs *ResourceSubscription) handleEventRemove(r *ResourceEvent) bool {
 	copy(col, old[0:idx])
 	copy(col[idx:], old[idx+1:])
 	rs.collection = &Collection{Values: col}
+	rs.version++
 	r.Idx = params.Idx
+	r.Update = true
 
 	return true
 }
@@ -412,6 +418,9 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (n
 	if nrs.state > stateRequested {
 		return
 	}
+
+	// Make sure internal resource version has its 0 value
+	nrs.version = 0
 
 	if result.Model != nil {
 		nrs.model = &Model{Values: result.Model}
