@@ -209,3 +209,31 @@ func TestSubscribingToQuery_LongQuery_ReturnModel(t *testing.T) {
 		c.AssertNoNATSRequest(t, "test.model")
 	})
 }
+
+// Test subscribing to query model
+func TestSubscribingModelWithRefToQueryModel(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+
+		modelParent := resourceData("test.model.query.parent")
+		model := resourceData("test.model")
+
+		// Send subscribe request
+		creq := c.Request("subscribe.test.model.query.parent", nil)
+
+		// Handle parent get and access request
+		mreqs1 := s.GetParallelRequests(t, 2)
+		mreqs1.GetRequest(t, "get.test.model.query.parent").RespondSuccess(json.RawMessage(`{"model":` + modelParent + `}`))
+
+		// Handle access
+		req := mreqs1.GetRequest(t, "access.test.model.query.parent")
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+
+		// Handle child get request and validate
+		mreqs2 := s.GetParallelRequests(t, 1)
+		mreqs2.GetRequest(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":` + model + `,"query":"foo=bar"}`))
+
+		// Get client response and validate
+		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model?foo=bar":`+model+`,"test.model.query.parent":`+modelParent+`}}`))
+	})
+}

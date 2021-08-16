@@ -64,6 +64,7 @@ var resources = map[string]resource{
 	"test.model.soft.parent":  {typeModel, `{"name":"softparent","child":{"rid":"test.model.soft","soft":false}}`, nil},
 	"test.model.data":         {typeModel, `{"name":"data","primitive":{"data":12},"object":{"data":{"foo":["bar"]}},"array":{"data":[{"foo":"bar"}]}}`, nil},
 	"test.model.data.parent":  {typeModel, `{"name":"dataparent","child":{"rid":"test.model.data"}}`, nil},
+	"test.model.query.parent": {typeModel, `{"name":"queryparent","child":{"rid":"test.model?foo=bar"}}`, nil},
 
 	// Cyclic model resources
 	"test.m.a": {typeModel, `{"a":{"rid":"test.m.a"}}`, nil},
