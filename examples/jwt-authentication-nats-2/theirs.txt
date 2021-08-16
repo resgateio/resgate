@@ -1,0 +1,14 @@
+[TRC] [c4cqlhfco40c739iiuv0] Disconnected: websocket: close 1001 (going away)
+[TRC] S=> conn.c4cqm0fco40c739iiuvg.*
+[TRC] [c4cqm0fco40c739iiuvg] Connected: 172.18.0.1:37628
+[TRC] [c4cqm0fco40c739iiuvg] --> {"id":1,"method":"version","params":{"protocol":"1.2.1"}}
+[TRC] [c4cqm0fco40c739iiuvg] <-- {"result":{"protocol":"1.2.1"},"id":1}
+[TRC] [c4cqm0fco40c739iiuvg] --> {"id":2,"method":"auth.auth.jwtHeader"}
+[TRC] <== (Nbwlb4) auth.auth.jwtHeader: {"params":null,"token":null,"cid":"c4cqm0fco40c739iiuvg","header":{"Accept-Encoding":["gzip, deflate, br"],"Accept-Language":["en-US,en;q=0.9"],"Cache-Control":["no-cache"],"Connection":["Upgrade"],"Cookie":[" access-token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmb28iOiJiYXIiLCJpYXQiOjE2MjkwNzE5NTh9.W-nv_GyCKuVDHesb0tqz3Fmhh-sLsvBTuZqQ2RbsKB0"],"Origin":["http://localhost:8084"],"Pragma":["no-cache"],"Sec-Websocket-Extensions":["permessage-deflate; client_max_window_bits"],"Sec-Websocket-Key":["UZ2DpXpXsJV9Pae8vDoZyg=="],"Sec-Websocket-Version":["13"],"Upgrade":["websocket"],"User-Agent":["Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36"]},"host":"localhost:8080","remoteAddr":"172.18.0.1:37628","uri":"/"}
+[TRC] =>> conn.c4cqm0fco40c739iiuvg.token: {"token":{"foo":"bar","iat":1629071958}}
+[TRC] ==> (Nbwlb4): {"result":null}
+[TRC] [c4cqm0fco40c739iiuvg] <-- {"result":{"payload":null},"id":2}
+[TRC] [c4cqm0fco40c739iiuvg] --> {"id":3,"method":"subscribe.example.model"}
+[TRC] <== (NbwlcJ) access.example.model: {"token":{"foo":"bar","iat":1629071958},"cid":"c4cqm0fco40c739iiuvg"}
+[TRC] ==> (NbwlcJ): {"result":{"get":true,"call":"set"}}
+[TRC] [c4cqm0fco40c739iiuvg] <-- {"result":{"models":{"example.model":{"message":"Hello, secure World!"}}},"id":3}

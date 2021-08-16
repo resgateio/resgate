@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.build.json",
+  "compilerOptions": {
+    "noImplicitAny": false,
+    "composite": true,
+    "rootDirs": ["src"],
+    "outDir": "dist",
+    "target": "es6",
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": false,
+    "esModuleInterop": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve"
+  },
+  "include": [
+    "src",
+
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

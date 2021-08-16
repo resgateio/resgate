@@ -8,6 +8,7 @@ const jwtCookieName = 'access-token';
 
 // Auth listener for header login with jwt
 nats.subscribe('auth.auth.jwtHeader', function(req, reply) {
+	console.log("[Auth] Received new message", reply)
 	let { cid, header } = JSON.parse(req);
 
 	// Parse Cookie header
@@ -39,9 +40,14 @@ nats.subscribe('auth.auth.jwtHeader', function(req, reply) {
 		// This will be stored by Resgate, but never sent to client.
 		// Resgate will pass the token to the services with any
 		// access, call, or auth request.
-		nats.publish('conn.' + cid + '.token', JSON.stringify({ token: decoded }));
+		const _token = JSON.stringify({ token: decoded })
+		console.log("[Auth] Response 1: ", _token)
+		nats.publish('conn.' + cid + '.token', _token);
 
 		// Reply to the request with a successful empty response
-		nats.publish(reply, JSON.stringify({ result: null }));
+		console.log("[Auth] Response 2: ",JSON.stringify({ result: null }) )
+		// nats.publish(reply, JSON.stringify({ result: null }));
+		console.log("[Auth] Processed message")
+
 	});
 });
