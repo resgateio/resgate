@@ -58,7 +58,8 @@ While Resgate may be used with any language, the examples in this repository are
 | [Hello World](examples/hello-world/) | Simple service serving a static message.
 | [Edit Text](examples/edit-text/) | Text field that can be edited by multiple clients concurrently.
 | [Book Collection](examples/book-collection/) | List of book titles & authors that can be edited by many.
-| [JWT Authentication](examples/jwt-authentication/) |Showing how JWT tokens can be used for authentication.
+| [JWT Authentication](examples/jwt-authentication/) | Showing how JWT tokens can be used for authentication.
+| [JWT Authentication NATS 2](examples/jwt-authentication-nats-2/) | JWT Authentication example using nats 2 client for node.js.
 | [Password Authentication](examples/password-authentication/) | Showing authentication with user and password credentials.
 | [Client Session](examples/client-session/) | Creating client sessions that survive reloads and reconnects.
 

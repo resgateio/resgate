@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<title>Resgate - JWT Authentication Example</title>
+		<script src="https://unpkg.com/resclient@latest/dist/resclient.min.js"></script>
+	</head>
+	<body>
+		<h3>Resgate JWT Authentication Example</h3>
+		<p>The client is the same as the Edit Text Example, with the addition of the <i>setOnConnect</i> callback, which makes an attempt of authenticating the client using a jwt token. Without the token, model access will be denied.</p>
+		<ul>
+			<li><a href="/login">/login</a> - Sets the jwt token cookie</li>
+			<li><a href="/logout">/logout</a> - Clears the jwt token cookie</li>
+		</ul>
+		<p>The model can also be <a href="http://localhost:8080/api/example/model">accessed via REST</a>, if Resgate is configured with:
+			<ul><li><pre>"headerAuth": "auth.jwtHeader"</pre></li></ul>
+		</p>
+		<hr>
+		<div id="root"></div>
+		<script>
+			const ResClient = resclient.default;
+
+			let client = new ResClient('ws://localhost:8080');
+
+			// When connecting, try to authenticate with jwtHeader.
+			// As the onConnect callback should return a resolving promise
+			// we swallow the error.
+			client.setOnConnect(() => client.authenticate('auth', 'jwtHeader').catch(() => {}));
+
+			let root = document.getElementById('root');
+
+			// Get the model from the service.
+			client.get('example.model').then(model => {
+				// Create an input element
+				let input = document.createElement('input');
+				input.value = model.message;
+				root.appendChild(input);
+
+				// Call set to update the remote model
+				input.addEventListener('input', () => {
+					model.set({ message: input.value });
+				});
+
+				// Listen for model change events.
+				// The model will be unsubscribed after calling model.off
+				model.on('change', () => {
+					input.value = model.message;
+				});
+			}).catch(err => {
+				root.textContent = err.message || "Connection error. Are NATS Server and Resgate running?";
+			});
+		</script>
+	</body>
+</html>
