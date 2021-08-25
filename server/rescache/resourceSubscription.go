@@ -432,7 +432,7 @@ func (rs *ResourceSubscription) processGetResponse(payload []byte, err error) (n
 	return
 }
 
-func (rs *ResourceSubscription) handleResetResource() {
+func (rs *ResourceSubscription) handleResetResource(t *Throttle) {
 	// Are we already resetting. Then quick exit
 	if rs.resetting {
 		return
@@ -448,12 +448,13 @@ func (rs *ResourceSubscription) handleResetResource() {
 			rs.resetting = false
 			rs.processResetGetResponse(data, err)
 		})
+		t.Done()
 	})
 }
 
-func (rs *ResourceSubscription) handleResetAccess() {
+func (rs *ResourceSubscription) handleResetAccess(t *Throttle) {
 	for sub := range rs.subs {
-		sub.Reaccess()
+		sub.Reaccess(t)
 	}
 }
 

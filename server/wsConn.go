@@ -555,7 +555,7 @@ func (c *wsConn) setToken(token json.RawMessage) {
 
 	c.token = token
 	for _, sub := range c.subs {
-		sub.reaccess()
+		sub.reaccess(nil)
 	}
 }
 

@@ -19,6 +19,7 @@ type Cache struct {
 	mq               mq.Client
 	logger           logger.Logger
 	workers          int
+	resetThrottle    int
 	unsubscribeDelay time.Duration
 
 	mu         sync.Mutex
@@ -40,7 +41,7 @@ type Subscriber interface {
 	Event(event *ResourceEvent)
 	ResourceName() string
 	ResourceQuery() string
-	Reaccess()
+	Reaccess(t *Throttle)
 }
 
 // ResourceEvent represents an event on a resource
@@ -58,11 +59,12 @@ type ResourceEvent struct {
 }
 
 // NewCache creates a new Cache instance
-func NewCache(mq mq.Client, workers int, unsubscribeDelay time.Duration, l logger.Logger) *Cache {
+func NewCache(mq mq.Client, workers int, resetThrottle int, unsubscribeDelay time.Duration, l logger.Logger) *Cache {
 	return &Cache{
 		mq:               mq,
 		logger:           l,
 		workers:          workers,
+		resetThrottle:    resetThrottle,
 		unsubscribeDelay: unsubscribeDelay,
 		depLogged:        make(map[string]featureType),
 	}
@@ -269,13 +271,27 @@ func (c *Cache) handleSystemReset(payload []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.forEachMatch(r.Resources, func(e *EventSubscription) {
-		e.handleResetResource()
-	})
+	if c.resetThrottle > 0 {
+		t := NewThrottle(c.resetThrottle)
 
-	c.forEachMatch(r.Access, func(e *EventSubscription) {
-		e.handleResetAccess()
-	})
+		c.forEachMatch(r.Resources, func(e *EventSubscription) {
+			t.Add(func() {
+				e.handleResetResource(t)
+			})
+		})
+		c.forEachMatch(r.Access, func(e *EventSubscription) {
+			t.Add(func() {
+				e.handleResetAccess(t)
+			})
+		})
+	} else {
+		c.forEachMatch(r.Resources, func(e *EventSubscription) {
+			e.handleResetResource(nil)
+		})
+		c.forEachMatch(r.Access, func(e *EventSubscription) {
+			e.handleResetAccess(nil)
+		})
+	}
 }
 
 func (c *Cache) forEachMatch(p []string, cb func(e *EventSubscription)) {

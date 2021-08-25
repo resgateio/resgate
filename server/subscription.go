@@ -302,7 +302,7 @@ func (s *Subscription) unqueueEvents(reason uint8) {
 
 	// Start with reaccess calls
 	if s.flags&flagReaccess != 0 {
-		s.handleReaccess()
+		s.handleReaccess(nil)
 		if s.queueFlag != 0 {
 			return
 		}
@@ -539,7 +539,7 @@ func (s *Subscription) removeReference(rid string) {
 func (s *Subscription) Event(event *rescache.ResourceEvent) {
 	s.c.Enqueue(func() {
 		if event.Event == "reaccess" {
-			s.reaccess()
+			s.reaccess(nil)
 			return
 		}
 
@@ -732,22 +732,25 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 	}
 }
 
-func (s *Subscription) handleReaccess() {
+func (s *Subscription) handleReaccess(t *rescache.Throttle) {
 	s.access = nil
 	s.flags &= ^flagReaccess
 
 	if s.direct == 0 {
+		t.Done()
 		return
 	}
 
 	// If we already have an access instance set, use that one to test without queueing
 	if s.access != nil {
+		t.Done()
 		s.validateAccess(s.access)
 		return
 	}
 
 	s.queueEvents(queueReasonReaccess)
 	s.loadAccess(func(a *rescache.Access) {
+		t.Done()
 		s.validateAccess(a)
 		s.unqueueEvents(queueReasonReaccess)
 	})
@@ -798,21 +801,23 @@ func (s *Subscription) doneLoading() {
 
 // Reaccess adds a reaccess event to the eventQueue,
 // triggering a new access request to be sent to the service.
-func (s *Subscription) Reaccess() {
-	s.c.Enqueue(s.reaccess)
+func (s *Subscription) Reaccess(t *rescache.Throttle) {
+	s.c.Enqueue(func() { s.reaccess(t) })
 }
 
-func (s *Subscription) reaccess() {
+func (s *Subscription) reaccess(t *rescache.Throttle) {
 	if s.state == stateDisposed {
+		t.Done()
 		return
 	}
 
 	if s.queueFlag != 0 {
 		s.flags |= flagReaccess
+		t.Done()
 		return
 	}
 
-	s.handleReaccess()
+	s.handleReaccess(t)
 }
 
 func parseRID(rid string) (name string, query string) {
