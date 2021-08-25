@@ -646,7 +646,7 @@ func (c *wsConn) TokenReset(tids map[string]bool, subject string) {
 		c.serv.cache.CustomAuth(c, subject, "", c.token, nil, func(_ json.RawMessage, _ string, err error) {
 			// Discard response, but log an error if auth request timed out.
 			if err == mq.ErrRequestTimeout {
-				c.Errorf("Token reset auth request timeout. Subject: %s", subject)
+				c.Errorf("Token reset auth request timeout on subject: %s", subject)
 			}
 		})
 	})

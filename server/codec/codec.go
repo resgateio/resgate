@@ -131,7 +131,7 @@ type EventQueryEvent struct {
 // https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#connection-token-event
 type ConnTokenEvent struct {
 	Token json.RawMessage `json:"token"`
-	TID   string          `json:"cid"`
+	TID   string          `json:"tid"`
 }
 
 // ChangeEvent represent a RES-server model change event
