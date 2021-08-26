@@ -6,7 +6,7 @@
   },
   "devDependencies": {
     "concurrently": "^5.2.0",
-    "serve": "^10.1.2"
+    "serve": "^12.0.0"
   },
   "scripts": {
     "start": "concurrently \"node server.js\" \"serve -l 8081\""
