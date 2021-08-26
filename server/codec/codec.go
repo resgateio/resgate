@@ -131,6 +131,7 @@ type EventQueryEvent struct {
 // https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#connection-token-event
 type ConnTokenEvent struct {
 	Token json.RawMessage `json:"token"`
+	TID   string          `json:"tid"`
 }
 
 // ChangeEvent represent a RES-server model change event
@@ -157,6 +158,13 @@ type RemoveEvent struct {
 type SystemReset struct {
 	Resources []string `json:"resources"`
 	Access    []string `json:"access"`
+}
+
+// SystemTokenReset represents a RES-server system token reset event
+// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#system-token-reset-event
+type SystemTokenReset struct {
+	TIDs    []string `json:"tids"`
+	Subject string   `json:"subject"`
 }
 
 // Requester is the connection making the request
@@ -634,6 +642,22 @@ func DecodeConnTokenEvent(payload []byte) (*ConnTokenEvent, error) {
 // DecodeSystemReset decodes a JSON encoded RES-service system reset event
 func DecodeSystemReset(data json.RawMessage) (SystemReset, error) {
 	var r SystemReset
+	if len(data) == 0 {
+		return r, nil
+	}
+
+	err := json.Unmarshal(data, &r)
+	if err != nil {
+		return r, err
+	}
+
+	return r, nil
+}
+
+// DecodeSystemTokenReset decodes a JSON encoded RES-service system token reset
+// event
+func DecodeSystemTokenReset(data json.RawMessage) (SystemTokenReset, error) {
+	var r SystemTokenReset
 	if len(data) == 0 {
 		return r, nil
 	}

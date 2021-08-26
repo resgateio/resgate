@@ -23,6 +23,7 @@ type wsConn struct {
 	ws          *websocket.Conn
 	request     *http.Request
 	token       json.RawMessage
+	tid         string
 	serv        *Service
 	subs        map[string]*Subscription
 	disposing   bool
@@ -69,6 +70,7 @@ func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request, protocol 
 
 	// Subscribe to conn events on the mq
 	conn.subscribeConn()
+	s.cache.AddConn(conn)
 
 	return conn
 }
@@ -122,6 +124,7 @@ func (c *wsConn) dispose() {
 	close(c.work)
 	c.mu.Unlock()
 
+	c.serv.cache.RemoveConn(c)
 	c.unsubscribeConn()
 
 	subs := c.subs
@@ -546,7 +549,9 @@ func (c *wsConn) removeCount(s *Subscription, direct bool, count int, tryDelete 
 	}
 }
 
-func (c *wsConn) setToken(token json.RawMessage) {
+func (c *wsConn) setToken(token json.RawMessage, tid string) {
+	c.tid = tid
+
 	if c.token == nil {
 		// No need to revalidate nil token access
 		c.token = token
@@ -625,9 +630,24 @@ func (c *wsConn) handleConnToken(payload []byte) {
 		return
 	}
 
-	c.setToken(te.Token)
+	c.setToken(te.Token, te.TID)
 }
 
 func (c *wsConn) ExpandCID(rid string) string {
 	return strings.Replace(rid, CIDPlaceholder, c.cid, -1)
+}
+
+func (c *wsConn) TokenReset(tids map[string]bool, subject string) {
+	c.Enqueue(func() {
+		// Exit if no token ID is set, or if it isn't affected.
+		if c.tid == "" || !tids[c.tid] {
+			return
+		}
+		c.serv.cache.CustomAuth(c, subject, "", c.token, nil, func(_ json.RawMessage, _ string, err error) {
+			// Discard response, but log an error if auth request timed out.
+			if err == mq.ErrRequestTimeout {
+				c.Errorf("Token reset auth request timeout on subject: %s", subject)
+			}
+		})
+	})
 }

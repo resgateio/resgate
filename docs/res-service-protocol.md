@@ -1,6 +1,6 @@
 # The RES-Service Protocol Specification
 
-*Version: [1.2.1](res-protocol-semver.md)*
+*Version: [1.2.2](res-protocol-semver.md)*
 
 ## Table of contents
 - [Introduction](#introduction)
@@ -30,6 +30,7 @@
   * [Connection token event](#connection-token-event)
 - [System events](#system-events)
   * [System reset event](#system-reset-event)
+  * [System token reset event](#system-token-reset-event)
 - [Query resources](#query-resources)
   * [Query event](#query-event)
   * [Query request](#query-request)
@@ -500,16 +501,23 @@ A change of token will invalidate any previous access response received using th
 The event payload has the following parameter:
 
 **token**  
-Access token.
+Access token.  
 A `null` token clears any previously set token.
+
+**tid**  
+Token ID used to identify the token on [system token reset events](#system-token-reset-event).  
+MUST be a string.  
+May be omitted.
 
 **Example payload**
 ```json
 {
   "token": {
+    "userid": 42,
     "username": "foo",
     "role": "admin",
-  }
+  },
+  "tid": "42"
 }
 ```
 
@@ -542,6 +550,32 @@ May be omitted.
 {
   "resources": [ "userService.users", "userService.user.*" ],
   "access": [ "userService.>" ]
+}
+```
+
+## System token reset event
+
+**Subject**
+`system.tokenReset`
+
+Signals that tokens matching one or more *token IDs* (tid) are to be considered out of date.
+A service MUST immediately send an [auth request](#auth-request) to the provided subject for each connection with a token matching any of the token IDs. The *auth request* should not contain any params, and the response may be discarded by the service.  
+The event payload has the following parameters:
+
+**tids**
+An array of token ID (tid) strings.  
+MUST be an array of strings.
+
+**subject**
+A subject string to which the [auth requests](#auth-request) should be sent.  
+May have the subject pattern of an *auth request*, but it is not required.  
+MUST be a string.
+
+**Example payload**
+```json
+{
+  "tids": [ "12", "42" ],
+  "subject": "auth.authentication.renewToken"
 }
 ```
 
