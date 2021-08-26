@@ -39,16 +39,21 @@ Server Options:
     -a, --apipath <path>             Web resource path for clients (default: /api/)
     -r, --reqtimeout <milliseconds>  Timeout duration for NATS requests (default: 3000)
     -u, --headauth <method>          Resource method for header authentication
-        --tls                        Enable TLS for HTTP (default: false)
-        --tlscert <file>             HTTP server certificate file
-        --tlskey <file>              Private key for HTTP server certificate
         --apiencoding <type>         Encoding for web resources: json, jsonflat (default: json)
-        --creds <file>               NATS User Credentials file
-        --alloworigin <origin>       Allowed origin(s): *, or <scheme>://<hostname>[:<port>] (default: *)
         --putmethod <methodName>     Call method name mapped to HTTP PUT requests
         --deletemethod <methodName>  Call method name mapped to HTTP DELETE requests
         --patchmethod <methodName>   Call method name mapped to HTTP PATCH requests
     -c, --config <file>              Configuration file
+
+Security Options:
+        --tls                        Enable TLS for HTTP (default: false)
+        --tlscert <file>             HTTP server certificate file
+        --tlskey <file>              Private key for HTTP server certificate
+        --creds <file>               NATS User Credentials file
+        --natscert <file>            NATS Client certificate file
+        --natskey <file>             NATS Client certificate key file
+        --natsrootca <file>          NATS Root CA file(s)
+        --alloworigin <origin>       Allowed origin(s): *, or <scheme>://<hostname>[:<port>] (default: *)
 
 Logging Options:
     -D, --debug                      Enable debugging output
@@ -64,11 +69,14 @@ Configuration Documentation:         https://resgate.io/docs/get-started/configu
 
 // Config holds server configuration
 type Config struct {
-	NatsURL        string  `json:"natsUrl"`
-	NatsCreds      *string `json:"natsCreds"`
-	RequestTimeout int     `json:"requestTimeout"`
-	Debug          bool    `json:"debug"`
-	Trace          bool    `json:"trace"`
+	NatsURL        string   `json:"natsUrl"`
+	NatsCreds      string   `json:"natsCreds"`
+	NatsTLSCert    string   `json:"natsCert"`
+	NatsTLSKey     string   `json:"natsKey"`
+	NatsRootCAs    []string `json:"natsRootCAs"`
+	RequestTimeout int      `json:"requestTimeout"`
+	Debug          bool     `json:"debug"`
+	Trace          bool     `json:"trace"`
 	server.Config
 }
 
@@ -96,6 +104,9 @@ func (c *Config) SetDefault() {
 	if c.RequestTimeout == 0 {
 		c.RequestTimeout = DefaultRequestTimeout
 	}
+	if c.NatsRootCAs == nil {
+		c.NatsRootCAs = []string{}
+	}
 	c.Config.SetDefault()
 }
 
@@ -109,7 +120,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 		port         uint
 		headauth     string
 		addr         string
-		natsCreds    string
+		natsRootCAs  StringSlice
 		debugTrace   bool
 		allowOrigin  StringSlice
 		putMethod    string
@@ -139,7 +150,10 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 	fs.StringVar(&c.APIEncoding, "apiencoding", "", "Encoding for web resources.")
 	fs.IntVar(&c.RequestTimeout, "r", 0, "Timeout in milliseconds for NATS requests.")
 	fs.IntVar(&c.RequestTimeout, "reqtimeout", 0, "Timeout in milliseconds for NATS requests.")
-	fs.StringVar(&natsCreds, "creds", "", "NATS User Credentials file.")
+	fs.StringVar(&c.NatsCreds, "creds", "", "NATS User Credentials file.")
+	fs.StringVar(&c.NatsTLSCert, "natscert", "", "NATS Client certificate file.")
+	fs.StringVar(&c.NatsTLSKey, "natskey", "", "NATS Client certificate key file.")
+	fs.Var(&natsRootCAs, "natsrootca", "NATS Root CA file(s).")
 	fs.Var(&allowOrigin, "alloworigin", "Allowed origin(s) for CORS.")
 	fs.StringVar(&putMethod, "putmethod", "", "Call method name mapped to HTTP PUT requests.")
 	fs.StringVar(&deleteMethod, "deletemethod", "", "Call method name mapped to HTTP DELETE requests.")
@@ -207,8 +221,8 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 			fallthrough
 		case "headauth":
 			setString(headauth, &c.HeaderAuth)
-		case "creds":
-			setString(natsCreds, &c.NatsCreds)
+		case "natsrootca":
+			c.NatsRootCAs = natsRootCAs
 		case "alloworigin":
 			str := allowOrigin.String()
 			c.AllowOrigin = &str
@@ -279,6 +293,9 @@ func main() {
 	serv, err := server.NewService(&nats.Client{
 		URL:            cfg.NatsURL,
 		Creds:          cfg.NatsCreds,
+		ClientCert:     cfg.NatsTLSCert,
+		ClientKey:      cfg.NatsTLSKey,
+		RootCAs:        cfg.NatsRootCAs,
 		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Millisecond,
 		Logger:         l,
 	}, cfg.Config)
