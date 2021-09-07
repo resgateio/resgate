@@ -1,8 +1,6 @@
-FROM golang:1.14.4-alpine3.12 as builder
+FROM golang:1.17.0-alpine3.14 as builder
 
 LABEL maintainer="Samuel Jirenius <samuel@jirenius.com>"
-
-ENV GO111MODULE=on
 
 WORKDIR /src/resgate
 
@@ -17,6 +15,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -ldflags "-s -w" -o /resga
 
 FROM scratch
 COPY --from=builder /resgate /resgate
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 EXPOSE 8080
 

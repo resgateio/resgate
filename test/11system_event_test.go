@@ -3,8 +3,10 @@ package test
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/resgateio/resgate/server"
 	"github.com/resgateio/resgate/server/reserr"
 )
 
@@ -332,6 +334,179 @@ func TestSystemReset_MismatchingResourceTypeResponseOnCollection_LogsError(t *te
 		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
 		c.GetEvent(t).Equals(t, "test.collection.custom", common.CustomEvent())
 		// Assert error is logged
+		s.AssertErrorsLogged(t, 1)
+	})
+}
+
+func TestSystemReset_WithThrottle_ThrottlesRequests(t *testing.T) {
+	const subscriptionCount = 5
+	const resetThrottle = 3
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get subscriptions
+		for i := 1; i <= subscriptionCount; i++ {
+			subscribeToCustomResource(t, s, c, fmt.Sprintf("test.model.%d", i), resource{
+				typ:  typeModel,
+				data: fmt.Sprintf(`{"id":%d}`, i),
+			})
+		}
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"]}`))
+		// Get throttled number of requests
+		mreqs := s.GetParallelRequests(t, resetThrottle)
+		requestCount := resetThrottle
+		// Assert no other requests are sent
+		for i := 1; i <= subscriptionCount; i++ {
+			c.AssertNoNATSRequest(t, fmt.Sprintf("test.model.%d", i))
+		}
+		// Respond to requests one by one
+		for len(mreqs) > 0 {
+			r := mreqs[0]
+			mreqs = mreqs[1:]
+			id := r.Subject[strings.LastIndexByte(r.Subject, '.')+1:]
+			r.RespondSuccess(json.RawMessage(`{"model":` + fmt.Sprintf(`{"id":%s}`, id) + `}`))
+			// If we still have remaining subscriptions not yet received
+			if requestCount < subscriptionCount {
+				// For each response, a new request should be sent.
+				req := s.GetRequest(t)
+				mreqs = append(mreqs, req)
+				requestCount++
+				// Assert no other requests are sent
+				for i := 1; i <= subscriptionCount; i++ {
+					c.AssertNoNATSRequest(t, fmt.Sprintf("test.model.%d", i))
+				}
+			}
+		}
+
+	}, func(c *server.Config) {
+		c.ResetThrottle = resetThrottle
+	})
+}
+
+func TestSystemTokenReset_WithNoMatchingTokenID_SendsNoAuthRequest(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+
+		// Get model
+		subscribeToTestModel(t, s, c)
+
+		// Send system token reset
+		s.SystemEvent("tokenReset", json.RawMessage(`{"tids":["42"],"subject":"auth.token.renew"}`))
+
+		// Validate no request
+		c.AssertNoNATSRequest(t, "token")
+	})
+}
+
+func TestSystemTokenReset_WithMismatchingTokenIDs_SendsNoAuthRequest(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		token := `{"user":"foo"}`
+
+		// Get model
+		subscribeToTestModel(t, s, c)
+		cid := getCID(t, s, c)
+
+		// Send token event
+		s.ConnEvent(cid, "token", json.RawMessage(`{"token":`+token+`,"tid":"foo"}`))
+
+		// Send system token reset
+		s.SystemEvent("tokenReset", json.RawMessage(`{"tids":["bar","baz"],"subject":"auth.token.renew"}`))
+
+		// Validate no request
+		c.AssertNoNATSRequest(t, "token")
+	})
+}
+
+func TestSystemTokenReset_WithMatchingTokenID_SendsAuthRequest(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		token := json.RawMessage(`{"user":"foo"}`)
+
+		// Get model
+		subscribeToTestModel(t, s, c)
+		cid := getCID(t, s, c)
+
+		// Send token event
+		s.ConnEvent(cid, "token", json.RawMessage(`{"token":`+string(token)+`,"tid":"foo"}`))
+
+		// Send system token reset
+		s.SystemEvent("tokenReset", json.RawMessage(`{"tids":["bar","foo"],"subject":"token.renew"}`))
+
+		// Validate auth request
+		s.
+			GetRequest(t).
+			AssertSubject(t, "token.renew").
+			AssertPathType(t, "cid", cid).
+			AssertPathPayload(t, "token", token).
+			RespondSuccess(nil)
+	})
+}
+
+func TestSystemTokenReset_WithBrokenEvent_LogsError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		// Send system token reset
+		s.SystemEvent("tokenReset", json.RawMessage(`{"tids":"foo","subject":"token.renew"}`))
+		// Validate logged errors
+		s.AssertErrorsLogged(t, 1)
+	})
+}
+
+func TestSystemTokenReset_WithMissingSubject_LogsError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		// Send system token reset
+		s.SystemEvent("tokenReset", json.RawMessage(`{"tids":["foo"]}`))
+		// Validate logged errors
+		s.AssertErrorsLogged(t, 1)
+	})
+}
+
+func TestSystemTokenReset_WithNoTIDs_LogsNoError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		// Send system token reset
+		s.SystemEvent("tokenReset", json.RawMessage(`{"tids":[],"subject":"test"}`))
+	})
+}
+
+func TestSystemTokenReset_WithAuthCustomErrorResponse_LogsNoError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		token := json.RawMessage(`{"user":"foo"}`)
+
+		// Get model
+		subscribeToTestModel(t, s, c)
+		cid := getCID(t, s, c)
+
+		// Send token event
+		s.ConnEvent(cid, "token", json.RawMessage(`{"token":`+string(token)+`,"tid":"foo"}`))
+
+		// Send system token reset
+		s.SystemEvent("tokenReset", json.RawMessage(`{"tids":["bar","foo"],"subject":"token.renew"}`))
+
+		// Send error response to auth request
+		s.GetRequest(t).AssertSubject(t, "token.renew").RespondError(reserr.ErrAccessDenied)
+	})
+}
+
+func TestSystemTokenReset_WithTimeoutOnAuthRequest_LogsError(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		token := json.RawMessage(`{"user":"foo"}`)
+
+		// Get model
+		subscribeToTestModel(t, s, c)
+		cid := getCID(t, s, c)
+
+		// Send token event
+		s.ConnEvent(cid, "token", json.RawMessage(`{"token":`+string(token)+`,"tid":"foo"}`))
+
+		// Send system token reset
+		s.SystemEvent("tokenReset", json.RawMessage(`{"tids":["bar","foo"],"subject":"token.renew"}`))
+
+		// Send error response to auth request
+		s.GetRequest(t).Timeout()
+
+		// Validate logged errors
 		s.AssertErrorsLogged(t, 1)
 	})
 }

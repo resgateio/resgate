@@ -4,10 +4,10 @@ import "time"
 
 const (
 	// Version is the current version for the server.
-	Version = "1.6.3"
+	Version = "1.7.0"
 
 	// ProtocolVersion is the implemented RES protocol version.
-	ProtocolVersion = "1.2.1"
+	ProtocolVersion = "1.2.2"
 
 	// DefaultAddr is the default host for client connections.
 	DefaultAddr = "0.0.0.0"

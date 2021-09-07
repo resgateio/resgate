@@ -7,5 +7,5 @@ require (
 	github.com/jirenius/timerqueue v1.0.0
 	github.com/nats-io/nats.go v1.10.0
 	github.com/posener/wstest v1.2.0
-	github.com/rs/xid v1.2.1
+	github.com/rs/xid v1.3.0
 )

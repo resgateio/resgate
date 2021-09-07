@@ -19,7 +19,9 @@ type Cache struct {
 	mq               mq.Client
 	logger           logger.Logger
 	workers          int
+	resetThrottle    int
 	unsubscribeDelay time.Duration
+	conns            map[string]Conn
 
 	mu         sync.Mutex
 	started    bool
@@ -40,7 +42,13 @@ type Subscriber interface {
 	Event(event *ResourceEvent)
 	ResourceName() string
 	ResourceQuery() string
-	Reaccess()
+	Reaccess(t *Throttle)
+}
+
+// Conn interface represents a connection listening on events
+type Conn interface {
+	CID() string
+	TokenReset(tids map[string]bool, subject string)
 }
 
 // ResourceEvent represents an event on a resource
@@ -51,15 +59,21 @@ type ResourceEvent struct {
 	Value     codec.Value
 	Changed   map[string]codec.Value
 	OldValues map[string]codec.Value
+	// Version is the targeted internal version of the resource
+	Version uint
+	// Update flags if the event causes a version bump. Set by eg. add/remove/change.
+	Update bool
 }
 
 // NewCache creates a new Cache instance
-func NewCache(mq mq.Client, workers int, unsubscribeDelay time.Duration, l logger.Logger) *Cache {
+func NewCache(mq mq.Client, workers int, resetThrottle int, unsubscribeDelay time.Duration, l logger.Logger) *Cache {
 	return &Cache{
 		mq:               mq,
 		logger:           l,
 		workers:          workers,
+		resetThrottle:    resetThrottle,
 		unsubscribeDelay: unsubscribeDelay,
+		conns:            make(map[string]Conn),
 		depLogged:        make(map[string]featureType),
 	}
 }
@@ -89,7 +103,10 @@ func (c *Cache) Start() error {
 		switch ev {
 		case "reset":
 			c.handleSystemReset(payload)
+		case "tokenReset":
+			c.handleSystemTokenReset(payload)
 		}
+
 	})
 	if err != nil {
 		c.Stop()
@@ -182,6 +199,19 @@ func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token
 	})
 }
 
+// CustomAuth sends an auth method call to a custom subject
+func (c *Cache) CustomAuth(req codec.AuthRequester, subj, query string, token, params interface{}, callback func(result json.RawMessage, rid string, err error)) {
+	payload := codec.CreateAuthRequest(params, req, query, token)
+	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+		if err != nil {
+			callback(nil, "", err)
+			return
+		}
+
+		callback(codec.DecodeCallResponse(data))
+	})
+}
+
 func (c *Cache) sendRequest(rname, subj string, payload []byte, cb func(data []byte, err error)) {
 	eventSub, _ := c.getSubscription(rname, false)
 	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
@@ -190,6 +220,23 @@ func (c *Cache) sendRequest(rname, subj string, payload []byte, cb func(data []b
 			eventSub.removeCount(1)
 		})
 	})
+}
+
+// AddConn adds a connection listening to events such as system token reset
+// event.
+func (c *Cache) AddConn(conn Conn) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.conns[conn.CID()] = conn
+}
+
+// RemoveConn removes a connection listening to events.
+func (c *Cache) RemoveConn(conn Conn) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	delete(c.conns, conn.CID())
 }
 
 // getSubscription returns the existing eventSubscription after adding its count, or creates a new
@@ -265,13 +312,27 @@ func (c *Cache) handleSystemReset(payload []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.forEachMatch(r.Resources, func(e *EventSubscription) {
-		e.handleResetResource()
-	})
+	if c.resetThrottle > 0 {
+		t := NewThrottle(c.resetThrottle)
 
-	c.forEachMatch(r.Access, func(e *EventSubscription) {
-		e.handleResetAccess()
-	})
+		c.forEachMatch(r.Resources, func(e *EventSubscription) {
+			t.Add(func() {
+				e.handleResetResource(t)
+			})
+		})
+		c.forEachMatch(r.Access, func(e *EventSubscription) {
+			t.Add(func() {
+				e.handleResetAccess(t)
+			})
+		})
+	} else {
+		c.forEachMatch(r.Resources, func(e *EventSubscription) {
+			e.handleResetResource(nil)
+		})
+		c.forEachMatch(r.Access, func(e *EventSubscription) {
+			e.handleResetAccess(nil)
+		})
+	}
 }
 
 func (c *Cache) forEachMatch(p []string, cb func(e *EventSubscription)) {
@@ -294,5 +355,37 @@ func (c *Cache) forEachMatch(p []string, cb func(e *EventSubscription)) {
 				cb(eventSub)
 			}
 		}
+	}
+}
+
+func (c *Cache) handleSystemTokenReset(payload []byte) {
+	r, err := codec.DecodeSystemTokenReset(payload)
+	if err != nil {
+		c.Errorf("Error decoding system token reset: %s", err)
+		return
+	}
+
+	if r.Subject == "" {
+		c.Errorf("Missing subject in system token reset")
+		return
+	}
+
+	// Quick exit if no token IDs are available.
+	if len(r.TIDs) == 0 {
+		return
+	}
+
+	m := make(map[string]bool, len(r.TIDs))
+	for _, tid := range r.TIDs {
+		m[tid] = true
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Iterate over all currenct connects and let them each validate against any
+	// existing token ID (tid).
+	for _, sub := range c.conns {
+		sub.TokenReset(m, r.Subject)
 	}
 }

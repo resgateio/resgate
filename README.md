@@ -83,38 +83,46 @@ resgate [options]
 
 | Option | Description | Default value
 | --- | --- | ---
-| `-n`, `--nats <url>` | NATS Server URL | `nats://127.0.0.1:4222`
-| `-i`, `--addr <host>` | Bind to HOST address | `0.0.0.0`
-| `-p`, `--port <port>` | HTTP port for client connections | `8080`
-| `-w`, `--wspath <path>` | WebSocket path for clients | `/`
-| `-a`, `--apipath <path>` | Web resource path for clients | `/api/`
-| `-r`, `--reqtimeout <seconds>` | Timeout duration for NATS requests | `3000`
-| `-u`, `--headauth <method>` | Resource method for header authentication |
-| `    --tls` | Enable TLS for HTTP | `false`
-| `    --tlscert <file>` | HTTP server certificate file |
-| `    --tlskey <file>` | Private key for HTTP server certificate |
-| `    --apiencoding <type>` | Encoding for web resources: json, jsonflat | `json`
-| `    --creds <file>` | NATS User Credentials file |
-| `    --alloworigin <origin>` | Allowed origin(s): *, or \<scheme\>://\<hostname\>\[:\<port\>\] | `*`
-| `    --putmethod <methodName>` | Call method name mapped to HTTP PUT requests |
-| `    --deletemethod <methodName>` | Call method name mapped to HTTP DELETE requests |
-| `    --patchmethod <methodName>` | Call method name mapped to HTTP PATCH requests |
-| `-c`, `--config <file>` | Configuration file in JSON format |
+| <code>-n, --nats &lt;url&gt;</code> | NATS Server URL | `nats://127.0.0.1:4222`
+| <code>-i, --addr &lt;host&gt;</code> | Bind to HOST address | `0.0.0.0`
+| <code>-p, --port &lt;port&gt;</code> | HTTP port for client connections | `8080`
+| <code>-w, --wspath &lt;path&gt;</code> | WebSocket path for clients | `/`
+| <code>-a, --apipath &lt;path&gt;</code> | Web resource path for clients | `/api/`
+| <code>-r, --reqtimeout &lt;seconds&gt;</code> | Timeout duration for NATS requests | `3000`
+| <code>-u, --headauth &lt;method&gt;</code> | Resource method for header authentication |
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--apiencoding &lt;type&gt;</code> | Encoding for web resources: json, jsonflat | `json`
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--putmethod &lt;methodName&gt;</code> | Call method name mapped to HTTP PUT requests |
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--deletemethod &lt;methodName&gt;</code> | Call method name mapped to HTTP DELETE requests |
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--patchmethod &lt;methodName&gt;</code> | Call method name mapped to HTTP PATCH requests |
+| <code>-c, --config &lt;file&gt;</code> | Configuration file in JSON format |
+
+### Security options
+
+| Option | Description | Default value
+| --- | --- | ---
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--tls</code> | Enable TLS for HTTP | `false`
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--tlscert &lt;file&gt;</code> | HTTP server certificate file |
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--tlskey &lt;file&gt;</code> | Private key for HTTP server certificate |
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--creds &lt;file&gt;</code> | NATS User Credentials file |
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--natscert &lt;file&gt;</code> | NATS Client certificate file |
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--natskey &lt;file&gt;</code> | NATS Client certificate key file |
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--natsrootca &lt;file&gt;</code> | NATS Root CA file(s) |
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--alloworigin &lt;origin&gt;</code> | Allowed origin(s): *, or \<scheme\>://\<hostname\>\[:\<port\>\] | `*`
 
 ### Logging options
 
 | Option | Description
 | --- | ---
-| `-D`, `--debug` | Enable debugging output
-| `-V`, `--trace` | Enable trace logging
-| `-DV` | Debug and trace
+| <code>-D, --debug</code> | Enable debugging output
+| <code>-V, --trace</code> | Enable trace logging
+| <code>-DV</code> | Debug and trace
 
 ### Common options
 
 | Option | Description
 | --- | ---
-| `-h`, `--help` | Show usage message
-| `-v`, `--version` | Show version
+| <code>-h, --help</code> | Show usage message
+| <code>-v, --version</code> | Show version
 
 
 ## Configuration
@@ -126,11 +134,6 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
 {
     // URL to the NATS server.
     "natsUrl": "nats://127.0.0.1:4222",
-    // NATS User Credentials file path.
-    // Eg. "ngs.creds"
-    "natsCreds": null,
-    // Timeout in milliseconds for NATS requests
-    "requestTimeout": 3000,
     // Bind to HOST IPv4 or IPv6 address.
     // Empty string ("") means all IPv4 and IPv6 addresses.
     // Invalid or missing IP address defaults to 0.0.0.0.
@@ -142,13 +145,20 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
     "wsPath": "/",
     // Path prefix for accessing web resources.
     "apiPath": "/api",
+    // Timeout in milliseconds for NATS requests.
+    "requestTimeout": 3000,
+    // Header authentication resource method for web resources.
+    // Prior to accessing the resource, this resource method will be
+    // called, allowing an auth service to set a token using
+    // information such as the request headers.
+    // Missing value or null will disable header authentication.
+    // Eg. "authService.headerLogin"
+    "headerAuth": null,
     // Encoding for web resources.
     // Available encodings are:
     // * json - JSON encoding with resource reference meta data.
     // * jsonflat - JSON encoding without resource reference meta data.
     "apiEncoding": "json",
-    // Flag enabling WebSocket per message compression (RFC 7692).
-    "wsCompression": false,
     // Call method name to map HTTP PUT method requests to.
     // Eg. "put"
     "putMethod": null,
@@ -158,19 +168,31 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
     // Call method name to map HTTP PATCH method requests to.
     // Eg. "patch"
     "patchMethod": null,
-    // Header authentication resource method for web resources.
-    // Prior to accessing the resource, this resource method will be
-    // called, allowing an auth service to set a token using
-    // information such as the request headers.
-    // Missing value or null will disable header authentication.
-    // Eg. "authService.headerLogin"
-    "headerAuth": null,
+    // Flag enabling WebSocket per message compression (RFC 7692).
+    "wsCompression": false,
+    // Throttle on how many requests are sent in response to a system reset.
+    // Once that the number of requests are sent, the server will await
+    // responses before sending more requests. Zero (0) means no throttling.
+    // Eg. 32
+    "resetThrottle": 0,
     // Flag enabling tls encryption.
     "tls": false,
     // Certificate file path for tls encryption.
     "tlsCert": "",
     // Key file path for tls encryption.
     "tlsKey": "",
+    // NATS User Credentials file.
+    // Eg. "ngs.creds"
+    "natsCreds": "",
+    // NATS Client certificate file.
+    // Eg. "client-cert.pem"
+    "natsCert": "",
+    // NATS Client certificate key file.
+    // Eg. "client-key.pem"
+    "natsKey": "",
+    // NATS Root CA files.
+    // Eg. ["rootCA.pem"]
+    "natsRootCAs": [],
     // Allowed origin for CORS requests, or * to allow all origins.
     // Multiple origins are separated by semicolon.
     // Eg. "https://example.com;https://api.example.com"

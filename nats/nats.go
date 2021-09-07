@@ -21,7 +21,10 @@ const (
 type Client struct {
 	RequestTimeout time.Duration
 	URL            string
-	Creds          *string
+	Creds          string
+	ClientCert     string
+	ClientKey      string
+	RootCAs        []string
 	Logger         logger.Logger
 
 	mq           *nats.Conn
@@ -73,8 +76,19 @@ func (c *Client) Connect() error {
 
 	// Create connection options
 	opts := []nats.Option{nats.NoReconnect(), nats.ClosedHandler(c.onClose)}
-	if c.Creds != nil {
-		opts = append(opts, nats.UserCredentials(*c.Creds))
+	if c.Creds != "" {
+		opts = append(opts, nats.UserCredentials(c.Creds))
+	}
+	if c.ClientCert != "" && c.ClientKey != "" {
+		opts = append(opts, nats.ClientCert(c.ClientCert, c.ClientKey))
+	} else if c.ClientCert != c.ClientKey {
+		if c.ClientCert == "" {
+			return fmt.Errorf(`missing --natscert file option`)
+		}
+		return fmt.Errorf(`missing --natskey file option`)
+	}
+	if len(c.RootCAs) > 0 {
+		opts = append(opts, nats.RootCAs(c.RootCAs...))
 	}
 
 	// No reconnects as all resources are instantly stale anyhow

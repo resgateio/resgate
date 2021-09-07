@@ -31,6 +31,8 @@ type Config struct {
 
 	WSCompression bool `json:"wsCompression"`
 
+	ResetThrottle int `json:"resetThrottle"`
+
 	NoHTTP bool `json:"-"` // Disable start of the HTTP server. Used for testing
 
 	scheme           string
