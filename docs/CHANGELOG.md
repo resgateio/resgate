@@ -2,7 +2,7 @@
 
 All changes to the RES Protocol will be documented in this file.
 
-## v1.2.2
+## v1.2.2 [Resgate v1.7.0](compare/v1.6.0...v1.7.0) - 2020-06-15
 
 * #202 Token ID.
 
