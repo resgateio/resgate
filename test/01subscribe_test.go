@@ -3,8 +3,10 @@ package test
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/resgateio/resgate/server"
 	"github.com/resgateio/resgate/server/mq"
 	"github.com/resgateio/resgate/server/reserr"
 )
@@ -423,5 +425,129 @@ func TestSubscribe_LongResourceID_ReturnsErrSubjectTooLong(t *testing.T) {
 		c.Request("subscribe.test."+generateString(10000), nil).
 			GetResponse(t).
 			AssertError(t, reserr.ErrSubjectTooLong)
+	})
+}
+
+func TestSubscribe_WithThrottle_ThrottlesRequests(t *testing.T) {
+	const referenceCount = 10
+	const referenceThrottle = 3
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get subscription with a set of references
+		data := "["
+		for i := 1; i <= referenceCount; i++ {
+			if i > 1 {
+				data += ","
+			}
+			data += fmt.Sprintf(`{"rid":"test.model.%d"}`, i)
+		}
+		data += "]"
+
+		// Send subscribe request for the collection
+		creq := c.Request("subscribe.test.collection", nil)
+		// Handle model get and access request
+		mreqs := s.GetParallelRequests(t, 2)
+		// Handle access
+		req := mreqs.GetRequest(t, "access.test.collection")
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+		mreqs.GetRequest(t, "get.test.collection").RespondSuccess(json.RawMessage(`{"collection":` + data + `}`))
+
+		// Get throttled number of requests
+		mreqs = s.GetParallelRequests(t, referenceThrottle)
+		requestCount := referenceThrottle
+		// Assert no other requests are sent
+		for i := 1; i <= referenceCount; i++ {
+			c.AssertNoNATSRequest(t, fmt.Sprintf("test.model.%d", i))
+		}
+		// Respond to requests one by one
+		for len(mreqs) > 0 {
+			r := mreqs[0]
+			mreqs = mreqs[1:]
+			id := r.Subject[strings.LastIndexByte(r.Subject, '.')+1:]
+			r.RespondSuccess(json.RawMessage(`{"model":` + fmt.Sprintf(`{"id":%s}`, id) + `}`))
+			// If we still have remaining subscriptions not yet received
+			if requestCount < referenceCount {
+				// For each response, a new request should be sent.
+				req := s.GetRequest(t)
+				mreqs = append(mreqs, req)
+				requestCount++
+				// Assert no other requests are sent
+				for i := 1; i <= referenceCount; i++ {
+					c.AssertNoNATSRequest(t, fmt.Sprintf("test.model.%d", i))
+				}
+			}
+		}
+
+		// Get the response to the client request
+		creq.GetResponse(t)
+
+	}, func(c *server.Config) {
+		c.ReferenceThrottle = referenceThrottle
+	})
+}
+
+func TestSubscribe_WithThrottleOnNestedReferences_ThrottlesRequests(t *testing.T) {
+	const referenceCount = 10
+	const referenceThrottle = 3
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get subscription with a set of references
+		data := "["
+		for i := 1; i <= referenceCount; i++ {
+			if i > 1 {
+				data += ","
+			}
+			data += fmt.Sprintf(`{"rid":"test.model.%d"}`, i)
+		}
+		data += "]"
+
+		// Send subscribe request for the collection
+		creq := c.Request("subscribe.test.collection", nil)
+		// Handle model get and access request
+		mreqs := s.GetParallelRequests(t, 2)
+		// Handle access
+		req := mreqs.GetRequest(t, "access.test.collection")
+		req.RespondSuccess(json.RawMessage(`{"get":true}`))
+		mreqs.GetRequest(t, "get.test.collection").RespondSuccess(json.RawMessage(`{"collection":` + data + `}`))
+
+		// Get throttled number of requests
+		mreqs = s.GetParallelRequests(t, referenceThrottle)
+		requestCount := referenceThrottle
+		// Assert no other requests are sent
+		for i := 1; i <= referenceCount; i++ {
+			c.AssertNoNATSRequest(t, fmt.Sprintf("test.model.%d", i))
+			c.AssertNoNATSRequest(t, fmt.Sprintf("test.model.%d.child", i))
+		}
+		// Respond to requests one by one
+		for len(mreqs) > 0 {
+			r := mreqs[0]
+			mreqs = mreqs[1:]
+			id := r.Subject[strings.LastIndexByte(r.Subject, '.')+1:]
+			if id == "child" {
+				subj := r.Subject[:len(r.Subject)-len(id)-1]
+				id = subj[strings.LastIndexByte(subj, '.')+1:]
+				r.RespondSuccess(json.RawMessage(`{"model":` + fmt.Sprintf(`{"id":%s,"isChild":true}`, id) + `}`))
+			} else {
+				r.RespondSuccess(json.RawMessage(`{"model":` + fmt.Sprintf(`{"id":%s,"child":{"rid":"test.model.%s.child"}}`, id, id) + `}`))
+			}
+			// If we still have remaining subscriptions not yet received
+			if requestCount < referenceCount*2 {
+				// For each response, a new request should be sent.
+				req := s.GetRequest(t)
+				mreqs = append(mreqs, req)
+				requestCount++
+				// Assert no other requests are sent
+				for i := 1; i <= referenceCount; i++ {
+					c.AssertNoNATSRequest(t, fmt.Sprintf("test.model.%d", i))
+					c.AssertNoNATSRequest(t, fmt.Sprintf("test.model.%d.child", i))
+				}
+			}
+		}
+
+		// Get the response to the client request
+		creq.GetResponse(t)
+
+	}, func(c *server.Config) {
+		c.ReferenceThrottle = referenceThrottle
 	})
 }
