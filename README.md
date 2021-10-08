@@ -134,19 +134,25 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
 {
     // URL to the NATS server.
     "natsUrl": "nats://127.0.0.1:4222",
+
     // Bind to HOST IPv4 or IPv6 address.
     // Empty string ("") means all IPv4 and IPv6 addresses.
     // Invalid or missing IP address defaults to 0.0.0.0.
     "addr": "0.0.0.0",
+
     // Port for the http server to listen on.
     // If the port value is missing or 0, standard http(s) port is used.
     "port": 8080,
+
     // Path for accessing the RES API WebSocket.
     "wsPath": "/",
+
     // Path prefix for accessing web resources.
     "apiPath": "/api",
+
     // Timeout in milliseconds for NATS requests.
     "requestTimeout": 3000,
+
     // Header authentication resource method for web resources.
     // Prior to accessing the resource, this resource method will be
     // called, allowing an auth service to set a token using
@@ -154,51 +160,74 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
     // Missing value or null will disable header authentication.
     // Eg. "authService.headerLogin"
     "headerAuth": null,
+
     // Encoding for web resources.
     // Available encodings are:
     // * json - JSON encoding with resource reference meta data.
     // * jsonflat - JSON encoding without resource reference meta data.
     "apiEncoding": "json",
+
     // Call method name to map HTTP PUT method requests to.
     // Eg. "put"
     "putMethod": null,
+
     // Call method name to map HTTP DELETE method requests to.
     // Eg. "delete"
     "deleteMethod": null,
+
     // Call method name to map HTTP PATCH method requests to.
     // Eg. "patch"
     "patchMethod": null,
+
     // Flag enabling WebSocket per message compression (RFC 7692).
     "wsCompression": false,
+
     // Throttle on how many requests are sent in response to a system reset.
     // Once that the number of requests are sent, the server will await
     // responses before sending more requests. Zero (0) means no throttling.
     // Eg. 32
     "resetThrottle": 0,
+
+    // Throttle on how many requests are sent when recursively following
+    // resource references for a subscription.
+    // Once that the number of requests are sent, the server will await
+    // responses before sending more requests. Zero (0) means no throttling.
+    // Eg. 32
+    "referenceThrottle": 0,
+
     // Flag enabling tls encryption.
     "tls": false,
+
     // Certificate file path for tls encryption.
     "tlsCert": "",
+
     // Key file path for tls encryption.
     "tlsKey": "",
+
     // NATS User Credentials file.
     // Eg. "ngs.creds"
     "natsCreds": "",
+
     // NATS Client certificate file.
     // Eg. "client-cert.pem"
     "natsCert": "",
+
     // NATS Client certificate key file.
     // Eg. "client-key.pem"
     "natsKey": "",
+
     // NATS Root CA files.
     // Eg. ["rootCA.pem"]
     "natsRootCAs": [],
+
     // Allowed origin for CORS requests, or * to allow all origins.
     // Multiple origins are separated by semicolon.
     // Eg. "https://example.com;https://api.example.com"
     "allowOrigin": "*",
+
     // Flag enabling debug logging.
     "debug": false,
+
     // Flag enabling trace logging.
     "trace": false
 }
