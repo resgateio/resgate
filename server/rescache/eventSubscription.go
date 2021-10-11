@@ -66,7 +66,7 @@ func (e *EventSubscription) getResourceSubscription(q string) (rs *ResourceSubsc
 	return
 }
 
-func (e *EventSubscription) addSubscriber(sub Subscriber) {
+func (e *EventSubscription) addSubscriber(sub Subscriber, t *Throttle) {
 	e.Enqueue(func() {
 		var rs *ResourceSubscription
 		q := sub.ResourceQuery()
@@ -85,9 +85,19 @@ func (e *EventSubscription) addSubscriber(sub Subscriber) {
 			// Create request
 			subj := "get." + e.ResourceName
 			payload := codec.CreateGetRequest(q)
-			e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
-				rs.enqueueGetResponse(data, err)
-			})
+			// Request directly if we don't throttle, or else add to throttle
+			if t == nil {
+				e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+					rs.enqueueGetResponse(data, err)
+				})
+			} else {
+				t.Add(func() {
+					e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+						rs.enqueueGetResponse(data, err)
+						t.Done()
+					})
+				})
+			}
 
 		// If a request has already been sent
 		// In that case the subscriber will be handled

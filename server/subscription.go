@@ -20,7 +20,7 @@ type ConnSubscriber interface {
 	Errorf(format string, v ...interface{})
 	CID() string
 	Token() json.RawMessage
-	Subscribe(rid string, direct bool) (*Subscription, error)
+	Subscribe(rid string, direct bool, throttle *rescache.Throttle) (*Subscription, error)
 	Unsubscribe(sub *Subscription, direct bool, count int, tryDelete bool)
 	Access(sub *Subscription, callback func(*rescache.Access))
 	Send(data []byte)
@@ -53,6 +53,7 @@ type Subscription struct {
 	access          *rescache.Access
 	accessCallbacks []func(*rescache.Access)
 	flags           uint8
+	throttle        *rescache.Throttle
 
 	// Protected by conn
 	direct   int // Number of direct subscriptions
@@ -96,7 +97,7 @@ var (
 )
 
 // NewSubscription creates a new Subscription
-func NewSubscription(c ConnSubscriber, rid string) *Subscription {
+func NewSubscription(c ConnSubscriber, rid string, throttle *rescache.Throttle) *Subscription {
 	name, query := parseRID(c.ExpandCID(rid))
 
 	sub := &Subscription{
@@ -106,6 +107,7 @@ func NewSubscription(c ConnSubscriber, rid string) *Subscription {
 		c:             c,
 		state:         stateLoading,
 		queueFlag:     queueReasonLoading,
+		throttle:      throttle,
 	}
 
 	return sub
@@ -509,7 +511,7 @@ func (s *Subscription) addReference(rid string) (*Subscription, error) {
 	}
 
 	if ref == nil {
-		sub, err := s.c.Subscribe(rid, false)
+		sub, err := s.c.Subscribe(rid, false, s.throttle)
 
 		if err != nil {
 			return nil, err
@@ -776,6 +778,7 @@ func (s *Subscription) Dispose() {
 	s.state = stateDisposed
 	s.readyCallbacks = nil
 	s.eventQueue = nil
+	s.throttle = nil
 
 	if s.resourceSub != nil {
 		s.unsubscribeRefs()
@@ -792,6 +795,7 @@ func (s *Subscription) doneLoading() {
 	s.state = stateReady
 	rcbs := s.readyCallbacks
 	s.readyCallbacks = nil
+	s.throttle = nil
 
 	for _, rcb := range rcbs {
 		rcb.loading--
