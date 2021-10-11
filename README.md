@@ -94,6 +94,9 @@ resgate [options]
 | <code>&nbsp;&nbsp;&nbsp;&nbsp;--putmethod &lt;methodName&gt;</code> | Call method name mapped to HTTP PUT requests |
 | <code>&nbsp;&nbsp;&nbsp;&nbsp;--deletemethod &lt;methodName&gt;</code> | Call method name mapped to HTTP DELETE requests |
 | <code>&nbsp;&nbsp;&nbsp;&nbsp;--patchmethod &lt;methodName&gt;</code> | Call method name mapped to HTTP PATCH requests |
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--wscompression</code> | Enable WebSocket per message compression |
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--resetthrottle  &lt;limit&gt;</coce> | Limit on parallel requests sent in response to a system reset |
+| <code>&nbsp;&nbsp;&nbsp;&nbsp;--referencethrottle  &lt;limit&gt;</coce> | Limit on parallel requests sent when following resource references |
 | <code>-c, --config &lt;file&gt;</code> | Configuration file in JSON format |
 
 ### Security options
