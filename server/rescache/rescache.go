@@ -130,14 +130,14 @@ func (c *Cache) Errorf(format string, v ...interface{}) {
 
 // Subscribe fetches a resource from the cache, and if it is
 // not cached, starts subscribing to the resource and sends a get request
-func (c *Cache) Subscribe(sub Subscriber) {
+func (c *Cache) Subscribe(sub Subscriber, t *Throttle) {
 	eventSub, err := c.getSubscription(sub.ResourceName(), true)
 	if err != nil {
 		sub.Loaded(nil, err)
 		return
 	}
 
-	eventSub.addSubscriber(sub)
+	eventSub.addSubscriber(sub, t)
 }
 
 // Access sends an access request

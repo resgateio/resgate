@@ -553,32 +553,6 @@ May be omitted.
 }
 ```
 
-## System token reset event
-
-**Subject**
-`system.tokenReset`
-
-Signals that tokens matching one or more *token IDs* (tid) are to be considered out of date.
-A service MUST immediately send an [auth request](#auth-request) to the provided subject for each connection with a token matching any of the token IDs. The *auth request* should not contain any params, and the response may be discarded by the service.  
-The event payload has the following parameters:
-
-**tids**
-An array of token ID (tid) strings.  
-MUST be an array of strings.
-
-**subject**
-A subject string to which the [auth requests](#auth-request) should be sent.  
-May have the subject pattern of an *auth request*, but it is not required.  
-MUST be a string.
-
-**Example payload**
-```json
-{
-  "tids": [ "12", "42" ],
-  "subject": "auth.authentication.renewToken"
-}
-```
-
 ### Resource name pattern
 A resource name pattern is a string used for matching resource names.  
 The pattern may use the following wild cards:
@@ -588,6 +562,31 @@ Eg. `userService.user.*.roles` - Pattern that matches the roles collection of al
 * The greater than symbol (`>`) matches one or more parts at the end of a resource name, and must be the last part.  
 Eg. `messageService.>` - Pattern that matches all resources owned by *messageService*.  
 
+## System token reset event
+
+**Subject**  
+`system.tokenReset`
+
+Signals that tokens matching one or more *token IDs* (tid) are to be considered out of date.
+A service MUST immediately send an [auth request](#auth-request) to the provided subject for each connection with a token matching any of the token IDs. The *auth request* should not contain any params, and the response may be discarded by the service.  
+The event payload has the following parameters:
+
+**tids**  
+An array of token ID (tid) strings.  
+MUST be an array of strings.
+
+**subject**  
+A subject string to which the [auth requests](#auth-request) should be sent.  
+May have the subject pattern of an *auth request*, but it is not required.  
+MUST be a string.
+
+**Example payload**  
+```json
+{
+  "tids": [ "12", "42" ],
+  "subject": "auth.authentication.renewToken"
+}
+```
 
 # Query resources
 

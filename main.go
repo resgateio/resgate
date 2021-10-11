@@ -43,6 +43,9 @@ Server Options:
         --putmethod <methodName>     Call method name mapped to HTTP PUT requests
         --deletemethod <methodName>  Call method name mapped to HTTP DELETE requests
         --patchmethod <methodName>   Call method name mapped to HTTP PATCH requests
+        --wscompression              Enable WebSocket per message compression
+        --resetthrottle <limit>      Limit on parallel requests sent in response to a system reset
+        --referencethrottle <limit>  Limit on parallel requests sent when following resource references
     -c, --config <file>              Configuration file
 
 Security Options:
@@ -158,6 +161,9 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 	fs.StringVar(&putMethod, "putmethod", "", "Call method name mapped to HTTP PUT requests.")
 	fs.StringVar(&deleteMethod, "deletemethod", "", "Call method name mapped to HTTP DELETE requests.")
 	fs.StringVar(&patchMethod, "patchmethod", "", "Call method name mapped to HTTP PATCH requests.")
+	fs.BoolVar(&c.WSCompression, "wscompression", false, "Enable WebSocket per message compression.")
+	fs.IntVar(&c.ResetThrottle, "resetthrottle", 0, "Limit on parallel requests sent in response to a system reset.")
+	fs.IntVar(&c.ReferenceThrottle, "referencethrottle", 0, "Limit on parallel requests sent when following resource references.")
 	fs.BoolVar(&c.Debug, "D", false, "Enable debugging output.")
 	fs.BoolVar(&c.Debug, "debug", false, "Enable debugging output.")
 	fs.BoolVar(&c.Trace, "V", false, "Enable trace logging.")
