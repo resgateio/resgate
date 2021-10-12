@@ -443,13 +443,25 @@ func (rs *ResourceSubscription) handleResetResource(t *Throttle) {
 	// Create request
 	subj := "get." + rs.e.ResourceName
 	payload := codec.CreateGetRequest(rs.query)
-	rs.e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
-		rs.e.Enqueue(func() {
-			rs.resetting = false
-			rs.processResetGetResponse(data, err)
+
+	if t != nil {
+		t.Add(func() {
+			rs.e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+				rs.e.Enqueue(func() {
+					rs.resetting = false
+					rs.processResetGetResponse(data, err)
+				})
+				t.Done()
+			})
 		})
-		t.Done()
-	})
+	} else {
+		rs.e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+			rs.e.Enqueue(func() {
+				rs.resetting = false
+				rs.processResetGetResponse(data, err)
+			})
+		})
+	}
 }
 
 func (rs *ResourceSubscription) handleResetAccess(t *Throttle) {
