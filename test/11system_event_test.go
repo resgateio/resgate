@@ -498,6 +498,175 @@ func TestSystemReset_WithResourcesAndAccessAndWithThrottle_ThrottlesAccessReques
 	})
 }
 
+func TestSystemReset_WithThrottleNotReachingLimit_NoThrottle(t *testing.T) {
+	const subscriptionCount = 10
+	const resetThrottle = 40
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get subscriptions
+		for i := 1; i <= subscriptionCount; i++ {
+			subscribeToCustomResource(t, s, c, fmt.Sprintf("test.model.%d", i), resource{
+				typ:  typeModel,
+				data: fmt.Sprintf(`{"id":%d}`, i),
+			})
+		}
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test.>"],"access":["test.>"]}`))
+		// Get throttled number of requests
+		mreqs := s.GetParallelRequests(t, subscriptionCount*2)
+		// Respond to requests
+		for len(mreqs) > 0 {
+			r := mreqs[0]
+			mreqs = mreqs[1:]
+			id := r.Subject[strings.LastIndexByte(r.Subject, '.')+1:]
+			method := r.Subject[:strings.IndexByte(r.Subject, '.')]
+			switch method {
+			case "get":
+				r.RespondSuccess(json.RawMessage(`{"model":` + fmt.Sprintf(`{"id":%s}`, id) + `}`))
+			case "access":
+				r.RespondSuccess(json.RawMessage(`{"get":true}`))
+			default:
+				t.Fatalf("expected method to be either get or access, but got %s", method)
+			}
+		}
+
+		// Assert no other requests are sent
+		for i := 1; i <= subscriptionCount; i++ {
+			c.AssertNoNATSRequest(t, fmt.Sprintf("test.model.%d", i))
+		}
+
+	}, func(c *server.Config) {
+		c.ResetThrottle = resetThrottle
+	})
+}
+
+func TestSystemReset_WithIndirectAccessAndWithThrottle_ThrottlesAccessRequests(t *testing.T) {
+	const subscriptionCount = 10
+	const resetThrottle = 64
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Get subscriptions of models and their children
+		for i := 1; i <= subscriptionCount; i++ {
+			// Send subscribe request for the collection
+			rid := fmt.Sprintf("test.model.%d", i)
+			creq := c.Request("subscribe."+rid, nil)
+			// Handle model get and access request
+			mreqs := s.GetParallelRequests(t, 2)
+			// Handle access
+			mreqs.GetRequest(t, "access."+rid).
+				RespondSuccess(json.RawMessage(`{"get":true}`))
+			// Handle get
+			mreqs.GetRequest(t, "get."+rid).
+				RespondSuccess(json.RawMessage(fmt.Sprintf(`{"model":{"id":%d,"child":{"rid":"%s.child"}}}`, i, rid)))
+			// Handle get child
+			s.GetRequest(t).
+				RespondSuccess(json.RawMessage(fmt.Sprintf(`{"model":{"chidlId":%d}}`, i)))
+			creq.GetResponse(t)
+		}
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":["test","test.>"],"access":["test","test.>"]}`))
+		// Get throttled number of requests
+		mreqs := s.GetParallelRequests(t, subscriptionCount*3)
+		requestCount := len(mreqs)
+		// Assert no other requests are sent
+		for i := 1; i <= subscriptionCount; i++ {
+			c.AssertNoNATSRequest(t, fmt.Sprintf("test.model.%d", i))
+		}
+		// Respond to requests
+		for len(mreqs) > 0 {
+			r := mreqs[0]
+			mreqs = mreqs[1:]
+			id := r.Subject[strings.LastIndexByte(r.Subject, '.')+1:]
+			method := r.Subject[:strings.IndexByte(r.Subject, '.')]
+			switch method {
+			case "get":
+				if id == "child" {
+					subj := r.Subject[:len(r.Subject)-len(id)-1]
+					id = subj[strings.LastIndexByte(subj, '.')+1:]
+					r.RespondSuccess(json.RawMessage(`{"model":` + fmt.Sprintf(`{"childId":%s}`, id) + `}`))
+				} else {
+					r.RespondSuccess(json.RawMessage(`{"model":` + fmt.Sprintf(`{"id":%s,"child":{"rid":"test.model.%s.child"}}`, id, id) + `}`))
+				}
+			case "access":
+				r.RespondSuccess(json.RawMessage(`{"get":true}`))
+			default:
+				t.Fatalf("expected method to be either get or access, but got %s", method)
+			}
+			// If we still have remaining subscriptions not yet received
+			if requestCount < subscriptionCount*3 {
+				// For each response, a new request should be sent.
+				req := s.GetRequest(t)
+				mreqs = append(mreqs, req)
+				requestCount++
+				// Assert no other requests are sent
+				for i := 1; i <= subscriptionCount; i++ {
+					c.AssertNoNATSRequest(t, fmt.Sprintf("test.model.%d", i))
+				}
+			}
+		}
+
+		// Assert no other requests are sent
+		for i := 1; i <= subscriptionCount; i++ {
+			c.AssertNoNATSRequest(t, fmt.Sprintf("test.model.%d", i))
+		}
+
+	}, func(c *server.Config) {
+		c.ResetThrottle = resetThrottle
+	})
+}
+
+func TestSystemReset_WithAccessForTwoSubscribersWithThrottle_ThrottlesAccessRequests(t *testing.T) {
+	const resetThrottle = 3
+	runTest(t, func(s *Session) {
+		// Subscribe for first connection
+		c1 := s.Connect()
+		subscribeToTestModel(t, s, c1)
+		// Subscribe to same resource for second connection
+		c2 := s.Connect()
+		creq := c2.Request("subscribe.test.model", nil)
+		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"get":true}`))
+		creq.GetResponse(t)
+
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"access":["test.>"]}`))
+		// Get access requests
+		for i := 0; i < 2; i++ {
+			s.GetRequest(t).
+				AssertSubject(t, "access.test.model").
+				RespondSuccess(json.RawMessage(`{"get":true}`))
+		}
+
+		c1.AssertNoNATSRequest(t, "test.model")
+
+	}, func(c *server.Config) {
+		c.ResetThrottle = resetThrottle
+	})
+}
+
+func TestSystemReset_WithAccessForMultipleQueriesWithThrottle_ThrottlesAccessRequests(t *testing.T) {
+	const resetThrottle = 3
+	runTest(t, func(s *Session) {
+		// Subscribe for first connection
+		c := s.Connect()
+		subscribeToTestQueryModel(t, s, c, "q=foo&f=1", "q=foo&f=1")
+		subscribeToTestQueryModel(t, s, c, "q=foo&f=2", "q=foo&f=2")
+
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"access":["test.>"]}`))
+		// Get access requests
+		for i := 0; i < 2; i++ {
+			s.GetRequest(t).
+				AssertSubject(t, "access.test.model").
+				RespondSuccess(json.RawMessage(`{"get":true}`))
+		}
+
+		c.AssertNoNATSRequest(t, "test.model")
+
+	}, func(c *server.Config) {
+		c.ResetThrottle = resetThrottle
+	})
+}
+
 func TestSystemTokenReset_WithNoMatchingTokenID_SendsNoAuthRequest(t *testing.T) {
 	runTest(t, func(s *Session) {
 		c := s.Connect()
