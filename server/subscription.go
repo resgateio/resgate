@@ -739,23 +739,20 @@ func (s *Subscription) handleReaccess(t *rescache.Throttle) {
 	s.flags &= ^flagReaccess
 
 	if s.direct == 0 {
-		t.Done()
 		return
 	}
 
 	// If we already have an access instance set, use that one to test without queueing
 	if s.access != nil {
-		t.Done()
 		s.validateAccess(s.access)
 		return
 	}
 
 	s.queueEvents(queueReasonReaccess)
 	s.loadAccess(func(a *rescache.Access) {
-		t.Done()
 		s.validateAccess(a)
 		s.unqueueEvents(queueReasonReaccess)
-	})
+	}, t)
 }
 
 // validateAccess checks if subscription has get access, or else unsubscribes.
@@ -811,13 +808,11 @@ func (s *Subscription) Reaccess(t *rescache.Throttle) {
 
 func (s *Subscription) reaccess(t *rescache.Throttle) {
 	if s.state == stateDisposed {
-		t.Done()
 		return
 	}
 
 	if s.queueFlag != 0 {
 		s.flags |= flagReaccess
-		t.Done()
 		return
 	}
 
@@ -833,7 +828,7 @@ func parseRID(rid string) (name string, query string) {
 	return rid[:i], rid[i+1:]
 }
 
-func (s *Subscription) loadAccess(cb func(*rescache.Access)) {
+func (s *Subscription) loadAccess(cb func(*rescache.Access), t *rescache.Throttle) {
 	if s.access != nil {
 		cb(s.access)
 		return
@@ -847,25 +842,50 @@ func (s *Subscription) loadAccess(cb func(*rescache.Access)) {
 
 	s.flags |= flagAccessCalled
 
-	s.c.Access(s, func(access *rescache.Access) {
-		s.c.Enqueue(func() {
-			if s.state == stateDisposed {
-				return
-			}
+	if t != nil {
+		t.Add(func() {
+			s.c.Access(s, func(access *rescache.Access) {
+				s.c.Enqueue(func() {
+					if s.state == stateDisposed {
+						return
+					}
 
-			cbs := s.accessCallbacks
-			s.flags &= ^flagAccessCalled
-			// Only store in case of an actual result or system.accessDenied error
-			if access.Error == nil || access.Error.Code == reserr.CodeAccessDenied {
-				s.access = access
-			}
-			s.accessCallbacks = nil
+					cbs := s.accessCallbacks
+					s.flags &= ^flagAccessCalled
+					// Only store in case of an actual result or system.accessDenied error
+					if access.Error == nil || access.Error.Code == reserr.CodeAccessDenied {
+						s.access = access
+					}
+					s.accessCallbacks = nil
 
-			for _, cb := range cbs {
-				cb(access)
-			}
+					for _, cb := range cbs {
+						cb(access)
+					}
+				})
+				t.Done()
+			})
 		})
-	})
+	} else {
+		s.c.Access(s, func(access *rescache.Access) {
+			s.c.Enqueue(func() {
+				if s.state == stateDisposed {
+					return
+				}
+
+				cbs := s.accessCallbacks
+				s.flags &= ^flagAccessCalled
+				// Only store in case of an actual result or system.accessDenied error
+				if access.Error == nil || access.Error.Code == reserr.CodeAccessDenied {
+					s.access = access
+				}
+				s.accessCallbacks = nil
+
+				for _, cb := range cbs {
+					cb(access)
+				}
+			})
+		})
+	}
 }
 
 // CanGet checks asynchronously if the client connection has access to get (read)
@@ -875,7 +895,7 @@ func (s *Subscription) loadAccess(cb func(*rescache.Access)) {
 func (s *Subscription) CanGet(cb func(err error)) {
 	s.loadAccess(func(a *rescache.Access) {
 		cb(a.CanGet())
-	})
+	}, nil)
 }
 
 // CanCall checks asynchronously if the client connection has access to call
@@ -885,5 +905,5 @@ func (s *Subscription) CanGet(cb func(err error)) {
 func (s *Subscription) CanCall(action string, cb func(err error)) {
 	s.loadAccess(func(a *rescache.Access) {
 		cb(a.CanCall(action))
-	})
+	}, nil)
 }

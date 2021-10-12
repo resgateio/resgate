@@ -312,27 +312,17 @@ func (c *Cache) handleSystemReset(payload []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	var t *Throttle
 	if c.resetThrottle > 0 {
-		t := NewThrottle(c.resetThrottle)
-
-		c.forEachMatch(r.Resources, func(e *EventSubscription) {
-			t.Add(func() {
-				e.handleResetResource(t)
-			})
-		})
-		c.forEachMatch(r.Access, func(e *EventSubscription) {
-			t.Add(func() {
-				e.handleResetAccess(t)
-			})
-		})
-	} else {
-		c.forEachMatch(r.Resources, func(e *EventSubscription) {
-			e.handleResetResource(nil)
-		})
-		c.forEachMatch(r.Access, func(e *EventSubscription) {
-			e.handleResetAccess(nil)
-		})
+		t = NewThrottle(c.resetThrottle)
 	}
+
+	c.forEachMatch(r.Resources, func(e *EventSubscription) {
+		e.handleResetResource(t)
+	})
+	c.forEachMatch(r.Access, func(e *EventSubscription) {
+		e.handleResetAccess(t)
+	})
 }
 
 func (c *Cache) forEachMatch(p []string, cb func(e *EventSubscription)) {
