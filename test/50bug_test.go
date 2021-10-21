@@ -57,7 +57,7 @@ func TestBug_PossibleClientResourceInconsistency(t *testing.T) {
 //
 // See: https://github.com/resgateio/resgate/issues/217
 func TestBug_DeadlockOnThrottledAccessRequestsToSameResource(t *testing.T) {
-	const connectionCount = 4
+	const connectionCount = 32
 	const resetThrottle = 3
 	rid := "test.model"
 	model := resources[rid].data
