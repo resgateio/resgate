@@ -58,5 +58,5 @@ func (t *Throttle) Done() {
 	cb := t.queue[0]
 	t.queue = t.queue[1:]
 	t.mu.Unlock()
-	cb()
+	go cb()
 }
