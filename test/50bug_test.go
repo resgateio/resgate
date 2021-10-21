@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/resgateio/resgate/server"
 )
 
 // Test to replicate the bug about possible client resource inconsistency.
@@ -49,4 +51,69 @@ func TestBug_PossibleClientResourceInconsistency(t *testing.T) {
 			c1.GetEvent(t).Equals(t, "test.collection.add", addEvent)
 		})
 	}
+}
+
+// Test to replicate the bug: Deadlock on throttled access requests to same resource
+//
+// See: https://github.com/resgateio/resgate/issues/217
+func TestBug_DeadlockOnThrottledAccessRequestsToSameResource(t *testing.T) {
+	const connectionCount = 32
+	const resetThrottle = 3
+	rid := "test.model"
+	model := resources[rid].data
+	runTest(t, func(s *Session) {
+		// Create a set of connections subscribing to the same resource
+		conns := make([]*Conn, 0, connectionCount)
+		for i := 0; i < connectionCount; i++ {
+			c := s.Connect()
+
+			creq := c.Request("subscribe."+rid, nil)
+			reqCount := 1
+			if i == 0 {
+				reqCount = 2
+			}
+			// Handle access request (and model request for the first connection)
+			mreqs := s.GetParallelRequests(t, reqCount)
+			// Handle access
+			mreqs.GetRequest(t, "access."+rid).
+				RespondSuccess(json.RawMessage(`{"get":true}`))
+			if i == 0 {
+				// Handle get
+				mreqs.GetRequest(t, "get."+rid).
+					RespondSuccess(json.RawMessage(fmt.Sprintf(`{"model":%s}`, model)))
+			}
+			creq.GetResponse(t)
+
+			conns = append(conns, c)
+		}
+
+		// Send system reset
+		s.SystemEvent("reset", json.RawMessage(`{"resources":null,"access":["test.>"]}`))
+		// Get throttled number of requests
+		mreqs := s.GetParallelRequests(t, resetThrottle)
+		requestCount := resetThrottle
+
+		// Respond to requests one by one
+		for len(mreqs) > 0 {
+			r := mreqs[0]
+			mreqs = mreqs[1:]
+			r.RespondSuccess(json.RawMessage(`{"get":true}`))
+
+			// If we still have remaining get or access requests not yet received
+			if requestCount < connectionCount {
+				// For each response, a new request should be sent.
+				req := s.GetRequest(t)
+				mreqs = append(mreqs, req)
+				requestCount++
+			}
+		}
+
+		// Assert no other requests are sent
+		for _, c := range conns {
+			c.AssertNoNATSRequest(t, rid)
+		}
+
+	}, func(c *server.Config) {
+		c.ResetThrottle = resetThrottle
+	})
 }
