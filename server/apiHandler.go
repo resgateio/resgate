@@ -95,13 +95,14 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, error)) {
+		s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, error, bool)) {
 			c.GetSubscription(rid, func(sub *Subscription, err error) {
 				if err != nil {
-					cb(nil, err)
+					cb(nil, err, false)
 					return
 				}
-				cb(s.enc.EncodeGET(sub))
+				b, err := s.enc.EncodeGET(sub)
+				cb(b, err, false)
 			})
 		})
 		return
@@ -164,22 +165,23 @@ func (s *Service) handleCall(w http.ResponseWriter, r *http.Request, rid string,
 		}
 	}
 
-	s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, error)) {
+	s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, error, bool)) {
 		c.CallHTTPResource(rid, s.cfg.APIPath, action, params, func(r json.RawMessage, href string, err error) {
 			if err != nil {
-				cb(nil, err)
+				cb(nil, err, false)
 			} else if href != "" {
 				w.Header().Set("Location", href)
 				w.WriteHeader(http.StatusOK)
-				cb(nil, nil)
+				cb(nil, nil, true)
 			} else {
-				cb(s.enc.EncodePOST(r))
+				b, err := s.enc.EncodePOST(r)
+				cb(b, err, false)
 			}
 		})
 	})
 }
 
-func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func([]byte, error))) {
+func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func([]byte, error, bool))) {
 	c := s.newWSConn(nil, r, versionLatest)
 	if c == nil {
 		httpError(w, reserr.ErrServiceUnavailable, s.enc)
@@ -187,7 +189,7 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 	}
 
 	done := make(chan struct{})
-	rs := func(out []byte, err error) {
+	rs := func(out []byte, err error, headerWritten bool) {
 		defer c.dispose()
 		defer close(done)
 
@@ -209,7 +211,9 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 			return
 		}
 
-		w.WriteHeader(http.StatusNoContent)
+		if !headerWritten {
+			w.WriteHeader(http.StatusNoContent)
+		}
 	}
 	c.Enqueue(func() {
 		if s.cfg.HeaderAuth != nil {
