@@ -641,7 +641,8 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 
 	case "delete":
 		s.state = stateDeleted
-		fallthrough
+		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Payload))
+		s.unsubscribeDirect(reserr.ErrDeleted)
 	default:
 		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Payload))
 	}
@@ -728,7 +729,8 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 		}
 	case "delete":
 		s.state = stateDeleted
-		fallthrough
+		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Payload))
+		s.unsubscribeDirect(reserr.ErrDeleted)
 	default:
 		s.c.Send(rpc.NewEvent(s.rid, event.Event, event.Payload))
 	}
@@ -759,8 +761,16 @@ func (s *Subscription) handleReaccess(t *rescache.Throttle) {
 func (s *Subscription) validateAccess(a *rescache.Access) {
 	err := a.CanGet()
 	if err != nil {
+		s.unsubscribeDirect(reserr.RESError(err))
+	}
+}
+
+// unsubscribeDirect removes any direct subscription of the resource and sends
+// an unsubscribe event if any direct subscriptions existed.
+func (s *Subscription) unsubscribeDirect(reason *reserr.Error) {
+	if s.direct > 0 {
 		s.c.Unsubscribe(s, true, s.direct, true)
-		s.c.Send(rpc.NewEvent(s.rid, "unsubscribe", rpc.UnsubscribeEvent{Reason: reserr.RESError(err)}))
+		s.c.Send(rpc.NewEvent(s.rid, "unsubscribe", rpc.UnsubscribeEvent{Reason: reason}))
 	}
 }
 
