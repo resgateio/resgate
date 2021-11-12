@@ -156,6 +156,9 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
     // Timeout in milliseconds for NATS requests.
     "requestTimeout": 3000,
 
+    // Size of message buffer for incoming NATS requests.
+    "bufferSize": 8192,
+
     // Header authentication resource method for web resources.
     // Prior to accessing the resource, this resource method will be
     // called, allowing an auth service to set a token using

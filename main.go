@@ -78,6 +78,7 @@ type Config struct {
 	NatsTLSKey     string   `json:"natsKey"`
 	NatsRootCAs    []string `json:"natsRootCAs"`
 	RequestTimeout int      `json:"requestTimeout"`
+	BufferSize     int      `json:"bufferSize"`
 	Debug          bool     `json:"debug"`
 	Trace          bool     `json:"trace"`
 	server.Config
@@ -109,6 +110,9 @@ func (c *Config) SetDefault() {
 	}
 	if c.NatsRootCAs == nil {
 		c.NatsRootCAs = []string{}
+	}
+	if c.BufferSize == 0 {
+		c.BufferSize = 8192
 	}
 	c.Config.SetDefault()
 }
@@ -303,6 +307,7 @@ func main() {
 		ClientKey:      cfg.NatsTLSKey,
 		RootCAs:        cfg.NatsRootCAs,
 		RequestTimeout: time.Duration(cfg.RequestTimeout) * time.Millisecond,
+		BufferSize:     cfg.BufferSize,
 		Logger:         l,
 	}, cfg.Config)
 	if err != nil {
