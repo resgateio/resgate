@@ -58,7 +58,6 @@ func TestReaccessEventTriggersAccessCallOnSubscribedResources(t *testing.T) {
 func TestReaccessEventTriggersUnsubscribeOnDeniedAccessCall(t *testing.T) {
 	runTest(t, func(s *Session) {
 		event := json.RawMessage(`{"foo":"bar"}`)
-		reasonAccessDenied := json.RawMessage(`{"reason":{"code":"system.accessDenied","message":"Access denied"}}`)
 
 		c := s.Connect()
 
@@ -72,7 +71,7 @@ func TestReaccessEventTriggersUnsubscribeOnDeniedAccessCall(t *testing.T) {
 		s.GetRequest(t).AssertSubject(t, "access.test.model.parent").RespondSuccess(json.RawMessage(`{"get":false}`))
 
 		// Validate unsubscribe events are sent to client
-		c.GetEvent(t).AssertEventName(t, "test.model.parent.unsubscribe").AssertData(t, reasonAccessDenied)
+		c.GetEvent(t).AssertEventName(t, "test.model.parent.unsubscribe").AssertData(t, mock.UnsubscribeReasonAccessDenied)
 
 		// Send event on model and validate client event
 		s.ResourceEvent("test.model", "custom", event)

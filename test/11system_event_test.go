@@ -238,7 +238,8 @@ func TestSystemReset_NotFoundResponseOnModel_GeneratesDeleteEvent(t *testing.T) 
 		// Respond to get request with system.notFound error
 		s.GetRequest(t).AssertSubject(t, "get.test.model").RespondError(reserr.ErrNotFound)
 		// Validate delete event is sent to client
-		c.GetEvent(t).AssertEventName(t, "test.model.delete").AssertData(t, nil)
+		c.GetEvent(t).Equals(t, "test.model.delete", nil)
+		c.GetEvent(t).Equals(t, "test.model.unsubscribe", mock.UnsubscribeReasonDeleted)
 		// Validate subsequent events are not sent to client
 		s.ResourceEvent("test.model", "custom", common.CustomEvent())
 		c.AssertNoEvent(t, "test.model")
@@ -255,7 +256,8 @@ func TestSystemReset_NotFoundResponseOnCollection_GeneratesDeleteEvent(t *testin
 		// Respond to get request with system.notFound error
 		s.GetRequest(t).AssertSubject(t, "get.test.collection").RespondError(reserr.ErrNotFound)
 		// Validate delete event is sent to client
-		c.GetEvent(t).AssertEventName(t, "test.collection.delete").AssertData(t, nil)
+		c.GetEvent(t).Equals(t, "test.collection.delete", nil)
+		c.GetEvent(t).Equals(t, "test.collection.unsubscribe", mock.UnsubscribeReasonDeleted)
 		// Validate subsequent events are not sent to client
 		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
 		c.AssertNoEvent(t, "test.collection")
