@@ -13,10 +13,6 @@ import (
 	"github.com/resgateio/resgate/server/mq"
 )
 
-const (
-	natsChannelSize = 256
-)
-
 // Client holds a client connection to a nats server.
 type Client struct {
 	RequestTimeout time.Duration
@@ -26,6 +22,7 @@ type Client struct {
 	ClientKey      string
 	RootCAs        []string
 	Logger         logger.Logger
+	BufferSize     int
 
 	mq           *nats.Conn
 	mqCh         chan *nats.Msg
@@ -75,7 +72,11 @@ func (c *Client) Connect() error {
 	c.Logf("Connecting to NATS at %s", c.URL)
 
 	// Create connection options
-	opts := []nats.Option{nats.NoReconnect(), nats.ClosedHandler(c.onClose)}
+	opts := []nats.Option{
+		nats.NoReconnect(),
+		nats.ClosedHandler(c.onClose),
+		nats.ErrorHandler(c.onError),
+	}
 	if c.Creds != "" {
 		opts = append(opts, nats.UserCredentials(c.Creds))
 	}
@@ -98,7 +99,7 @@ func (c *Client) Connect() error {
 	}
 
 	c.mq = nc
-	c.mqCh = make(chan *nats.Msg, natsChannelSize)
+	c.mqCh = make(chan *nats.Msg, c.BufferSize)
 	c.mqReqs = make(map[*nats.Subscription]*responseCont)
 	c.tq = timerqueue.New(c.onTimeout, c.RequestTimeout)
 	c.stopped = make(chan struct{})
@@ -170,6 +171,13 @@ func (c *Client) onClose(conn *nats.Conn) {
 	if c.closeHandler != nil {
 		err := conn.LastError()
 		c.closeHandler(fmt.Errorf("lost NATS connection: %s", err))
+	}
+}
+
+func (c *Client) onError(conn *nats.Conn, sub *nats.Subscription, err error) {
+	c.Logger.Error(err.Error())
+	if err == nats.ErrSlowConsumer {
+		c.Close()
 	}
 }
 
