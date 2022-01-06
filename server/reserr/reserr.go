@@ -47,6 +47,7 @@ const (
 	CodeInvalidRequest      = "system.invalidRequest"
 	CodeUnsupportedProtocol = "system.unsupportedProtocol"
 	CodeSubjectTooLong      = "system.subjectTooLong"
+	CodeDeleted             = "system.deleted"
 	// HTTP only error codes
 	CodeBadRequest         = "system.badRequest"
 	CodeMethodNotAllowed   = "system.methodNotAllowed"
@@ -70,6 +71,7 @@ var (
 	ErrInvalidRequest      = &Error{Code: CodeInvalidRequest, Message: "Invalid request"}
 	ErrUnsupportedProtocol = &Error{Code: CodeUnsupportedProtocol, Message: "Unsupported protocol"}
 	ErrSubjectTooLong      = &Error{Code: CodeSubjectTooLong, Message: "Subject too long"}
+	ErrDeleted             = &Error{Code: CodeDeleted, Message: "Deleted"}
 	// HTTP only errors
 	ErrBadRequest         = &Error{Code: CodeBadRequest, Message: "Bad request"}
 	ErrMethodNotAllowed   = &Error{Code: CodeMethodNotAllowed, Message: "Method not allowed"}

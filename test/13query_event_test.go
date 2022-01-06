@@ -696,7 +696,8 @@ func TestQueryEvent_DeleteEventOnModel_DeletesFromCache(t *testing.T) {
 		// Respond to query request with an error
 		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[{"event":"delete"},{"event":"change","data":{"values":{"string":"bar","int":-12}}}]}`))
 		// Validate only delete event is sent to client
-		c.GetEvent(t).AssertEventName(t, "test.model?q=foo&f=bar.delete").AssertData(t, nil)
+		c.GetEvent(t).Equals(t, "test.model?q=foo&f=bar.delete", nil)
+		c.GetEvent(t).Equals(t, "test.model?q=foo&f=bar.unsubscribe", mock.UnsubscribeReasonDeleted)
 		c.AssertNoEvent(t, "test.model")
 		// Validate subsequent query events does not send request
 		s.ResourceEvent("test.model", "query", json.RawMessage(`{"subject":"_EVENT_02_"}`))
@@ -713,7 +714,8 @@ func TestQueryEvent_DeleteEventOnCollection_DeletesFromCache(t *testing.T) {
 		// Respond to query request with an error
 		s.GetRequest(t).RespondSuccess(json.RawMessage(`{"events":[{"event":"delete"},{"event":"add","data":{"idx":1,"value":"bar"}}]}`))
 		// Validate only delete event is sent to client
-		c.GetEvent(t).AssertEventName(t, "test.collection?q=foo&f=bar.delete").AssertData(t, nil)
+		c.GetEvent(t).Equals(t, "test.collection?q=foo&f=bar.delete", nil)
+		c.GetEvent(t).Equals(t, "test.collection?q=foo&f=bar.unsubscribe", mock.UnsubscribeReasonDeleted)
 		c.AssertNoEvent(t, "test.collection")
 		// Validate subsequent query events does not send request
 		s.ResourceEvent("test.collection", "query", json.RawMessage(`{"subject":"_EVENT_02_"}`))

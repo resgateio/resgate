@@ -13,8 +13,9 @@ func TestDeleteEvent_OnModel_SentToClient(t *testing.T) {
 		// Send delete event
 		s.ResourceEvent("test.model", "delete", nil)
 
-		// Validate the delete event is sent to client
+		// Validate the delete and unsubscribe event is sent to client
 		c.GetEvent(t).Equals(t, "test.model.delete", nil)
+		c.GetEvent(t).Equals(t, "test.model.unsubscribe", mock.UnsubscribeReasonDeleted)
 	})
 }
 
@@ -28,6 +29,7 @@ func TestDeleteEvent_OnCollection_SentToClient(t *testing.T) {
 
 		// Validate the delete event is sent to client
 		c.GetEvent(t).Equals(t, "test.collection.delete", nil)
+		c.GetEvent(t).Equals(t, "test.collection.unsubscribe", mock.UnsubscribeReasonDeleted)
 	})
 }
 
@@ -38,6 +40,7 @@ func TestDeleteEvent_AndCustomEventOnModel_CustomEventNotSentToClient(t *testing
 		// Send delete event
 		s.ResourceEvent("test.model", "delete", nil)
 		c.GetEvent(t).Equals(t, "test.model.delete", nil)
+		c.GetEvent(t).Equals(t, "test.model.unsubscribe", mock.UnsubscribeReasonDeleted)
 		// Send custom event on model and validate no event
 		s.ResourceEvent("test.model", "custom", common.CustomEvent())
 		c.AssertNoEvent(t, "test.model")
@@ -51,6 +54,7 @@ func TestDeleteEvent_AndCustomEventOnCollection_CustomEventNotSentToClient(t *te
 		// Send delete event
 		s.ResourceEvent("test.collection", "delete", nil)
 		c.GetEvent(t).Equals(t, "test.collection.delete", nil)
+		c.GetEvent(t).Equals(t, "test.collection.unsubscribe", mock.UnsubscribeReasonDeleted)
 		// Send custom event on collection and validate no event
 		s.ResourceEvent("test.collection", "custom", common.CustomEvent())
 		c.AssertNoEvent(t, "test.collection")
@@ -91,6 +95,7 @@ func TestDeleteEvent_FollowedBySubscribe_IsNotCached(t *testing.T) {
 		s.ResourceEvent("test.model", "delete", nil)
 		// Validate the delete event is sent to client
 		c1.GetEvent(t).Equals(t, "test.model.delete", nil)
+		c1.GetEvent(t).Equals(t, "test.model.unsubscribe", mock.UnsubscribeReasonDeleted)
 
 		// Subscribe with second client
 		subscribeToTestModel(t, s, c2)
@@ -111,12 +116,11 @@ func TestDeleteEvent_FollowedByResubscribe_IsNotCached(t *testing.T) {
 		s.ResourceEvent("test.model", "delete", nil)
 		// Validate the delete event is sent to client
 		c.GetEvent(t).Equals(t, "test.model.delete", nil)
+		c.GetEvent(t).Equals(t, "test.model.unsubscribe", mock.UnsubscribeReasonDeleted)
 		// Send custom event and assert event not sent to client
 		s.ResourceEvent("test.model", "custom", common.CustomEvent())
 		c.AssertNoEvent(t, "test.model")
 		// Resubscribe
-		creq := c.Request("unsubscribe.test.model", nil)
-		creq.GetResponse(t)
 		subscribeToTestModel(t, s, c)
 		// Send custom event and assert event is sent to client
 		s.ResourceEvent("test.model", "custom", common.CustomEvent())
