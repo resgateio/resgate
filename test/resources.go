@@ -6,6 +6,16 @@ import (
 	"github.com/resgateio/resgate/server/reserr"
 )
 
+type mockData struct {
+	UnsubscribeReasonAccessDenied json.RawMessage
+	UnsubscribeReasonDeleted      json.RawMessage
+}
+
+var mock = mockData{
+	UnsubscribeReasonAccessDenied: json.RawMessage(`{"reason":{"code":"system.accessDenied","message":"Access denied"}}`),
+	UnsubscribeReasonDeleted:      json.RawMessage(`{"reason":{"code":"system.deleted","message":"Deleted"}}`),
+}
+
 // The following cyclic groups exist
 // a -> a
 
