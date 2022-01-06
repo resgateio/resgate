@@ -272,6 +272,12 @@ func (c *Client) listener(ch chan *nats.Msg, stopped chan struct{}) {
 
 		if ok {
 			if rc.isReq {
+				// Handle no responders header, if available
+				if len(msg.Data) == 0 && msg.Header.Get("Status") == "503" {
+					c.Tracef("x=> (%s) No responders", inboxSubstr(msg.Subject))
+					rc.f("", nil, mq.ErrNoResponders)
+					continue
+				}
 				c.Tracef("==> (%s): %s", inboxSubstr(msg.Subject), msg.Data)
 			} else {
 				c.Tracef("=>> %s: %s", msg.Subject, msg.Data)

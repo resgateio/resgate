@@ -34,6 +34,10 @@ type Client interface {
 	SetClosedHandler(cb func(error))
 }
 
+// ErrNoResponders is the error the client should pass to the Response
+// when a call to SendRequest has no reponders.
+var ErrNoResponders = reserr.ErrNotFound
+
 // ErrRequestTimeout is the error the client should pass to the Response
 // when a call to SendRequest times out
 var ErrRequestTimeout = reserr.ErrTimeout
