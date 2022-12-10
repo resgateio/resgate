@@ -2,7 +2,7 @@
   "name": "password-authentication",
   "description": "Resgate Password Authentication Example",
   "dependencies": {
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "nats": "^1.4.9"
   },
   "scripts": {
