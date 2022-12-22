@@ -4,7 +4,7 @@
   "dependencies": {
     "cookie": "^0.3.1",
     "express": "^4.17.1",
-    "jsonwebtoken": "^8.5.1",
+    "jsonwebtoken": "^9.0.0",
     "nats": "^1.4.12"
   },
   "scripts": {
