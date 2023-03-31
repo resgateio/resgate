@@ -3,6 +3,7 @@ package rescache
 import (
 	"sync"
 
+	"github.com/resgateio/resgate/metrics"
 	"github.com/resgateio/resgate/server/codec"
 	"github.com/resgateio/resgate/server/mq"
 	"github.com/resgateio/resgate/server/reserr"
@@ -108,6 +109,7 @@ func (e *EventSubscription) addSubscriber(sub Subscriber, t *Throttle) {
 		// An error occurred during request
 		case stateError:
 			e.count--
+			metrics.SubcriptionsCount.WithLabelValues(metrics.SanitizedString(e.ResourceName)).Set(float64(e.count))
 			e.mu.Unlock()
 			defer e.mu.Lock()
 			sub.Loaded(nil, rs.err)
@@ -212,6 +214,7 @@ func (e *EventSubscription) addCount() {
 		e.cache.unsubQueue.Remove(e)
 	}
 	e.count++
+	metrics.SubcriptionsCount.WithLabelValues(metrics.SanitizedString(e.ResourceName)).Set(float64(e.count))
 }
 
 // removeCount decreases the subscription count, and puts the event subscription
@@ -221,6 +224,7 @@ func (e *EventSubscription) removeCount(n int64) {
 	if e.count == 0 && n != 0 {
 		e.cache.unsubQueue.Add(e)
 	}
+	metrics.SubcriptionsCount.WithLabelValues(metrics.SanitizedString(e.ResourceName)).Set(float64(e.count))
 }
 
 func (e *EventSubscription) enqueueEvent(subj string, payload []byte) {
