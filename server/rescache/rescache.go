@@ -9,6 +9,7 @@ import (
 
 	"github.com/jirenius/timerqueue"
 	"github.com/resgateio/resgate/logger"
+	"github.com/resgateio/resgate/metrics"
 	"github.com/resgateio/resgate/server/codec"
 	"github.com/resgateio/resgate/server/mq"
 	"github.com/resgateio/resgate/server/reserr"
@@ -229,6 +230,7 @@ func (c *Cache) AddConn(conn Conn) {
 	defer c.mu.Unlock()
 
 	c.conns[conn.CID()] = conn
+	metrics.WSStablishedConnections.Set(float64(len(c.conns)))
 }
 
 // RemoveConn removes a connection listening to events.
@@ -237,6 +239,7 @@ func (c *Cache) RemoveConn(conn Conn) {
 	defer c.mu.Unlock()
 
 	delete(c.conns, conn.CID())
+	metrics.WSStablishedConnections.Set(float64(len(c.conns)))
 }
 
 // getSubscription returns the existing eventSubscription after adding its count, or creates a new

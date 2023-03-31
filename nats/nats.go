@@ -10,6 +10,7 @@ import (
 	"github.com/jirenius/timerqueue"
 	nats "github.com/nats-io/nats.go"
 	"github.com/resgateio/resgate/logger"
+	"github.com/resgateio/resgate/metrics"
 	"github.com/resgateio/resgate/server/mq"
 )
 
@@ -104,6 +105,8 @@ func (c *Client) Connect() error {
 	c.tq = timerqueue.New(c.onTimeout, c.RequestTimeout)
 	c.stopped = make(chan struct{})
 
+	metrics.NATSConnected.WithLabelValues(c.mq.ConnectedClusterName()).Set(1)
+
 	go c.listener(c.mqCh, c.stopped)
 
 	return nil
@@ -171,6 +174,7 @@ func (c *Client) onClose(conn *nats.Conn) {
 	if c.closeHandler != nil {
 		err := conn.LastError()
 		c.closeHandler(fmt.Errorf("lost NATS connection: %s", err))
+		metrics.NATSConnected.WithLabelValues(c.mq.ConnectedClusterName()).Set(0)
 	}
 }
 
