@@ -109,7 +109,7 @@ func (e *EventSubscription) addSubscriber(sub Subscriber, t *Throttle) {
 		// An error occurred during request
 		case stateError:
 			e.count--
-			metrics.SubcriptionsCount.WithLabelValues(metrics.SanitizedString(e.ResourceName)).Set(float64(e.count))
+			metrics.SubcriptionsCount.WithLabelValues(metrics.SanitizedString(e.ResourceName)).Dec()
 			e.mu.Unlock()
 			defer e.mu.Lock()
 			sub.Loaded(nil, rs.err)
@@ -214,7 +214,7 @@ func (e *EventSubscription) addCount() {
 		e.cache.unsubQueue.Remove(e)
 	}
 	e.count++
-	metrics.SubcriptionsCount.WithLabelValues(metrics.SanitizedString(e.ResourceName)).Set(float64(e.count))
+	metrics.SubcriptionsCount.WithLabelValues(metrics.SanitizedString(e.ResourceName)).Inc()
 }
 
 // removeCount decreases the subscription count, and puts the event subscription
@@ -224,7 +224,7 @@ func (e *EventSubscription) removeCount(n int64) {
 	if e.count == 0 && n != 0 {
 		e.cache.unsubQueue.Add(e)
 	}
-	metrics.SubcriptionsCount.WithLabelValues(metrics.SanitizedString(e.ResourceName)).Set(float64(e.count))
+	metrics.SubcriptionsCount.WithLabelValues(metrics.SanitizedString(e.ResourceName)).Sub(float64(n))
 }
 
 func (e *EventSubscription) enqueueEvent(subj string, payload []byte) {
