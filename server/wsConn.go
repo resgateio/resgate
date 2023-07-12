@@ -225,7 +225,7 @@ func (c *wsConn) Reply(data []byte) {
 }
 
 func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)) {
-	sub, err := c.Subscribe(rid, true, nil)
+	sub, err := c.Subscribe(rid, true, nil, nil)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -283,7 +283,7 @@ func (c *wsConn) SetVersion(protocol string) (string, error) {
 }
 
 func (c *wsConn) GetSubscription(rid string, cb func(sub *Subscription, err error)) {
-	sub, err := c.Subscribe(rid, true, nil)
+	sub, err := c.Subscribe(rid, true, nil, nil)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -310,7 +310,7 @@ func (c *wsConn) GetSubscription(rid string, cb func(sub *Subscription, err erro
 }
 
 func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err error)) {
-	sub, err := c.Subscribe(rid, true, nil)
+	sub, err := c.Subscribe(rid, true, nil, nil)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -428,7 +428,7 @@ func (c *wsConn) handleCallAuthResponse(result json.RawMessage, refRID string, e
 }
 
 func (c *wsConn) handleResourceResult(refRID string, cb func(result interface{}, err error)) {
-	sub, err := c.Subscribe(refRID, true, nil)
+	sub, err := c.Subscribe(refRID, true, nil, nil)
 	if err != nil {
 		cb(nil, err)
 		return
@@ -466,7 +466,7 @@ func (c *wsConn) UnsubscribeResource(rid string, count int, cb func(ok bool)) {
 	cb(c.UnsubscribeByRID(rid, count))
 }
 
-func (c *wsConn) subscribe(rid string, direct bool, t *rescache.Throttle) (*Subscription, error) {
+func (c *wsConn) subscribe(rid string, direct bool, t *rescache.Throttle, requestHeaders map[string][]string) (*Subscription, error) {
 
 	sub, ok := c.subs[rid]
 	if ok {
@@ -484,7 +484,7 @@ func (c *wsConn) subscribe(rid string, direct bool, t *rescache.Throttle) (*Subs
 
 	sub = NewSubscription(c, rid, t)
 	_ = c.addCount(sub, direct)
-	c.serv.cache.Subscribe(sub, t)
+	c.serv.cache.Subscribe(sub, t, requestHeaders)
 
 	c.subs[rid] = sub
 	return sub, nil
@@ -492,12 +492,12 @@ func (c *wsConn) subscribe(rid string, direct bool, t *rescache.Throttle) (*Subs
 
 // subscribe gets existing subscription or creates a new one to cache
 // Will return error if number of allowed subscriptions for the resource is exceeded
-func (c *wsConn) Subscribe(rid string, direct bool, t *rescache.Throttle) (*Subscription, error) {
+func (c *wsConn) Subscribe(rid string, direct bool, t *rescache.Throttle, requestHeaders map[string][]string) (*Subscription, error) {
 	if c.disposing {
 		return nil, reserr.ErrDisposing
 	}
 
-	return c.subscribe(rid, direct, t)
+	return c.subscribe(rid, direct, t, requestHeaders)
 }
 
 // unsubscribe counts down the subscription counter
@@ -601,7 +601,7 @@ func (c *wsConn) outputWorker() {
 }
 
 func (c *wsConn) subscribeConn() {
-	mqSub, err := c.serv.mq.Subscribe("conn."+c.cid, func(subj string, payload []byte, _ error) {
+	mqSub, err := c.serv.mq.Subscribe("conn."+c.cid, func(subj string, payload []byte, responseHeaders map[string][]string, _ error) {
 		c.Enqueue(func() {
 			idx := len(c.cid) + 6 // Length of "conn." + "."
 			if idx >= len(subj) {

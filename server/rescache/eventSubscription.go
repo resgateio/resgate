@@ -67,7 +67,7 @@ func (e *EventSubscription) getResourceSubscription(q string) (rs *ResourceSubsc
 	return
 }
 
-func (e *EventSubscription) addSubscriber(sub Subscriber, t *Throttle) {
+func (e *EventSubscription) addSubscriber(sub Subscriber, t *Throttle, requestHeaders map[string][]string) {
 	e.Enqueue(func() {
 		var rs *ResourceSubscription
 		q := sub.ResourceQuery()
@@ -88,15 +88,15 @@ func (e *EventSubscription) addSubscriber(sub Subscriber, t *Throttle) {
 			payload := codec.CreateGetRequest(q)
 			// Request directly if we don't throttle, or else add to throttle
 			if t == nil {
-				e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
-					rs.enqueueGetResponse(data, err)
-				})
+				e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, responseHeaders map[string][]string, err error) {
+					rs.enqueueGetResponse(data, responseHeaders, err)
+				}, requestHeaders)
 			} else {
 				t.Add(func() {
-					e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
-						rs.enqueueGetResponse(data, err)
+					e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, responseHeaders map[string][]string, err error) {
+						rs.enqueueGetResponse(data, responseHeaders, err)
 						t.Done()
-					})
+					}, requestHeaders)
 				})
 			}
 
@@ -112,13 +112,13 @@ func (e *EventSubscription) addSubscriber(sub Subscriber, t *Throttle) {
 			metrics.SubcriptionsCount.WithLabelValues(metrics.SanitizedString(e.ResourceName)).Dec()
 			e.mu.Unlock()
 			defer e.mu.Lock()
-			sub.Loaded(nil, rs.err)
+			sub.Loaded(nil, nil, rs.err)
 
 		// stateModel or stateCollection
 		default:
 			e.mu.Unlock()
 			defer e.mu.Lock()
-			sub.Loaded(rs, nil)
+			sub.Loaded(rs, nil, nil)
 		}
 	})
 }
@@ -286,7 +286,7 @@ func (e *EventSubscription) handleQueryEvent(subj string, payload []byte) {
 		}
 		payload := codec.CreateEventQueryRequest(q)
 		rs := rs
-		e.cache.mq.SendRequest(qe.Subject, payload, func(subj string, data []byte, err error) {
+		e.cache.mq.SendRequest(qe.Subject, payload, func(subj string, data []byte, requestHeaders map[string][]string, err error) {
 			e.enqueueUnlock(func() {
 				if err != nil {
 					return
@@ -327,7 +327,7 @@ func (e *EventSubscription) handleQueryEvent(subj string, payload []byte) {
 					rs.processResetCollection(result.Collection)
 				}
 			})
-		})
+		}, nil)
 	}
 }
 

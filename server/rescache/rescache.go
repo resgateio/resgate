@@ -39,7 +39,7 @@ type Cache struct {
 // Subscriber interface represents a subscription made on a client connection
 type Subscriber interface {
 	CID() string
-	Loaded(resourceSub *ResourceSubscription, err error)
+	Loaded(resourceSub *ResourceSubscription, responseHeaders map[string][]string, err error)
 	Event(event *ResourceEvent)
 	ResourceName() string
 	ResourceQuery() string
@@ -99,7 +99,7 @@ func (c *Cache) Start() error {
 		go c.startWorker(inCh)
 	}
 
-	resetSub, err := c.mq.Subscribe("system", func(subj string, payload []byte, _ error) {
+	resetSub, err := c.mq.Subscribe("system", func(subj string, payload []byte, responseHeaders map[string][]string, _ error) {
 		ev := subj[7:]
 		switch ev {
 		case "reset":
@@ -131,14 +131,14 @@ func (c *Cache) Errorf(format string, v ...interface{}) {
 
 // Subscribe fetches a resource from the cache, and if it is
 // not cached, starts subscribing to the resource and sends a get request
-func (c *Cache) Subscribe(sub Subscriber, t *Throttle) {
+func (c *Cache) Subscribe(sub Subscriber, t *Throttle, requestHeaders map[string][]string) {
 	eventSub, err := c.getSubscription(sub.ResourceName(), true)
 	if err != nil {
-		sub.Loaded(nil, err)
+		sub.Loaded(nil, nil, err)
 		return
 	}
 
-	eventSub.addSubscriber(sub, t)
+	eventSub.addSubscriber(sub, t, requestHeaders)
 }
 
 // Access sends an access request
@@ -154,7 +154,7 @@ func (c *Cache) Access(sub Subscriber, token interface{}, callback func(access *
 
 		access, rerr := codec.DecodeAccessResponse(data)
 		callback(&Access{AccessResult: access, Error: rerr})
-	})
+	}, nil)
 }
 
 // Call sends a method call request
@@ -183,7 +183,7 @@ func (c *Cache) Call(req codec.Requester, rname, query, action string, token, pa
 		}
 
 		callback(codec.DecodeCallResponse(data))
-	})
+	}, nil)
 }
 
 // Auth sends an auth method call
@@ -197,30 +197,30 @@ func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token
 		}
 
 		callback(codec.DecodeCallResponse(data))
-	})
+	}, nil)
 }
 
 // CustomAuth sends an auth method call to a custom subject
 func (c *Cache) CustomAuth(req codec.AuthRequester, subj, query string, token, params interface{}, callback func(result json.RawMessage, rid string, err error)) {
 	payload := codec.CreateAuthRequest(params, req, query, token)
-	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+	c.mq.SendRequest(subj, payload, func(_ string, data []byte, responseHeaders map[string][]string, err error) {
 		if err != nil {
 			callback(nil, "", err)
 			return
 		}
 
 		callback(codec.DecodeCallResponse(data))
-	})
+	}, nil)
 }
 
-func (c *Cache) sendRequest(rname, subj string, payload []byte, cb func(data []byte, err error)) {
+func (c *Cache) sendRequest(rname, subj string, payload []byte, cb func(data []byte, err error), requestHeaders map[string][]string) {
 	eventSub, _ := c.getSubscription(rname, false)
-	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+	c.mq.SendRequest(subj, payload, func(_ string, data []byte, responseHeaders map[string][]string, err error) {
 		eventSub.Enqueue(func() {
 			cb(data, err)
 			eventSub.removeCount(1)
 		})
-	})
+	}, requestHeaders)
 }
 
 // AddConn adds a connection listening to events such as system token reset
@@ -263,7 +263,7 @@ func (c *Cache) getSubscription(name string, subscribe bool) (*EventSubscription
 	}
 
 	if subscribe && eventSub.mqSub == nil {
-		mqSub, err := c.mq.Subscribe("event."+name, func(subj string, payload []byte, _ error) {
+		mqSub, err := c.mq.Subscribe("event."+name, func(subj string, payload []byte, responseHeaders map[string][]string, _ error) {
 			eventSub.enqueueEvent(subj, payload)
 		})
 		if err != nil {

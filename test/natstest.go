@@ -108,12 +108,12 @@ func (c *NATSTestClient) Close() {
 
 // SendRequest sends an asynchronous request on a subject, expecting the Response
 // callback to be called once.
-func (c *NATSTestClient) SendRequest(subj string, payload []byte, cb mq.Response) {
+func (c *NATSTestClient) SendRequest(subj string, payload []byte, cb mq.Response, requestHeaders map[string][]string) {
 	// Validate max control line size
 	// 7  = nats inbox prefix length
 	// 22 = nuid size
 	if len(subj)+7+22 > nats.MAX_CONTROL_LINE_SIZE {
-		go cb("", nil, mq.ErrSubjectTooLong)
+		go cb("", nil, nil, mq.ErrSubjectTooLong)
 		return
 	}
 
@@ -251,7 +251,7 @@ func (c *NATSTestClient) event(ns string, event string, payload interface{}) {
 	c.mu.Unlock()
 	subj := ns + "." + event
 	c.Tracef("=>> %s: %s", subj, data)
-	s.cb(subj, data, nil)
+	s.cb(subj, data, nil, nil)
 }
 
 // Unsubscribe removes the subscription.
@@ -323,14 +323,14 @@ func (r *Request) Respond(data interface{}) {
 // RespondRaw sends a raw byte response
 func (r *Request) RespondRaw(out []byte) {
 	r.c.Tracef("==> %s: %s", r.Subject, out)
-	r.getCallback()("__RESPONSE_SUBJECT__", out, nil)
+	r.getCallback()("__RESPONSE_SUBJECT__", out, nil, nil)
 }
 
 // SendError sends an error response
 func (r *Request) SendError(err error) {
 	cb := r.getCallback()
 	r.c.Tracef("X== %s: %s", r.Subject, err)
-	cb("", nil, err)
+	cb("", nil, nil, err)
 }
 
 // RespondSuccess sends a success response
