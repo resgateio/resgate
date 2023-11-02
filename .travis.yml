@@ -2,6 +2,7 @@ language: go
 go:
 - 1.16.x
 - 1.17
+- 1.20
 install:
 - go get -t ./...
 - ./scripts/install-checks.sh

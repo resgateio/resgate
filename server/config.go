@@ -18,6 +18,7 @@ type Config struct {
 	Port         uint16  `json:"port"`
 	WSPath       string  `json:"wsPath"`
 	APIPath      string  `json:"apiPath"`
+	MetricsPort  uint16  `json:"metricsPort"`
 	APIEncoding  string  `json:"apiEncoding"`
 	HeaderAuth   *string `json:"headerAuth"`
 	AllowOrigin  *string `json:"allowOrigin"`
@@ -38,6 +39,7 @@ type Config struct {
 
 	scheme           string
 	netAddr          string
+	metricsNetAddr   string
 	headerAuthRID    string
 	headerAuthAction string
 	allowOrigin      []string
@@ -102,6 +104,7 @@ func (c *Config) prepare() error {
 	} else {
 		c.netAddr = DefaultAddr
 	}
+	c.metricsNetAddr = c.netAddr + fmt.Sprintf(":%d", c.MetricsPort)
 	c.netAddr += fmt.Sprintf(":%d", c.Port)
 
 	if c.HeaderAuth != nil {

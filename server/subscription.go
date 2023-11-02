@@ -20,7 +20,7 @@ type ConnSubscriber interface {
 	Errorf(format string, v ...interface{})
 	CID() string
 	Token() json.RawMessage
-	Subscribe(rid string, direct bool, throttle *rescache.Throttle) (*Subscription, error)
+	Subscribe(rid string, direct bool, throttle *rescache.Throttle, headers map[string][]string) (*Subscription, error)
 	Unsubscribe(sub *Subscription, direct bool, count int, tryDelete bool)
 	Access(sub *Subscription, callback func(*rescache.Access))
 	Send(data []byte)
@@ -54,6 +54,7 @@ type Subscription struct {
 	accessCallbacks []func(*rescache.Access)
 	flags           uint8
 	throttle        *rescache.Throttle
+	traceparent     string
 
 	// Protected by conn
 	direct   int // Number of direct subscriptions
@@ -185,7 +186,7 @@ func (s *Subscription) Ref(rid string) *Subscription {
 // Loaded is called by rescache when the subscribed resource has been loaded.
 // If the resource was successfully loaded, err will be nil. If an error occurred
 // when loading the resource, resourceSub will be nil, and err will be the error.
-func (s *Subscription) Loaded(resourceSub *rescache.ResourceSubscription, err error) {
+func (s *Subscription) Loaded(resourceSub *rescache.ResourceSubscription, responseHeaders map[string][]string, err error) {
 	if !s.c.Enqueue(func() {
 		if err != nil {
 			s.err = err
@@ -196,6 +197,14 @@ func (s *Subscription) Loaded(resourceSub *rescache.ResourceSubscription, err er
 		if s.state == stateDisposed {
 			resourceSub.Unsubscribe(s)
 			return
+		}
+
+		// We check if we received a traceparent header in the response. If we did, we set it on the subscription.
+		if responseHeaders != nil {
+			val, ok := responseHeaders["traceparent"]
+			if ok && len(val) > 0 && s.traceparent == "" {
+				s.traceparent = val[0]
+			}
 		}
 
 		s.resourceSub = resourceSub
@@ -510,8 +519,15 @@ func (s *Subscription) addReference(rid string) (*Subscription, error) {
 		ref = refs[rid]
 	}
 
+	requestHeaders := make(map[string][]string)
+
+	// If the subscription has a traceparent, add it to the subsiquent requests as a request header.
+	if s.traceparent != "" {
+		requestHeaders["traceparent"] = []string{s.traceparent}
+	}
+
 	if ref == nil {
-		sub, err := s.c.Subscribe(rid, false, s.throttle)
+		sub, err := s.c.Subscribe(rid, false, s.throttle, requestHeaders)
 
 		if err != nil {
 			return nil, err
