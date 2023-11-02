@@ -1,0 +1,50 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: Go
+
+on: [push]
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.20'
+
+    - name: Go get
+      run: go get -t ./...
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Test
+      run: go test -v ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.20'
+
+    - name: Go get
+      run: go get -t ./...
+
+    - name: Go Vet
+      run: go vet $(go list ./... | grep -v /vendor/)
+
+    - name: Go Mod
+      run: go mod tidy; git diff --exit-code go.mod go.sum
+
+    - name: Go FMT
+      run: go fmt $(go list ./... | grep -v /vendor/); git diff --exit-code
+
