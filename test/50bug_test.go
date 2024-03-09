@@ -117,3 +117,43 @@ func TestBug_DeadlockOnThrottledAccessRequestsToSameResource(t *testing.T) {
 		c.ResetThrottle = resetThrottle
 	})
 }
+
+// Test to replicate the bug: Resource frozen on consecutive query events
+//
+// See: https://github.com/resgateio/resgate/issues/239
+func TestBug_ResourceFrozenOnConsecutiveQueryEvents(t *testing.T) {
+	runTest(t, func(s *Session) {
+		const queries = 20
+		c := s.Connect()
+		for i := 0; i < queries; i++ {
+			subscribeToTestQueryCollection(t, s, c, fmt.Sprintf("q=foo&f=%d", i), fmt.Sprintf("q=foo&f=%d", i))
+		}
+		collection := resourceData("test.collection")
+
+		requestCount := 0
+		responseCount := 0
+
+		// Send multiple query events on the same resource
+		for i := 1; i <= 10; i++ {
+			for j := 0; j < i; j++ {
+				s.ResourceEvent("test.collection", "query", json.RawMessage(fmt.Sprintf(`{"subject":"_EVENT_%02d_"}`, requestCount)))
+				requestCount++
+			}
+			// Respond to the initial query requests with the same collection without change.
+			s.GetRequest(t).RespondSuccess(json.RawMessage(`{"collection":` + collection + `}`))
+			responseCount++
+		}
+		// Respond to the remaining query requests with a timeout.
+		for i := responseCount; i < requestCount*queries; i++ {
+			s.GetRequest(t).Timeout()
+		}
+
+		c2 := s.Connect()
+		// Subscribe a second time
+		creq2 := c2.Request("subscribe.test.collection?q=foo&f=bar", nil)
+		// Handle collection access request
+		s.GetRequest(t).AssertSubject(t, "access.test.collection").RespondSuccess(json.RawMessage(`{"get":true}`))
+		// Validate client response and validate
+		creq2.GetResponse(t).AssertResult(t, json.RawMessage(`{"collections":{"test.collection?q=foo&f=baz":`+collection+`}}`))
+	})
+}

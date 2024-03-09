@@ -489,7 +489,7 @@ func (rs *ResourceSubscription) processResetGetResponse(payload []byte, err erro
 		if reserr.IsError(err, reserr.CodeNotFound) {
 			rs.handleEvent(&ResourceEvent{Event: "delete"})
 		} else {
-			rs.e.cache.Errorf("Subscription %s: Reset get error - %s", rs.e.ResourceName, err)
+			rs.e.cache.Errorf("Subscription %s: Reset get error - %s (%s)", rs.e.ResourceName, err, string(payload))
 		}
 		return
 	}
