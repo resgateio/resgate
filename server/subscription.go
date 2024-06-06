@@ -21,7 +21,7 @@ type ConnSubscriber interface {
 	CID() string
 	Token() json.RawMessage
 	Subscribe(rid string, direct bool, throttle *rescache.Throttle) (*Subscription, error)
-	Unsubscribe(sub *Subscription, direct bool, count int, tryDelete bool)
+	Unsubscribe(sub *Subscription, direct bool, sent bool, count int, tryDelete bool)
 	Access(sub *Subscription, callback func(*rescache.Access))
 	Send(data []byte)
 	Enqueue(f func()) bool
@@ -56,8 +56,9 @@ type Subscription struct {
 	throttle        *rescache.Throttle
 
 	// Protected by conn
-	direct   int // Number of direct subscriptions
-	indirect int // Number of indirect subscriptions
+	direct       int // Number of direct subscriptions
+	indirect     int // Number of indirect subscriptions (sent or loading)
+	indirectsent int // Number of indirect subscriptions (sent)
 }
 
 type reference struct {
@@ -267,12 +268,12 @@ func (s *Subscription) onLoaded(rcb *readyCallback) {
 
 // GetRPCResources returns a rpc.Resources object.
 // It will lock the subscription and queue any events until ReleaseRPCResources is called.
-func (s *Subscription) GetRPCResources() *rpc.Resources {
+func (s *Subscription) GetRPCResources(indirect bool) *rpc.Resources {
 	r := &rpc.Resources{}
 	if s.c.ProtocolVersion() < versionSoftResourceReferenceAndDataValue {
 		s.populateResourcesLegacy(r)
 	} else {
-		s.populateResources(r)
+		s.populateResources(r, indirect)
 	}
 	return r
 }
@@ -326,7 +327,11 @@ func (s *Subscription) unqueueEvents(reason uint8) {
 // populateResources iterates recursively down the subscription tree
 // and populates the rpc.Resources object with all non-sent resources
 // referenced by the subscription, as well as the subscription's own data.
-func (s *Subscription) populateResources(r *rpc.Resources) {
+func (s *Subscription) populateResources(r *rpc.Resources, indirect bool) {
+	if indirect {
+		s.indirectsent++
+	}
+
 	// Quick exit if resource is already sent
 	if s.state == stateSent || s.state == stateToSend {
 		return
@@ -362,7 +367,7 @@ func (s *Subscription) populateResources(r *rpc.Resources) {
 	s.state = stateToSend
 
 	for _, sc := range s.refs {
-		sc.sub.populateResources(r)
+		sc.sub.populateResources(r, true)
 	}
 }
 
@@ -449,7 +454,7 @@ func (s *Subscription) subscribeRef(v codec.Value) bool {
 		// we unsubscribe to all and exit with error
 		s.c.Debugf("Failed to subscribe to %s. Aborting subscribeRef", v.RID)
 		for _, ref := range s.refs {
-			s.c.Unsubscribe(ref.sub, false, 1, true)
+			s.c.Unsubscribe(ref.sub, false, false, 1, true)
 		}
 		s.refs = nil
 		s.err = err
@@ -494,7 +499,7 @@ func containsString(path []string, rid string) bool {
 
 func (s *Subscription) unsubscribeRefs() {
 	for _, ref := range s.refs {
-		s.c.Unsubscribe(ref.sub, false, 1, false)
+		s.c.Unsubscribe(ref.sub, false, s.IsSent(), 1, false)
 	}
 	s.refs = nil
 }
@@ -532,7 +537,7 @@ func (s *Subscription) removeReference(rid string) {
 	ref := s.refs[rid]
 	ref.count--
 	if ref.count == 0 {
-		s.c.Unsubscribe(ref.sub, false, 1, true)
+		s.c.Unsubscribe(ref.sub, false, s.IsSent(), 1, true)
 		delete(s.refs, rid)
 	}
 }
@@ -612,7 +617,7 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 					return
 				}
 
-				r := sub.GetRPCResources()
+				r := sub.GetRPCResources(true)
 				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEvent{Idx: idx, Value: v.RawMessage, Resources: r}))
 				sub.ReleaseRPCResources()
 
@@ -654,6 +659,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 		ch := event.Changed
 		old := event.OldValues
 		var subs []*Subscription
+		hasUnsent := false
 
 		for _, v := range ch {
 			if v.Type == codec.ValueTypeReference {
@@ -663,12 +669,11 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 					// TODO handle error properly
 					return
 				}
-				if !sub.IsSent() {
-					if subs == nil {
-						subs = make([]*Subscription, 0, len(ch))
-					}
-					subs = append(subs, sub)
+				hasUnsent = hasUnsent || !sub.IsSent()
+				if subs == nil {
+					subs = make([]*Subscription, 0, len(ch))
 				}
+				subs = append(subs, sub)
 			}
 		}
 
@@ -681,7 +686,13 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 		}
 
 		// Quick exit if there are no new unsent subscriptions
-		if subs == nil {
+		if !hasUnsent {
+			// We increase the indirectsent references, otherwise increased when
+			// calling sub.populateResources, in a simple loop, since we have no
+			// new resources to populate.
+			for _, sub := range subs {
+				sub.indirectsent++
+			}
 			// Legacy behavior
 			if s.c.ProtocolVersion() < versionSoftResourceReferenceAndDataValue {
 				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: rescache.Legacy120ValueMap(event.Changed)}))
@@ -716,7 +727,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 					s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: rescache.Legacy120ValueMap(event.Changed), Resources: r}))
 				} else {
 					for _, sub := range subs {
-						sub.populateResources(r)
+						sub.populateResources(r, true)
 					}
 					s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: event.Changed, Resources: r}))
 				}
@@ -769,7 +780,7 @@ func (s *Subscription) validateAccess(a *rescache.Access) {
 // an unsubscribe event if any direct subscriptions existed.
 func (s *Subscription) unsubscribeDirect(reason *reserr.Error) {
 	if s.direct > 0 {
-		s.c.Unsubscribe(s, true, s.direct, true)
+		s.c.Unsubscribe(s, true, false, s.direct, true)
 		s.c.Send(rpc.NewEvent(s.rid, "unsubscribe", rpc.UnsubscribeEvent{Reason: reason}))
 	}
 }
@@ -793,6 +804,22 @@ func (s *Subscription) Dispose() {
 			s.resourceSub.Unsubscribe(s)
 		}
 		s.resourceSub = nil
+	}
+}
+
+// Unsend sets its indirectsent to zero for itself and counts down 1 for all its
+// references. It also sets status to stateReady. Is called from tryDelete when
+// a subscription has indirect references, but has reached 0 indirectsent
+// references.
+func (s *Subscription) Unsend() {
+	s.state = stateReady
+	s.indirectsent = 0
+
+	for _, ref := range s.refs {
+		sub := ref.sub
+		if sub.state == stateSent && sub.indirectsent > 0 {
+			sub.indirectsent--
+		}
 	}
 }
 

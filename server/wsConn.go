@@ -234,7 +234,7 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 	sub.CanGet(func(err error) {
 		if err != nil {
 			cb(nil, err)
-			c.Unsubscribe(sub, true, 1, true)
+			c.Unsubscribe(sub, true, false, 1, true)
 			return
 		}
 
@@ -245,9 +245,9 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 				return
 			}
 
-			cb(sub.GetRPCResources(), nil)
+			cb(sub.GetRPCResources(false), nil)
 			sub.ReleaseRPCResources()
-			c.Unsubscribe(sub, true, 1, true)
+			c.Unsubscribe(sub, true, false, 1, true)
 		})
 	})
 }
@@ -292,7 +292,7 @@ func (c *wsConn) GetSubscription(rid string, cb func(sub *Subscription, err erro
 	sub.CanGet(func(err error) {
 		if err != nil {
 			cb(nil, err)
-			c.Unsubscribe(sub, true, 1, true)
+			c.Unsubscribe(sub, true, false, 1, true)
 			return
 		}
 
@@ -304,7 +304,7 @@ func (c *wsConn) GetSubscription(rid string, cb func(sub *Subscription, err erro
 			}
 			cb(sub, nil)
 			sub.ReleaseRPCResources()
-			c.Unsubscribe(sub, true, 1, true)
+			c.Unsubscribe(sub, true, false, 1, true)
 		})
 	})
 }
@@ -319,7 +319,7 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 	sub.CanGet(func(err error) {
 		if err != nil {
 			cb(nil, err)
-			c.Unsubscribe(sub, true, 1, true)
+			c.Unsubscribe(sub, true, false, 1, true)
 			return
 		}
 
@@ -327,11 +327,11 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 			err := sub.Error()
 			if err != nil {
 				cb(nil, err)
-				c.Unsubscribe(sub, true, 1, true)
+				c.Unsubscribe(sub, true, false, 1, true)
 				return
 			}
 
-			cb(sub.GetRPCResources(), nil)
+			cb(sub.GetRPCResources(false), nil)
 			sub.ReleaseRPCResources()
 		})
 	})
@@ -446,7 +446,7 @@ func (c *wsConn) handleResourceResult(refRID string, cb func(result interface{},
 					},
 				},
 			}, nil)
-			c.Unsubscribe(sub, true, 1, true)
+			c.Unsubscribe(sub, true, false, 1, true)
 			return
 		}
 
@@ -455,7 +455,7 @@ func (c *wsConn) handleResourceResult(refRID string, cb func(result interface{},
 			// as the call in itself succeeded.
 			cb(&rpc.CallResourceResult{
 				RID:       sub.RID(),
-				Resources: sub.GetRPCResources(),
+				Resources: sub.GetRPCResources(false),
 			}, nil)
 			sub.ReleaseRPCResources()
 		})
@@ -502,12 +502,12 @@ func (c *wsConn) Subscribe(rid string, direct bool, t *rescache.Throttle) (*Subs
 
 // unsubscribe counts down the subscription counter
 // and deletes the subscription if the count reached 0.
-func (c *wsConn) Unsubscribe(sub *Subscription, direct bool, count int, tryDelete bool) {
+func (c *wsConn) Unsubscribe(sub *Subscription, direct bool, sent bool, count int, tryDelete bool) {
 	if c.disposing {
 		return
 	}
 
-	c.removeCount(sub, direct, count, tryDelete)
+	c.removeCount(sub, direct, sent, count, tryDelete)
 }
 
 func (c *wsConn) UnsubscribeByRID(rid string, count int) bool {
@@ -520,7 +520,7 @@ func (c *wsConn) UnsubscribeByRID(rid string, count int) bool {
 		return false
 	}
 
-	c.removeCount(sub, true, count, true)
+	c.removeCount(sub, true, false, count, true)
 	return true
 }
 
@@ -539,10 +539,13 @@ func (c *wsConn) addCount(s *Subscription, direct bool) error {
 	return nil
 }
 
-// removeCount decreases the subscription count and disposes the subscription
-// if indirect and direct subscription count reaches 0
-func (c *wsConn) removeCount(s *Subscription, direct bool, count int, tryDelete bool) {
-	if s.direct+s.indirect == 0 {
+// removeCount decreases the subscription count and disposes the subscription if
+// indirect, indirectsent, and direct subscription count reaches 0. If direct is
+// false and the parent resource indirectly referencing the subscription has
+// been sent to the client, sent should bet true. If direct is true, sent is
+// ignored.
+func (c *wsConn) removeCount(s *Subscription, direct bool, sent bool, count int, tryDelete bool) {
+	if s.direct+s.indirect+s.indirectsent == 0 {
 		return
 	}
 
@@ -550,6 +553,9 @@ func (c *wsConn) removeCount(s *Subscription, direct bool, count int, tryDelete 
 		s.direct -= count
 	} else {
 		s.indirect -= count
+		if sent {
+			s.indirectsent -= count
+		}
 	}
 
 	if tryDelete {
