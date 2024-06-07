@@ -2,8 +2,8 @@
   "name": "password-authentication",
   "description": "Resgate Password Authentication Example",
   "dependencies": {
-    "express": "^4.17.1",
-    "nats": "^1.4.9"
+    "express": "^4.19.2",
+    "nats": "^1.4.12"
   },
   "scripts": {
     "start": "node server.js"
