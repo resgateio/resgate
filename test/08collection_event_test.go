@@ -81,3 +81,22 @@ func TestAddRemoveEventsOnCachedCollection(t *testing.T) {
 		}
 	}
 }
+
+// Test add event with resource reference
+func TestCollectionEvent_AddEventWithResourceReference_IncludesResource(t *testing.T) {
+	runTest(t, func(s *Session) {
+		model := resourceData("test.model")
+
+		c := s.Connect()
+		subscribeToTestCollection(t, s, c)
+
+		// Send add event on collection
+		s.ResourceEvent("test.collection", "add", json.RawMessage(`{"idx":3,"value":{"rid":"test.model"}}`))
+
+		// Handle model get request
+		s.GetRequest(t).AssertSubject(t, "get.test.model").RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+
+		// Validate client event
+		c.GetEvent(t).Equals(t, "test.collection.add", json.RawMessage(`{"idx":3,"value":{"rid":"test.model"},"models":{"test.model":`+model+`}}`))
+	})
+}

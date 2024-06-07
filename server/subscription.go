@@ -271,7 +271,7 @@ func (s *Subscription) onLoaded(rcb *readyCallback) {
 func (s *Subscription) GetRPCResources(indirect bool) *rpc.Resources {
 	r := &rpc.Resources{}
 	if s.c.ProtocolVersion() < versionSoftResourceReferenceAndDataValue {
-		s.populateResourcesLegacy(r)
+		s.populateResourcesLegacy(r, indirect)
 	} else {
 		s.populateResources(r, indirect)
 	}
@@ -373,7 +373,10 @@ func (s *Subscription) populateResources(r *rpc.Resources, indirect bool) {
 
 // populateResourcesLegacy is the same as populateResources, but uses legacy
 // encodings of resources.
-func (s *Subscription) populateResourcesLegacy(r *rpc.Resources) {
+func (s *Subscription) populateResourcesLegacy(r *rpc.Resources, indirect bool) {
+	if indirect {
+		s.indirectsent++
+	}
 	// Quick exit if resource is already sent
 	if s.state == stateSent || s.state == stateToSend {
 		return
@@ -409,7 +412,7 @@ func (s *Subscription) populateResourcesLegacy(r *rpc.Resources) {
 	s.state = stateToSend
 
 	for _, sc := range s.refs {
-		sc.sub.populateResourcesLegacy(r)
+		sc.sub.populateResourcesLegacy(r, true)
 	}
 }
 
@@ -498,8 +501,9 @@ func containsString(path []string, rid string) bool {
 }
 
 func (s *Subscription) unsubscribeRefs() {
+	sent := s.IsSent()
 	for _, ref := range s.refs {
-		s.c.Unsubscribe(ref.sub, false, s.IsSent(), 1, false)
+		s.c.Unsubscribe(ref.sub, false, sent, 1, false)
 	}
 	s.refs = nil
 }
@@ -603,6 +607,10 @@ func (s *Subscription) processCollectionEvent(event *rescache.ResourceEvent) {
 
 			// Quick exit if added resource is already sent to client
 			if sub.IsSent() {
+				// We increase the indirectsent references, otherwise increased
+				// when calling sub.GetRPCResources, since we have no new
+				// resources to populate.
+				sub.indirectsent++
 				s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.AddEvent{Idx: idx, Value: v.RawMessage}))
 				return
 			}
@@ -722,7 +730,7 @@ func (s *Subscription) processModelEvent(event *rescache.ResourceEvent) {
 				// Legacy behavior
 				if s.c.ProtocolVersion() < versionSoftResourceReferenceAndDataValue {
 					for _, sub := range subs {
-						sub.populateResourcesLegacy(r)
+						sub.populateResourcesLegacy(r, true)
 					}
 					s.c.Send(rpc.NewEvent(s.rid, event.Event, rpc.ChangeEvent{Values: rescache.Legacy120ValueMap(event.Changed), Resources: r}))
 				} else {
