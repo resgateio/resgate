@@ -2,9 +2,9 @@
   "name": "jwt-authentication",
   "description": "Resgate JWT Authentication Example",
   "dependencies": {
-    "cookie": "^0.3.1",
-    "express": "^4.17.1",
-    "jsonwebtoken": "^8.5.1",
+    "cookie": "^0.6.0",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
     "nats": "^1.4.12"
   },
   "scripts": {
