@@ -10,7 +10,7 @@ jobs:
       matrix:
         go-version: [ '1.20', '1.21' ]
     env:
-      TestVersion: 'go version'
+      TestVersion: 'go version ${{ matrix.go-version }}'
     steps:
     - uses: actions/checkout@v4
     - name: Set up Go
@@ -19,7 +19,7 @@ jobs:
         go-version: ${{ matrix.go-version }}
 
     - name: Echo go version
-      run: echo "${{ TestVersion }}"
+      run: echo "$TestVersion"
     - name: Go get
       run: go get -t ./...
     - name: Build
