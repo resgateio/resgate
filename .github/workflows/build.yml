@@ -7,8 +7,7 @@ jobs:
   go-legacy-test:
     runs-on: ubuntu-latest
     env:
-      TEST_VERSION:
-        go version ${{ matrix.go-version }}
+      TEST_VERSION: go version ${{ matrix.go-version }}
     strategy:
       matrix:
         go-version: [ '1.20', '1.21' ]
