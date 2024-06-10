@@ -6,6 +6,7 @@ jobs:
 
   go-legacy-test:
     runs-on: ubuntu-latest
+    env: "GO_VERSION=go version ${{ matrix.go-version }}"
     strategy:
       matrix:
         go-version: [ '1.20', '1.21' ]
@@ -15,6 +16,9 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
+    
+    - name: Echo go version
+      run: echo "$GO_VERSION"
     - name: Go get
       run: go get -t ./...
     - name: Build
