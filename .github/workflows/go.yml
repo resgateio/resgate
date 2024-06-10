@@ -3,7 +3,7 @@
 
 name: Go
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
 
@@ -64,5 +64,5 @@ jobs:
       run: go fmt $(go list ./... | grep -v /vendor/); git diff --exit-code
     - name: Misspell
       run: |
-        go get -u github.com/client9/misspell/cmd/misspell
+        go install github.com/client9/misspell/cmd/misspell@latest
         misspell -error -locale US .
