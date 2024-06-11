@@ -1,4 +1,4 @@
-FROM golang:1.17.0-alpine3.14 as builder
+FROM golang:1.22.4-alpine3.20 as builder
 
 LABEL maintainer="Samuel Jirenius <samuel@jirenius.com>"
 
@@ -15,7 +15,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -ldflags "-s -w" -o /resgate
 
-FROM alpine:3.14
+FROM alpine:3.20
 COPY --from=builder /resgate /bin/resgate
 
 EXPOSE 8080
