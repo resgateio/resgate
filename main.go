@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"strings"
@@ -194,7 +193,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 
 	writeConfig := false
 	if configFile != "" {
-		fin, err := ioutil.ReadFile(configFile)
+		fin, err := os.ReadFile(configFile)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				printAndDie(fmt.Sprintf("Error loading config file: %s", err), false)
@@ -261,7 +260,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 		if err != nil {
 			printAndDie(fmt.Sprintf("Error encoding config: %s", err), false)
 		}
-		ioutil.WriteFile(configFile, fout, os.FileMode(0664))
+		os.WriteFile(configFile, fout, os.FileMode(0664))
 	}
 }
 
