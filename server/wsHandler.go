@@ -41,21 +41,58 @@ func (s *Service) GetWSHandlerFunc() http.Handler {
 }
 
 func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
-	// Upgrade to gorilla websocket
-	ws, err := s.upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		s.Debugf("Failed to upgrade connection from %s: %s", r.RemoteAddr, err.Error())
+	conn := s.newWSConn(r, versionLegacy)
+	if conn == nil {
 		return
 	}
 
-	conn := s.newWSConn(ws, r, versionLegacy)
-	if conn == nil {
+	if s.cfg.WSHeaderAuth != nil {
+		// Prevent calling wsHeaderAuth if origin doesn't match. This will cause
+		// CheckOrigin to be called twice, both here and during Upgrade. But it
+		// will prevent unnecessary auth requests.
+		if s.upgrader.CheckOrigin(r) {
+			// Make auth call (if wsHeaderAuth is configured) and ignore any error.
+			_ = s.wsHeaderAuth(conn)
+		}
+	}
+
+	// Upgrade to gorilla websocket
+	ws, err := s.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		conn.Dispose()
+		s.Debugf("Failed to upgrade connection from %s: %s", r.RemoteAddr, err.Error())
 		return
 	}
 
 	conn.Tracef("Connected: %s", ws.RemoteAddr())
 
-	conn.listen()
+	// Set websocket and start listening
+	conn.listen(ws)
+}
+
+// wsHeaderAuth sends an auth resource request if WSHeaderAuth is set, and
+// awaits the answer, returning any error. If no WSHeaderAuth is set, this is a
+// no-op.
+func (s *Service) wsHeaderAuth(c *wsConn) (err error) {
+	if s.cfg.WSHeaderAuth == nil {
+		return
+	}
+
+	done := make(chan struct{})
+	c.Enqueue(func() {
+		// Temporarily set as latest protocol version during the auth call.
+		storedVer := c.protocolVer
+		c.protocolVer = versionLatest
+		c.AuthResourceNoResult(s.cfg.wsHeaderAuthRID, s.cfg.wsHeaderAuthAction, nil, func(e error) {
+			c.protocolVer = storedVer
+			if e != nil {
+				err = e
+			}
+			close(done)
+		})
+	})
+	<-done
+	return
 }
 
 // stopWSHandler disconnects all ws connections.

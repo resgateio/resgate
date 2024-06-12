@@ -20,6 +20,7 @@ type Config struct {
 	APIPath      string  `json:"apiPath"`
 	APIEncoding  string  `json:"apiEncoding"`
 	HeaderAuth   *string `json:"headerAuth"`
+	WSHeaderAuth *string `json:"wsHeaderAuth"`
 	AllowOrigin  *string `json:"allowOrigin"`
 	PUTMethod    *string `json:"putMethod"`
 	DELETEMethod *string `json:"deleteMethod"`
@@ -36,12 +37,14 @@ type Config struct {
 
 	NoHTTP bool `json:"-"` // Disable start of the HTTP server. Used for testing
 
-	scheme           string
-	netAddr          string
-	headerAuthRID    string
-	headerAuthAction string
-	allowOrigin      []string
-	allowMethods     string
+	scheme             string
+	netAddr            string
+	headerAuthRID      string
+	headerAuthAction   string
+	wsHeaderAuthRID    string
+	wsHeaderAuthAction string
+	allowOrigin        []string
+	allowMethods       string
 }
 
 // SetDefault sets the default values
@@ -112,6 +115,17 @@ func (c *Config) prepare() error {
 			c.headerAuthAction = s[idx+1:]
 		} else {
 			return fmt.Errorf("invalid headerAuth setting (%s)\n\tmust be a valid resource method", s)
+		}
+	}
+
+	if c.WSHeaderAuth != nil {
+		s := *c.WSHeaderAuth
+		idx := strings.LastIndexByte(s, '.')
+		if codec.IsValidRID(s, false) && idx >= 0 {
+			c.wsHeaderAuthRID = s[:idx]
+			c.wsHeaderAuthAction = s[idx+1:]
+		} else {
+			return fmt.Errorf("invalid wsHeaderAuth setting (%s)\n\tmust be a valid resource method", s)
 		}
 	}
 

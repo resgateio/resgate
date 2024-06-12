@@ -3,7 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime"
 	"net/http"
 	"strings"
@@ -80,7 +80,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 
 	// NotFound on oaths with trailing slash (unless it is only the APIPath)
 	if len(path) > len(apiPath) && path[len(path)-1] == '/' {
-		notFoundHandler(w, r, s.enc)
+		notFoundHandler(w, s.enc)
 		return
 	}
 
@@ -91,7 +91,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		rid = PathToRID(path, r.URL.RawQuery, apiPath)
 		if !codec.IsValidRID(rid, true) {
-			notFoundHandler(w, r, s.enc)
+			notFoundHandler(w, s.enc)
 			return
 		}
 
@@ -137,7 +137,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 	s.handleCall(w, r, rid, action)
 }
 
-func notFoundHandler(w http.ResponseWriter, r *http.Request, enc APIEncoder) {
+func notFoundHandler(w http.ResponseWriter, enc APIEncoder) {
 	w.Header().Set("Content-Type", enc.ContentType())
 	w.WriteHeader(http.StatusNotFound)
 	w.Write(enc.NotFoundError())
@@ -145,12 +145,12 @@ func notFoundHandler(w http.ResponseWriter, r *http.Request, enc APIEncoder) {
 
 func (s *Service) handleCall(w http.ResponseWriter, r *http.Request, rid string, action string) {
 	if !codec.IsValidRID(rid, true) || !codec.IsValidRIDPart(action) {
-		notFoundHandler(w, r, s.enc)
+		notFoundHandler(w, s.enc)
 		return
 	}
 
 	// Try to parse the body
-	b, err := ioutil.ReadAll(r.Body)
+	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error reading request body: " + err.Error()}, s.enc)
 		return
@@ -182,7 +182,7 @@ func (s *Service) handleCall(w http.ResponseWriter, r *http.Request, rid string,
 }
 
 func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func([]byte, error, bool))) {
-	c := s.newWSConn(nil, r, versionLatest)
+	c := s.newWSConn(r, versionLatest)
 	if c == nil {
 		httpError(w, reserr.ErrServiceUnavailable, s.enc)
 		return
@@ -217,7 +217,7 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 	}
 	c.Enqueue(func() {
 		if s.cfg.HeaderAuth != nil {
-			c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(_ interface{}, err error) {
+			c.AuthResourceNoResult(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(err error) {
 				cb(c, rs)
 			})
 		} else {

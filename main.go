@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"strings"
@@ -39,6 +38,7 @@ Server Options:
     -a, --apipath <path>             Web resource path for clients (default: /api/)
     -r, --reqtimeout <milliseconds>  Timeout duration for NATS requests (default: 3000)
     -u, --headauth <method>          Resource method for header authentication
+    -t, --wsheadauth <method>        Resource method for WebSocket header authentication
         --apiencoding <type>         Encoding for web resources: json, jsonflat (default: json)
         --putmethod <methodName>     Call method name mapped to HTTP PUT requests
         --deletemethod <methodName>  Call method name mapped to HTTP DELETE requests
@@ -126,6 +126,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 		configFile   string
 		port         uint
 		headauth     string
+		wsheadauth   string
 		addr         string
 		natsRootCAs  StringSlice
 		debugTrace   bool
@@ -151,6 +152,8 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 	fs.StringVar(&c.APIPath, "apipath", "", "Web resource path for clients.")
 	fs.StringVar(&headauth, "u", "", "Resource method for header authentication.")
 	fs.StringVar(&headauth, "headauth", "", "Resource method for header authentication.")
+	fs.StringVar(&wsheadauth, "t", "", "Resource method for WebSocket header authentication.")
+	fs.StringVar(&wsheadauth, "wsheadauth", "", "Resource method for WebSocket header authentication.")
 	fs.BoolVar(&c.TLS, "tls", false, "Enable TLS for HTTP.")
 	fs.StringVar(&c.TLSCert, "tlscert", "", "HTTP server certificate file.")
 	fs.StringVar(&c.TLSKey, "tlskey", "", "Private key for HTTP server certificate.")
@@ -194,7 +197,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 
 	writeConfig := false
 	if configFile != "" {
-		fin, err := ioutil.ReadFile(configFile)
+		fin, err := os.ReadFile(configFile)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				printAndDie(fmt.Sprintf("Error loading config file: %s", err), false)
@@ -231,6 +234,10 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 			fallthrough
 		case "headauth":
 			setString(headauth, &c.HeaderAuth)
+		case "t":
+			fallthrough
+		case "wsheadauth":
+			setString(wsheadauth, &c.WSHeaderAuth)
 		case "natsrootca":
 			c.NatsRootCAs = natsRootCAs
 		case "alloworigin":
@@ -261,7 +268,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 		if err != nil {
 			printAndDie(fmt.Sprintf("Error encoding config: %s", err), false)
 		}
-		ioutil.WriteFile(configFile, fout, os.FileMode(0664))
+		os.WriteFile(configFile, fout, os.FileMode(0664))
 	}
 }
 
