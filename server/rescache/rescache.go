@@ -373,7 +373,7 @@ func (c *Cache) handleSystemTokenReset(payload []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Iterate over all currenct connects and let them each validate against any
+	// Iterate over all current connections and let each validate against any
 	// existing token ID (tid).
 	for _, sub := range c.conns {
 		sub.TokenReset(m, r.Subject)

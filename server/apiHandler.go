@@ -182,7 +182,7 @@ func (s *Service) handleCall(w http.ResponseWriter, r *http.Request, rid string,
 }
 
 func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func([]byte, error, bool))) {
-	c := s.newWSConn(nil, r, versionLatest)
+	c := s.newWSConn(r, versionLatest)
 	if c == nil {
 		httpError(w, reserr.ErrServiceUnavailable, s.enc)
 		return
@@ -217,7 +217,7 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 	}
 	c.Enqueue(func() {
 		if s.cfg.HeaderAuth != nil {
-			c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(_ interface{}, err error) {
+			c.AuthResourceNoResult(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(err error) {
 				cb(c, rs)
 			})
 		} else {

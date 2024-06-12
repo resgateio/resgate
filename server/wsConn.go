@@ -41,7 +41,7 @@ var (
 	errInvalidNewResourceResponse = reserr.InternalError(errors.New("non-resource response on new request"))
 )
 
-func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request, protocol int) *wsConn {
+func (s *Service) newWSConn(request *http.Request, protocol int) *wsConn {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -52,7 +52,6 @@ func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request, protocol 
 
 	conn := &wsConn{
 		cid:         xid.New().String(),
-		ws:          ws,
 		request:     request,
 		serv:        s,
 		subs:        make(map[string]*Subscription),
@@ -91,9 +90,13 @@ func (c *wsConn) ProtocolVersion() int {
 	return c.protocolVer
 }
 
-func (c *wsConn) listen() {
+// listen sets a websocket for the connection and starts listening to it,
+// returning once the socket is closed.
+func (c *wsConn) listen(ws *websocket.Conn) {
 	var in []byte
 	var err error
+
+	c.ws = ws
 
 	// Loop until an error is returned when reading
 	for {
@@ -370,6 +373,15 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result jso
 			c.Enqueue(func() {
 				cb(result, refRID, err)
 			})
+		})
+	})
+}
+
+func (c *wsConn) AuthResourceNoResult(rid, action string, params interface{}, cb func(err error)) {
+	rname, query := parseRID(c.ExpandCID(rid))
+	c.serv.cache.Auth(c, rname, query, action, c.token, params, func(result json.RawMessage, refRID string, err error) {
+		c.Enqueue(func() {
+			cb(err)
 		})
 	})
 }
