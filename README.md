@@ -90,6 +90,7 @@ resgate [options]
 | <code>-a, --apipath &lt;path&gt;</code> | Web resource path for clients | `/api/`
 | <code>-r, --reqtimeout &lt;seconds&gt;</code> | Timeout duration for NATS requests | `3000`
 | <code>-u, --headauth &lt;method&gt;</code> | Resource method for header authentication |
+| <code>-t, --wsheadauth &lt;method&gt;</code> | Resource method for WebSocket header authentication |
 | <code>&nbsp;&nbsp;&nbsp;&nbsp;--apiencoding &lt;type&gt;</code> | Encoding for web resources: json, jsonflat | `json`
 | <code>&nbsp;&nbsp;&nbsp;&nbsp;--putmethod &lt;methodName&gt;</code> | Call method name mapped to HTTP PUT requests |
 | <code>&nbsp;&nbsp;&nbsp;&nbsp;--deletemethod &lt;methodName&gt;</code> | Call method name mapped to HTTP DELETE requests |
@@ -160,12 +161,20 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
     "bufferSize": 8192,
 
     // Header authentication resource method for web resources.
-    // Prior to accessing the resource, this resource method will be
-    // called, allowing an auth service to set a token using
-    // information such as the request headers.
+    // Prior to accessing the resource, this resource method will be called,
+    // allowing a service to set a token using information such as the request
+    // headers.
     // Missing value or null will disable header authentication.
     // Eg. "authService.headerLogin"
     "headerAuth": null,
+
+    // Header authentication resource method for WebSocket connections.
+    // Prior to responding to a WebSocket connection, this resource method will
+    // be called, allowing a service to set a token using information such as
+    // the request headers.
+    // Missing value or null will disable WebSocket header authentication.
+    // Eg. "authService.headerLogin"
+    "wsHeaderAuth": null,
 
     // Encoding for web resources.
     // Available encodings are:
