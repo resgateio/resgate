@@ -64,7 +64,7 @@ The content of the payload depends on the subject type.
 
 
 ## Response
-When a request is received by a service, it should send a response as a JSON object. The object MUST have one of the following members, dependent upon whether the response is a successful *result*, a *resource*, or an *error*:
+When a request is received by a service, it should send a response as a JSON object. The object MUST have one of the members, *result*, *resource*, or *error*, depending upon whether the request is successful, is a resource response, or is an error. In addition, the response MAY contain a *http* member, if the request had its *isHttp* member set to `true`.
 
 **result**  
 Is REQUIRED on success if **resource** is not set.  
@@ -82,13 +82,43 @@ Is REQUIRED on error.
 MUST be omitted on success.  
 The value MUST be an [error object](#error-object).
 
+**http**
+SHOULD be ignored if **isHttp** is not set, or the value is set to `false`, on the request.
+The value MUST be an [http object](#http-object)
+
+
+## HTTP object
+
+In addition to the *result*, *resource*, or *error* member of a response, the response may contain a *http* member which allows the service to specify HTTP status and headers set in the HTTP response of a client's HTTP or WebSocket connection. If multiple responses contains http objects that affects the same connection, the priority SHOULD be as follow, listed with the highest priority first:
+* [call request](#call-request)
+* [access request](#access-request)
+* [auth request](#auth-request)
+
+The value is an object with the following members:
+
+**status**  
+HTTP status code, overriding default HTTP response status code. MAY be omitted.  
+MUST be a number.
+
+**header**  
+HTTP headers to add to the HTTP response. MAY be omitted.  
+MUST be a key/value object, where the key is the canonical format of the MIME header, and the value is an array of strings associated with the key.  
+If the header field is defined to allow multiple values, it will append to any existing value, otherwise it will replace it.
+
+**replaceHeader**  
+HTTP headers to set on the HTTP response. May be omitted.  
+MUST be a key/value object, where the key is the canonical format of the MIME header, and the value is an array of strings associated with the key.  
+The value will replace any existing values for that header field.  
+If both the header and replaceHeader member contains the same key, the replaceHeader value will have priority.
+
+
 ## Error object
 
 On error, the error member contains a value that is an object with the following members:
 
 **code**  
 A dot-separated string identifying the error.  
-Custom errors SHOULD begin with the service name.  
+Custom errors SHOULD NOT begin with `system.`.  
 MUST be a string.
 
 **message**  
@@ -151,6 +181,11 @@ The value is defined by the service issuing the token.
 Query part of the [resource ID](res-protocol.md#resource-ids) without the question mark separator.  
 MUST be omitted if the resource ID has no query.  
 MUST be a string.
+
+**isHttp** 
+Flag telling if the response may contain an [http object](#http-object).  
+MAY be omitted if the value is otherwise `false`.  
+MUST be a boolean.
 
 ### Result
 
@@ -235,6 +270,11 @@ MUST be a string.
 Method parameters as defined by the service or by the appropriate [pre-defined call method](#pre-defined-call-methods).  
 MAY be omitted.
 
+**isHttp** 
+Flag telling if the response may contain an [http object](#http-object).  
+MAY be omitted if the value is otherwise `false`.  
+MUST be a boolean.
+
 ### Result
 
 The result is defined by the service, or by the appropriate [pre-defined call method](#pre-defined-call-methods). The result may be null.
@@ -296,6 +336,11 @@ MUST be a string.
 The unmodified Request-URI of the Request-Line (RFC 2616, Section 5.1) as sent by the client when connecting to the gateway.  
 May be omitted.  
 MUST be a string.
+
+**isHttp** 
+Flag telling if the response may contain an [http object](#http-object).  
+MAY be omitted if the value is otherwise `false`.  
+MUST be a boolean.
 
 ### Result
 
