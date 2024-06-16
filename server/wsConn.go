@@ -312,6 +312,39 @@ func (c *wsConn) GetSubscription(rid string, cb func(sub *Subscription, err erro
 	})
 }
 
+// GetHTTPSubscription is called from apiHandler on a HTTP GET request. It
+// differs from GetSubscription by making an access call separately, and not
+// within the subscription, in order to call access with isHTTP set to true.
+func (c *wsConn) GetHTTPSubscription(rid string, cb func(sub *Subscription, err error)) {
+	sub, err := c.Subscribe(rid, true, nil)
+	if err != nil {
+		cb(nil, err)
+		return
+	}
+
+	c.serv.cache.Access(sub, c.token, true, func(access *rescache.Access) {
+		c.Enqueue(func() {
+			err := access.CanGet()
+			if err != nil {
+				cb(nil, err)
+				c.Unsubscribe(sub, true, false, 1, true)
+				return
+			}
+
+			sub.OnReady(func() {
+				err := sub.Error()
+				if err != nil {
+					cb(nil, err)
+					return
+				}
+				cb(sub, nil)
+				sub.ReleaseRPCResources()
+				c.Unsubscribe(sub, true, false, 1, true)
+			})
+		})
+	})
+}
+
 func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err error)) {
 	sub, err := c.Subscribe(rid, true, nil)
 	if err != nil {
@@ -346,15 +379,32 @@ func (c *wsConn) CallResource(rid, action string, params interface{}, cb func(re
 	})
 }
 
+// CallHTTPResource is called from apiHandler on a HTTP POST request. It differs
+// from CallResource by making an access call separately, and not within the
+// subscription, in order to call access with isHTTP set to true. It also
+// transform any href RID to a path on callback call.
 func (c *wsConn) CallHTTPResource(rid, prefix, action string, params interface{}, cb func(result json.RawMessage, href string, err error)) {
-	c.call(rid, action, params, func(result json.RawMessage, refRID string, err error) {
-		if err != nil {
-			cb(nil, "", err)
-		} else if refRID != "" {
-			cb(nil, RIDToPath(refRID, prefix), nil)
-		} else {
-			cb(result, "", nil)
-		}
+	sub := NewSubscription(c, rid, nil)
+
+	c.serv.cache.Access(sub, c.token, true, func(access *rescache.Access) {
+		c.Enqueue(func() {
+			err := access.CanCall(action)
+			if err != nil {
+				cb(nil, "", err)
+				return
+			}
+			c.serv.cache.Call(c, sub.ResourceName(), sub.ResourceQuery(), action, c.token, params, true, func(result json.RawMessage, refRID string, err error) {
+				c.Enqueue(func() {
+					if err != nil {
+						cb(nil, "", err)
+					} else if refRID != "" {
+						cb(nil, RIDToPath(refRID, prefix), nil)
+					} else {
+						cb(result, "", nil)
+					}
+				})
+			})
+		})
 	})
 }
 
@@ -369,7 +419,7 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result jso
 			cb(nil, "", err)
 			return
 		}
-		c.serv.cache.Call(c, sub.ResourceName(), sub.ResourceQuery(), action, c.token, params, func(result json.RawMessage, refRID string, err error) {
+		c.serv.cache.Call(c, sub.ResourceName(), sub.ResourceQuery(), action, c.token, params, false, func(result json.RawMessage, refRID string, err error) {
 			c.Enqueue(func() {
 				cb(result, refRID, err)
 			})
@@ -377,9 +427,11 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result jso
 	})
 }
 
+// AuthResourceNoResult is used by resgate when headerAuth or wsHeaderAuth is
+// set, while still establishing the HTTP/WebSocket connection.
 func (c *wsConn) AuthResourceNoResult(rid, action string, params interface{}, cb func(err error)) {
 	rname, query := parseRID(c.ExpandCID(rid))
-	c.serv.cache.Auth(c, rname, query, action, c.token, params, func(result json.RawMessage, refRID string, err error) {
+	c.serv.cache.Auth(c, rname, query, action, c.token, params, true, func(result json.RawMessage, refRID string, err error) {
 		c.Enqueue(func() {
 			cb(err)
 		})
@@ -388,7 +440,7 @@ func (c *wsConn) AuthResourceNoResult(rid, action string, params interface{}, cb
 
 func (c *wsConn) AuthResource(rid, action string, params interface{}, cb func(result interface{}, err error)) {
 	rname, query := parseRID(c.ExpandCID(rid))
-	c.serv.cache.Auth(c, rname, query, action, c.token, params, func(result json.RawMessage, refRID string, err error) {
+	c.serv.cache.Auth(c, rname, query, action, c.token, params, false, func(result json.RawMessage, refRID string, err error) {
 		c.Enqueue(func() {
 			c.handleCallAuthResponse(result, refRID, err, cb)
 		})
@@ -591,7 +643,7 @@ func (c *wsConn) setToken(token json.RawMessage, tid string) {
 }
 
 func (c *wsConn) Access(s *Subscription, cb func(*rescache.Access)) {
-	c.serv.cache.Access(s, c.token, cb)
+	c.serv.cache.Access(s, c.token, false, cb)
 }
 
 func (c *wsConn) outputWorker() {

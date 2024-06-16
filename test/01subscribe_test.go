@@ -19,12 +19,12 @@ func TestGetAndAccessOnSubscribe(t *testing.T) {
 		mreqs := s.GetParallelRequests(t, 2)
 
 		// Validate get request
-		req := mreqs.GetRequest(t, "get.test.model")
-		req.AssertPayload(t, json.RawMessage(`{}`))
-
+		mreqs.GetRequest(t, "get.test.model").
+			AssertPayload(t, json.RawMessage(`{}`))
 		// Validate access request
-		req = mreqs.GetRequest(t, "access.test.model")
-		req.AssertPathPayload(t, "token", json.RawMessage(`null`))
+		mreqs.GetRequest(t, "access.test.model").
+			AssertPathPayload(t, "token", json.RawMessage(`null`)).
+			AssertPathMissing(t, "isHttp")
 	})
 }
 

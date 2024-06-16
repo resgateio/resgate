@@ -31,6 +31,7 @@ type Request struct {
 	Token  interface{} `json:"token,omitempty"`
 	Query  string      `json:"query,omitempty"`
 	CID    string      `json:"cid"`
+	IsHTTP bool        `json:"isHttp,omitempty"`
 }
 
 // Response represents a RES-service response
@@ -319,8 +320,8 @@ func (v Value) Equal(w Value) bool {
 }
 
 // CreateRequest creates a JSON encoded RES-service request
-func CreateRequest(params interface{}, r Requester, query string, token interface{}) []byte {
-	out, _ := json.Marshal(Request{Params: params, Token: token, Query: query, CID: r.CID()})
+func CreateRequest(params interface{}, r Requester, query string, token interface{}, isHTTP bool) []byte {
+	out, _ := json.Marshal(Request{Params: params, Token: token, Query: query, CID: r.CID(), IsHTTP: isHTTP})
 	return out
 }
 
@@ -334,10 +335,10 @@ func CreateGetRequest(query string) []byte {
 }
 
 // CreateAuthRequest creates a JSON encoded RES-service auth request
-func CreateAuthRequest(params interface{}, r AuthRequester, query string, token interface{}) []byte {
+func CreateAuthRequest(params interface{}, r AuthRequester, query string, token interface{}, isHTTP bool) []byte {
 	hr := r.HTTPRequest()
 	out, _ := json.Marshal(AuthRequest{
-		Request:    Request{Params: params, Token: token, Query: query, CID: r.CID()},
+		Request:    Request{Params: params, Token: token, Query: query, CID: r.CID(), IsHTTP: isHTTP},
 		Header:     hr.Header,
 		Host:       hr.Host,
 		RemoteAddr: hr.RemoteAddr,

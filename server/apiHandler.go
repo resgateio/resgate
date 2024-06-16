@@ -96,7 +96,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, error, bool)) {
-			c.GetSubscription(rid, func(sub *Subscription, err error) {
+			c.GetHTTPSubscription(rid, func(sub *Subscription, err error) {
 				if err != nil {
 					cb(nil, err, false)
 					return
