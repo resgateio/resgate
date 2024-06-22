@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/resgateio/resgate/server/codec"
 )
 
 func (s *Service) initWSHandler() {
@@ -51,8 +52,18 @@ func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 		// CheckOrigin to be called twice, both here and during Upgrade. But it
 		// will prevent unnecessary auth requests.
 		if s.upgrader.CheckOrigin(r) {
-			// Make auth call (if wsHeaderAuth is configured) and ignore any error.
-			_ = s.wsHeaderAuth(conn)
+			// Make auth call (if wsHeaderAuth is configured) and if we have a
+			// meta in the response, handle it.
+			meta, err := s.wsHeaderAuth(conn)
+			if meta != nil {
+				if meta.IsDirectResponseStatus() {
+					conn.Dispose()
+					// [TODO] Allow the resource refRID to be used in the Auth response
+					httpStatusResponse(w, s.enc, *meta.Status, meta.Header, "", err)
+					return
+				}
+				codec.MergeHeader(w.Header(), meta.Header)
+			}
 		}
 	}
 
@@ -73,7 +84,7 @@ func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 // wsHeaderAuth sends an auth resource request if WSHeaderAuth is set, and
 // awaits the answer, returning any error. If no WSHeaderAuth is set, this is a
 // no-op.
-func (s *Service) wsHeaderAuth(c *wsConn) (err error) {
+func (s *Service) wsHeaderAuth(c *wsConn) (meta *codec.Meta, err error) {
 	if s.cfg.WSHeaderAuth == nil {
 		return
 	}
@@ -83,11 +94,15 @@ func (s *Service) wsHeaderAuth(c *wsConn) (err error) {
 		// Temporarily set as latest protocol version during the auth call.
 		storedVer := c.protocolVer
 		c.protocolVer = versionLatest
-		c.AuthResourceNoResult(s.cfg.wsHeaderAuthRID, s.cfg.wsHeaderAuthAction, nil, func(e error) {
+		c.AuthResourceNoResult(s.cfg.wsHeaderAuthRID, s.cfg.wsHeaderAuthAction, nil, func(e error, m *codec.Meta) {
 			c.protocolVer = storedVer
-			if e != nil {
-				err = e
+			// Validate the status of the meta object.
+			if !m.IsValidWSStatus() {
+				s.Errorf("Invalid meta status in response to wsHeaderAuth request %s: %d", *s.cfg.WSHeaderAuth, *m.Status)
+				m.Status = nil
 			}
+			meta = m
+			err = e
 			close(done)
 		})
 	})

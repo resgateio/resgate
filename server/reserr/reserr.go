@@ -53,6 +53,7 @@ const (
 	CodeMethodNotAllowed   = "system.methodNotAllowed"
 	CodeServiceUnavailable = "system.serviceUnavailable"
 	CodeForbidden          = "system.forbidden"
+	CodeNotImplemented     = "system.notImplemented"
 )
 
 // Pre-defined RES errors
@@ -77,4 +78,6 @@ var (
 	ErrMethodNotAllowed   = &Error{Code: CodeMethodNotAllowed, Message: "Method not allowed"}
 	ErrServiceUnavailable = &Error{Code: CodeServiceUnavailable, Message: "Service unavailable"}
 	ErrForbiddenOrigin    = &Error{Code: CodeForbidden, Message: "Forbidden origin"}
+	ErrForbidden          = &Error{Code: CodeForbidden, Message: "Forbidden"}
+	ErrNotImplemented     = &Error{Code: CodeNotImplemented, Message: "Not implemented"}
 )

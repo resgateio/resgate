@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/textproto"
 
 	"github.com/resgateio/resgate/server/reserr"
 )
@@ -40,6 +41,14 @@ type Response struct {
 	Result   json.RawMessage `json:"result"`
 	Resource *Resource       `json:"resource"`
 	Error    *reserr.Error   `json:"error"`
+	Meta     *Meta           `json:"meta"`
+}
+
+// Meta represents the meta object of a response
+// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#meta-object
+type Meta struct {
+	Status *int        `json:"status"`
+	Header http.Header `json:"header"`
 }
 
 // AccessResponse represents the response of a RES-service access request
@@ -47,6 +56,7 @@ type Response struct {
 type AccessResponse struct {
 	Result *AccessResult `json:"result"`
 	Error  *reserr.Error `json:"error"`
+	Meta   *Meta         `json:"meta"`
 }
 
 // AccessResult represents the response result of a RES-service access request
@@ -319,6 +329,114 @@ func (v Value) Equal(w Value) bool {
 	return true
 }
 
+// Merge merges with another meta object. If m is nil, o is returned. If o is
+// nil, m is returned. If both o and m are not nil, the values are merged so
+// that values in m are appended or replaced with values in o.
+func (m *Meta) Merge(o *Meta) *Meta {
+	if m == nil {
+		return o
+	}
+	if o == nil {
+		return m
+	}
+
+	if o.Status != nil {
+		m.Status = o.Status
+	}
+	h := o.Header
+	if m.Header == nil {
+		m.Header = h
+	} else {
+		MergeHeader(m.Header, h)
+	}
+	return m
+}
+
+// IsDirectResponseStatus returns true if the status code should not result in
+// any subsequent request, but should be directly responded to.
+// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#status-codes
+func (m *Meta) IsDirectResponseStatus() bool {
+	if m != nil && m.Status != nil {
+		s := *m.Status
+		// 3XX, 4XX, 5XX
+		return s >= 300 && s < 600
+	}
+	return false
+}
+
+// IsValidWSStatus returns true if the meta status code is valid while establishing WebSocket connections.
+// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#status-codes
+func (m *Meta) IsValidWSStatus() bool {
+	if m != nil && m.Status != nil {
+		s := *m.Status
+		// 4XX, 5XX
+		return s >= 400 && s < 600
+	}
+	return true
+}
+
+// IsValidHTTPStatus returns true if the meta status code is valid while establishing HTTP connections.
+// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#status-codes
+func (m *Meta) IsValidHTTPStatus() bool {
+	if m != nil && m.Status != nil {
+		s := *m.Status
+		// 3XX, 4XX, 5XX
+		return s >= 300 && s < 600
+	}
+	return true
+}
+
+func (m *Meta) GetHeader() http.Header {
+	if m != nil {
+		return m.Header
+	}
+	return nil
+}
+
+// MergeHeader adds or replaces headers in a with the headers in b. It does not
+// included protected headers, and it appends header values for "Set-Cookie".
+func MergeHeader(a, b http.Header) {
+	if b == nil {
+		return
+	}
+	for k, v := range b {
+		switch k {
+		case "Sec-Websocket-Extensions":
+			fallthrough
+		case "Sec-Websocket-Protocol":
+			fallthrough
+		case "Access-Control-Allow-Credentials":
+			fallthrough
+		case "Access-Control-Allow-Origin":
+			fallthrough
+		case "Content-Typ":
+			continue
+		}
+		// Set-Cookie is the only header where we append all values.
+		// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#meta-object
+		if k == "Set-Cookie" {
+			a[k] = append(a[k], v...)
+		} else {
+			a[k] = v
+		}
+	}
+}
+
+// Canonicalize updates the header keys to be in the canonicalized format.
+func (m *Meta) Canonicalize() {
+	if m == nil || m.Header == nil {
+		return
+	}
+	h := m.Header
+	for k, v := range h {
+		nk := textproto.CanonicalMIMEHeaderKey(k)
+		if nk != k {
+			h[nk] = append(h[nk], v...)
+			delete(h, k)
+		}
+	}
+}
+
 // CreateRequest creates a JSON encoded RES-service request
 func CreateRequest(params interface{}, r Requester, query string, token interface{}, isHTTP bool) []byte {
 	out, _ := json.Marshal(Request{Params: params, Token: token, Query: query, CID: r.CID(), IsHTTP: isHTTP})
@@ -559,49 +677,53 @@ func DecodeRemoveEvent(data json.RawMessage) (*RemoveEvent, error) {
 }
 
 // DecodeAccessResponse decodes a JSON encoded RES-service access response
-func DecodeAccessResponse(payload []byte) (*AccessResult, *reserr.Error) {
+func DecodeAccessResponse(payload []byte) (*AccessResult, *Meta, *reserr.Error) {
 	var r AccessResponse
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
-		return nil, reserr.RESError(err)
+		return nil, nil, reserr.RESError(err)
 	}
 
+	r.Meta.Canonicalize()
+
 	if r.Error != nil {
-		return nil, r.Error
+		return nil, r.Meta, r.Error
 	}
 
 	if r.Result == nil {
-		return nil, errMissingResult
+		return nil, r.Meta, errMissingResult
 	}
 
-	return r.Result, nil
+	return r.Result, r.Meta, nil
 }
 
 // DecodeCallResponse decodes a JSON encoded RES-service call response
-func DecodeCallResponse(payload []byte) (json.RawMessage, string, error) {
+func DecodeCallResponse(payload []byte) (json.RawMessage, string, *Meta, error) {
 	var r Response
 	err := json.Unmarshal(payload, &r)
 	if err != nil {
-		return nil, "", reserr.RESError(err)
+		return nil, "", nil, reserr.RESError(err)
 	}
 
+	r.Meta.Canonicalize()
+
 	if r.Error != nil {
-		return nil, "", r.Error
+		return nil, "", r.Meta, r.Error
 	}
 
 	if r.Resource != nil {
 		rid := r.Resource.RID
 		if !IsValidRID(rid, true) {
-			return nil, "", errInvalidResponse
+			return nil, "", r.Meta, errInvalidResponse
 		}
-		return nil, rid, nil
+		return nil, rid, r.Meta, nil
 	}
 
 	if r.Result == nil {
-		return nil, "", errMissingResult
+		return nil, "", r.Meta, errMissingResult
 	}
 
-	return r.Result, "", nil
+	return r.Result, "", r.Meta, nil
 }
 
 // TryDecodeLegacyNewResult tries to detect legacy v1.1.1 behavior.

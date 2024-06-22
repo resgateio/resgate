@@ -64,32 +64,35 @@ The content of the payload depends on the subject type.
 
 
 ## Response
-When a request is received by a service, it should send a response as a JSON object. The object MUST have one of the members, *result*, *resource*, or *error*, depending upon whether the request is successful, is a resource response, or is an error. In addition, the response MAY contain a *http* member, if the request had its *isHttp* member set to `true`.
+When a request is received by a service, it should send a response as a JSON object. The object MUST have one of the members, *result*, *resource*, or *error*, depending upon whether the request is successful, is a resource response, or is an error. In addition, the response MAY contain a *meta* member.
 
 **result**  
+Raw data from a successful request.  
 Is REQUIRED on success if **resource** is not set.  
 SHOULD be ignored if **error** or **resource** is set.  
 The value is determined by the request subject.
 
 **resource**  
+A successful request resulting in a reference to a resource.  
 MUST be omitted if the request type is not `call` or `auth`.  
 Is REQUIRED on success if **result** is not set.  
 SHOULD be ignored if **error** is set.  
 The value MUST be a valid [resource reference](res-protocol.md#resource-references).
 
 **error**  
+Error encountered during the request.  
 Is REQUIRED on error.  
 MUST be omitted on success.  
 The value MUST be an [error object](#error-object).
 
-**http**
-SHOULD be ignored if **isHttp** is not set, or the value is set to `false`, on the request.
-The value MUST be an [http object](#http-object)
+**meta**
+Metadata about the response. May be omitted.  
+The value MUST be a [meta object](#meta-object).
 
 
-## HTTP object
+## Meta object
 
-In addition to the *result*, *resource*, or *error* member of a response, the response may contain a *http* member which allows the service to specify HTTP status and headers set in the HTTP response of a client's HTTP or WebSocket connection. If multiple responses contains http objects that affects the same connection, the priority SHOULD be as follow, listed with the highest priority first:
+In addition to the *result*, *resource*, or *error* member of a response, the response may contain a *meta* member which allows the service to specify things like HTTP status and headers set in the HTTP response of a client's HTTP or WebSocket connection. If multiple responses contains overlapping metadata that affects the same connection, the priority of the metadata SHOULD be as follow, listed with the highest priority first:
 * [call request](#call-request)
 * [access request](#access-request)
 * [auth request](#auth-request)
@@ -98,19 +101,35 @@ The value is an object with the following members:
 
 **status**  
 HTTP status code, overriding default HTTP response status code. MAY be omitted.  
+SHOULD be ignored if **isHttp** is not set to `true` on the request.  
+SHOULD be ignored if [status codes](#status-codes) has no definition for the value.  
+MUST be a one of the defined [status codes]
 MUST be a number.
 
 **header**  
-HTTP headers to add to the HTTP response. MAY be omitted.  
+HTTP headers to set on the HTTP response. MAY be omitted.  
+SHOULD be ignored if **isHttp** is not set to `true` on the request.  
 MUST be a key/value object, where the key is the canonical format of the MIME header, and the value is an array of strings associated with the key.  
-If the header field is defined to allow multiple values, it will append to any existing value, otherwise it will replace it.
+If the header key is `"Set-Cookie"`, the value will be addeded to any existing values, otherwise it will replace any existing value.
 
-**replaceHeader**  
-HTTP headers to set on the HTTP response. May be omitted.  
-MUST be a key/value object, where the key is the canonical format of the MIME header, and the value is an array of strings associated with the key.  
-The value will replace any existing values for that header field.  
-If both the header and replaceHeader member contains the same key, the replaceHeader value will have priority.
+### Status codes
+The status code is a subset of the HTTP status codes. Behavior is only defined for redirection (3XX), client error (4XX), and server error (5XX).
 
+**3XX**
+SHOULD be ignored if the request comes while estabilishing a WebSocket connection.
+SHOULD result in an immediate response to the client, without subsequent service requests.
+SHOULD have the `"Location"` header set if the **resource** field is not set on the response.
+SHOULD result in no content being sent to the client making the request.
+
+**4XX**
+SHOULD result in an immediate response to the client, without subsequent service requests.
+If **error** is set on the response, that error value should be sent in the client response.
+If no **error** is set on the response, the gateway SHOULD respond to the client with an error matching the code.
+
+**5XX**
+SHOULD result in an immediate response to the client, without subsequent service requests.
+If **error** is set on the response, that error value should be sent in the client response.
+If no **error** is set on the response, the gateway SHOULD respond to the client with an error matching the code.
 
 ## Error object
 
@@ -183,7 +202,7 @@ MUST be omitted if the resource ID has no query.
 MUST be a string.
 
 **isHttp** 
-Flag telling if the response may contain an [http object](#http-object).  
+Flag telling if the response's [meta object](#meta-object) may contain *status* and *header* members.  
 MAY be omitted if the value is otherwise `false`.  
 MUST be a boolean.
 
@@ -271,7 +290,7 @@ Method parameters as defined by the service or by the appropriate [pre-defined c
 MAY be omitted.
 
 **isHttp** 
-Flag telling if the response may contain an [http object](#http-object).  
+Flag telling if the response's [meta object](#meta-object) may contain *status* and *header* members.  
 MAY be omitted if the value is otherwise `false`.  
 MUST be a boolean.
 
@@ -338,7 +357,7 @@ May be omitted.
 MUST be a string.
 
 **isHttp** 
-Flag telling if the response may contain an [http object](#http-object).  
+Flag telling if the response's [meta object](#meta-object) may contain *status* and *header* members.  
 MAY be omitted if the value is otherwise `false`.  
 MUST be a boolean.
 
