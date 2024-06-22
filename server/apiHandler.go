@@ -165,12 +165,12 @@ func (s *Service) handleCall(w http.ResponseWriter, r *http.Request, rid string,
 	}
 
 	s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, string, error, *codec.Meta)) {
-		c.CallHTTPResource(rid, s.cfg.APIPath, action, params, func(r json.RawMessage, href string, err error, meta *codec.Meta) {
+		c.CallHTTPResource(rid, action, params, func(r json.RawMessage, refRID string, err error, meta *codec.Meta) {
 			var b []byte
-			if err == nil && href == "" && !meta.IsDirectResponseStatus() {
+			if err == nil && refRID == "" && !meta.IsDirectResponseStatus() {
 				b, err = s.enc.EncodePOST(r)
 			}
-			cb(b, href, err, meta)
+			cb(b, RIDToPath(refRID, s.cfg.APIPath), err, meta)
 		})
 	})
 }
@@ -239,9 +239,9 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 	}
 	c.Enqueue(func() {
 		if s.cfg.HeaderAuth != nil {
-			c.AuthResourceNoResult(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(err error, m *codec.Meta) {
+			c.AuthResourceNoResult(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(refRID string, err error, m *codec.Meta) {
 				if m.IsDirectResponseStatus() {
-					httpStatusResponse(w, s.enc, *m.Status, m.Header, "", err)
+					httpStatusResponse(w, s.enc, *m.Status, m.Header, RIDToPath(refRID, s.cfg.APIPath), err)
 					c.dispose()
 					close(done)
 					return
@@ -338,12 +338,12 @@ func statusError(status int) *reserr.Error {
 			case http.StatusPaymentRequired:
 				fallthrough
 			case http.StatusProxyAuthRequired:
-				fallthrough
-			case http.StatusUnavailableForLegalReasons:
 				return reserr.ErrAccessDenied
 
 			// Forbidden
 			case http.StatusForbidden:
+				fallthrough
+			case http.StatusUnavailableForLegalReasons:
 				return reserr.ErrForbidden
 
 			// Not found
@@ -374,6 +374,10 @@ func statusError(status int) *reserr.Error {
 			// Service unavailable
 			case http.StatusServiceUnavailable:
 				return reserr.ErrServiceUnavailable
+
+			// Timeout
+			case http.StatusGatewayTimeout:
+				return reserr.ErrTimeout
 
 			// Internal error (default)
 			default:

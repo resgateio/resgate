@@ -94,7 +94,7 @@ func (s *Service) wsHeaderAuth(c *wsConn) (meta *codec.Meta, err error) {
 		// Temporarily set as latest protocol version during the auth call.
 		storedVer := c.protocolVer
 		c.protocolVer = versionLatest
-		c.AuthResourceNoResult(s.cfg.wsHeaderAuthRID, s.cfg.wsHeaderAuthAction, nil, func(e error, m *codec.Meta) {
+		c.AuthResourceNoResult(s.cfg.wsHeaderAuthRID, s.cfg.wsHeaderAuthAction, nil, func(_ string, e error, m *codec.Meta) {
 			c.protocolVer = storedVer
 			// Validate the status of the meta object.
 			if !m.IsValidWSStatus() {

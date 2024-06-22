@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"runtime/pprof"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -65,10 +66,22 @@ func (hr *HTTPResponse) AssertBody(t *testing.T, body interface{}) *HTTPResponse
 	var err error
 	var bj []byte
 
+	f := func(e, a string) {
+		if len(e) == 0 {
+			t.Fatalf("expected response to be empty, but got:\n%s", a)
+		} else if len(a) == 0 {
+			t.Fatalf("expected response body to be:\n%s\nbut got empty response", e)
+		} else {
+			t.Fatalf("expected response body to be:\n%s\nbut got:\n%s", e, a)
+		}
+	}
+
+	actual := hr.Body.String()
+
 	// Check if we have an exact string
 	if bj, ok := body.([]byte); ok {
-		if strings.TrimSpace(hr.Body.String()) != string(bj) {
-			t.Fatalf("expected response body to be: \n%s\nbut got:\n%s", bj, hr.Body.String())
+		if strings.TrimSpace(actual) != string(bj) {
+			f(string(bj), actual)
 		}
 		return hr
 	}
@@ -95,11 +108,11 @@ func (hr *HTTPResponse) AssertBody(t *testing.T, body interface{}) *HTTPResponse
 	var b interface{}
 	err = json.Unmarshal(bb, &b)
 	if err != nil {
-		t.Fatalf("expected response body to be: \n%s\nbut got:\n%s", bj, hr.Body.String())
+		f(string(bj), actual)
 	}
 
 	if !reflect.DeepEqual(ab, b) {
-		t.Fatalf("expected response body to be: \n%s\nbut got:\n%s", bj, hr.Body.String())
+		f(string(bj), actual)
 	}
 	return hr
 }
@@ -157,6 +170,25 @@ func (hr *HTTPResponse) AssertHeaders(t *testing.T, h map[string]string) *HTTPRe
 				t.Fatalf("expected response header %s to be %s, but header not found", k, v)
 			} else {
 				t.Fatalf("expected response header %s to be %s, but got %s", k, v, hv)
+			}
+		}
+	}
+	return hr
+}
+
+// AssertMultiHeaders asserts that the response includes the expected headers, including repeated headers such as Set-Cookie.
+func (hr *HTTPResponse) AssertMultiHeaders(t *testing.T, h map[string][]string) *HTTPResponse {
+	for k, v := range h {
+		hv := hr.Result().Header[k]
+		sort.StringSlice(hv).Sort()
+		sort.StringSlice(v).Sort()
+		if !reflect.DeepEqual(hv, v) {
+			if len(hv) == 0 {
+				t.Fatalf("expected response header %s to be:\n\t%#v\nbut header not found", k, v)
+			} else if len(v) == 0 {
+				t.Fatalf("expected response header %s to be missing, but got:\n\t%#v", k, hv)
+			} else {
+				t.Fatalf("expected response header %s to be:\n\t%#v\nbut got:\n\t%#v", k, v, hv)
 			}
 		}
 	}

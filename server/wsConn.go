@@ -395,7 +395,7 @@ func (c *wsConn) CallResource(rid, action string, params interface{}, cb func(re
 // from CallResource by making an access call separately, and not within the
 // subscription, in order to call access with isHTTP set to true. It also
 // transform any href RID to a path on callback call.
-func (c *wsConn) CallHTTPResource(rid, prefix, action string, params interface{}, cb func(result json.RawMessage, href string, err error, meta *codec.Meta)) {
+func (c *wsConn) CallHTTPResource(rid, action string, params interface{}, cb func(result json.RawMessage, href string, err error, meta *codec.Meta)) {
 	sub := NewSubscription(c, rid, nil)
 
 	c.serv.cache.Access(sub, c.token, true, func(access *rescache.Access, accessMeta *codec.Meta) {
@@ -421,7 +421,7 @@ func (c *wsConn) CallHTTPResource(rid, prefix, action string, params interface{}
 					if err != nil {
 						cb(nil, "", err, meta)
 					} else if refRID != "" {
-						cb(nil, RIDToPath(refRID, prefix), nil, meta)
+						cb(nil, refRID, nil, meta)
 					} else {
 						cb(result, "", nil, meta)
 					}
@@ -452,11 +452,11 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result jso
 
 // AuthResourceNoResult is used by resgate when headerAuth or wsHeaderAuth is
 // set, while still establishing the HTTP/WebSocket connection.
-func (c *wsConn) AuthResourceNoResult(rid, action string, params interface{}, cb func(err error, meta *codec.Meta)) {
+func (c *wsConn) AuthResourceNoResult(rid, action string, params interface{}, cb func(refRID string, err error, meta *codec.Meta)) {
 	rname, query := parseRID(c.ExpandCID(rid))
 	c.serv.cache.Auth(c, rname, query, action, c.token, params, true, func(result json.RawMessage, refRID string, meta *codec.Meta, err error) {
 		c.Enqueue(func() {
-			cb(err, meta)
+			cb(refRID, err, meta)
 		})
 	})
 }
