@@ -364,20 +364,10 @@ func (m *Meta) IsDirectResponseStatus() bool {
 	return false
 }
 
-// IsValidWSStatus returns true if the meta status code is valid while establishing WebSocket connections.
+// IsValidStatus returns true if the meta status code is valid while
+// establishing HTTP or WebSocket connections.
 // https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#status-codes
-func (m *Meta) IsValidWSStatus() bool {
-	if m != nil && m.Status != nil {
-		s := *m.Status
-		// 4XX, 5XX
-		return s >= 400 && s < 600
-	}
-	return true
-}
-
-// IsValidHTTPStatus returns true if the meta status code is valid while establishing HTTP connections.
-// https://github.com/resgateio/resgate/blob/master/docs/res-service-protocol.md#status-codes
-func (m *Meta) IsValidHTTPStatus() bool {
+func (m *Meta) IsValidStatus() bool {
 	if m != nil && m.Status != nil {
 		s := *m.Status
 		// 3XX, 4XX, 5XX

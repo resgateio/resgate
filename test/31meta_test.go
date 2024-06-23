@@ -25,6 +25,7 @@ func TestMeta_HTTPGetRequestWithMeta_ExpectedResponse(t *testing.T) {
 		ExpectedStatus  int                 // Expected response Status
 		ExpectedBody    interface{}         // Expected response Body
 		ExpectedHeaders map[string][]string // Expected response Headers
+		ExpectedErrors  int                 // Expected logged errors
 	}{
 		// Auth header only
 		{
@@ -228,6 +229,7 @@ func TestMeta_HTTPGetRequestWithMeta_ExpectedResponse(t *testing.T) {
 			GetResponse:    []byte(`{"result":{"model":` + model + `}}`),
 			ExpectedStatus: http.StatusOK,
 			ExpectedBody:   json.RawMessage(model),
+			ExpectedErrors: 1,
 		},
 		{
 			Name:           "invalid status code in auth response is ignored",
@@ -236,6 +238,25 @@ func TestMeta_HTTPGetRequestWithMeta_ExpectedResponse(t *testing.T) {
 			GetResponse:    []byte(`{"result":{"model":` + model + `}}`),
 			ExpectedStatus: http.StatusOK,
 			ExpectedBody:   json.RawMessage(model),
+			ExpectedErrors: 1,
+		},
+		{
+			Name:           "2XX (206) status code in access response is ignored",
+			AuthResponse:   []byte(`{"result":null}`),
+			AccessResponse: []byte(`{"result":{"get":true},"meta":{"status":206}}`),
+			GetResponse:    []byte(`{"result":{"model":` + model + `}}`),
+			ExpectedStatus: http.StatusOK,
+			ExpectedBody:   json.RawMessage(model),
+			ExpectedErrors: 1,
+		},
+		{
+			Name:           "invalid status code in access response is ignored",
+			AuthResponse:   []byte(`{"result":null}`),
+			AccessResponse: []byte(`{"result":{"get":true},"meta":{"status":601}}`),
+			GetResponse:    []byte(`{"result":{"model":` + model + `}}`),
+			ExpectedStatus: http.StatusOK,
+			ExpectedBody:   json.RawMessage(model),
+			ExpectedErrors: 1,
 		},
 	}
 
@@ -269,6 +290,9 @@ func TestMeta_HTTPGetRequestWithMeta_ExpectedResponse(t *testing.T) {
 				AssertStatusCode(t, l.ExpectedStatus).
 				AssertMultiHeaders(t, l.ExpectedHeaders).
 				AssertBody(t, l.ExpectedBody)
+
+			// Validated expected logged errors
+			s.AssertErrorsLogged(t, l.ExpectedErrors)
 		}, func(cfg *server.Config) {
 			headerAuth := "vault.method"
 			cfg.HeaderAuth = &headerAuth

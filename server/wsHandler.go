@@ -97,8 +97,8 @@ func (s *Service) wsHeaderAuth(c *wsConn) (meta *codec.Meta, err error) {
 		c.AuthResourceNoResult(s.cfg.wsHeaderAuthRID, s.cfg.wsHeaderAuthAction, nil, func(_ string, e error, m *codec.Meta) {
 			c.protocolVer = storedVer
 			// Validate the status of the meta object.
-			if !m.IsValidWSStatus() {
-				s.Errorf("Invalid meta status in response to wsHeaderAuth request %s: %d", *s.cfg.WSHeaderAuth, *m.Status)
+			if !m.IsValidStatus() {
+				s.Errorf("Invalid WebSocket meta status: %d", *m.Status)
 				m.Status = nil
 			}
 			meta = m

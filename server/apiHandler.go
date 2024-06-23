@@ -199,6 +199,12 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 		// Merge auth meta into the callbacks meta
 		meta = authMeta.Merge(meta)
 
+		// Validate the status of the meta object.
+		if !meta.IsValidStatus() {
+			s.Errorf("Invalid meta status: %d", *meta.Status)
+			meta.Status = nil
+		}
+
 		// Handle meta override
 		if meta.IsDirectResponseStatus() {
 			httpStatusResponse(w, s.enc, *meta.Status, meta.Header, href, err)
@@ -245,12 +251,6 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 					c.dispose()
 					close(done)
 					return
-				}
-
-				// Validate the status of the meta object.
-				if !m.IsValidHTTPStatus() {
-					s.Errorf("Invalid meta status in response to headerAuth request %s: %d", *s.cfg.HeaderAuth, *m.Status)
-					m.Status = nil
 				}
 
 				authMeta = m

@@ -113,22 +113,22 @@ MUST be a key/value object, where the key is the canonical format of the MIME he
 If the header key is `"Set-Cookie"`, the value will be addeded to any existing values, otherwise it will replace any existing value.
 
 ### Status codes
-The status code is a subset of the HTTP status codes. Behavior is only defined for redirection (3XX), client error (4XX), and server error (5XX).
+The status code is a subset of the HTTP status codes. Behavior is only defined for redirection (3XX), client error (4XX), and server error (5XX).  
+The gateway MUST respond to the HTTP or WebSocket connection using the given status code, if behavior is defined for it. Otherwise it SHOULD ignore the code and make a fallback to default behavior.
 
 **3XX**
-SHOULD be ignored if the request comes while estabilishing a WebSocket connection.
-SHOULD result in an immediate response to the client, without subsequent service requests.
-SHOULD have the `"Location"` header set if the **resource** field is not set on the response.
+SHOULD result in an immediate response to the client, without subsequent service requests.  
+SHOULD have the `"Location"` header set if the **resource** field is not set on the response.  
 SHOULD result in no content being sent to the client making the request.
 
 **4XX**
-SHOULD result in an immediate response to the client, without subsequent service requests.
-If **error** is set on the response, that error value should be sent in the client response.
+SHOULD result in an immediate response to the client, without subsequent service requests.  
+If **error** is set on the response, that error value should be sent in the client response.  
 If no **error** is set on the response, the gateway SHOULD respond to the client with an error matching the code.
 
 **5XX**
-SHOULD result in an immediate response to the client, without subsequent service requests.
-If **error** is set on the response, that error value should be sent in the client response.
+SHOULD result in an immediate response to the client, without subsequent service requests.  
+If **error** is set on the response, that error value should be sent in the client response.  
 If no **error** is set on the response, the gateway SHOULD respond to the client with an error matching the code.
 
 ## Error object
