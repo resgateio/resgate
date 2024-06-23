@@ -399,7 +399,7 @@ func MergeHeader(a, b http.Header) {
 			fallthrough
 		case "Access-Control-Allow-Origin":
 			fallthrough
-		case "Content-Typ":
+		case "Content-Type":
 			continue
 		}
 		// Set-Cookie is the only header where we append all values.
