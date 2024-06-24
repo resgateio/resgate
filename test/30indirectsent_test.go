@@ -230,3 +230,36 @@ func TestIndirectSent_AddEventReference_ContainsResource(t *testing.T) {
 		})
 	}
 }
+
+func TestIndirectSent_SubscriptionReferenceToNestedResource_ContainsResource(t *testing.T) {
+	runTest(t, func(s *Session) {
+
+		model := resourceData("test.model")
+		modelParent := resourceData("test.model.parent")
+		modelDelayed := `{"name":"delayed"}`
+		modelDelayedGrandParent := `{"name":"delayedGrandparent","child":{"rid":"test.model.parent"},"delayed":{"rid":"test.model.delayed"}}`
+
+		c := s.Connect()
+		// Subscribe to test.model.parent, and indirectly to test.model.
+		subscribeToTestModelParent(t, s, c, false)
+
+		// Get grant parent model.
+		creq := c.Request("subscribe.test.model.delayedGrandparent", nil)
+
+		// Handle parent get and access request.
+		mreqs := s.GetParallelRequests(t, 2)
+		mreqs.GetRequest(t, "access.test.model.delayedGrandparent").RespondSuccess(json.RawMessage(`{"get":true}`))
+		mreqs.GetRequest(t, "get.test.model.delayedGrandparent").RespondSuccess(json.RawMessage(`{"model":` + modelDelayedGrandParent + `}`))
+		// Delay response to get request of referenced test.model.delayed
+		mreqsecond := s.GetRequest(t)
+
+		// Call unsubscribe on test.model.parent
+		c.Request("unsubscribe.test.model.parent", nil).GetResponse(t)
+
+		// Repond to parent get request
+		mreqsecond.RespondSuccess(json.RawMessage(`{"model":` + modelDelayed + `}`))
+
+		// Get client response, which should include test.model.parent and test.model.
+		creq.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model":`+model+`,"test.model.parent":`+modelParent+`,"test.model.delayedGrandparent":`+modelDelayedGrandParent+`,"test.model.delayed":`+modelDelayed+`}}`))
+	})
+}
