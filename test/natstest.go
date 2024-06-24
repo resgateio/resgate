@@ -443,9 +443,9 @@ func (r *Request) AssertPathType(t Testing, path string, typ interface{}) *Reque
 	return r
 }
 
-// AssertPathNotPayload asserts that the request payload at a given
-// dot-separated path in a nested object is missing. It gives a fatal error if
-// any other part of the patch except for the last part of the path is missing.
+// AssertPathMissing asserts that the request payload at a given dot-separated
+// path in a nested object is missing. It gives a fatal error if any other part
+// of the patch except for the last part of the path is missing.
 func (r *Request) AssertPathMissing(t Testing, path string) *Request {
 	if v, ok := r.TryPathPayload(t, path); ok {
 		t.Fatalf("expected not to find path %#v, but found value %#v", path, v)

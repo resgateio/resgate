@@ -123,9 +123,9 @@ func (s *Session) ConnectWithHeader(h http.Header) *Conn {
 	return assertConnect(s.connect(make(chan *ClientEvent, 256), h))
 }
 
-// Connect makes a new mock client websocket connection that handshakes with
-// version v1.999.999, if a connection is established. If an error occurs, it
-// returns the error without handshake.
+// ConnectWithResponse makes a new mock client websocket connection that
+// handshakes with version v1.999.999, if a connection is established. If an
+// error occurs, it returns the error without handshake.
 func (s *Session) ConnectWithResponse() (*Conn, *http.Response, error) {
 	c, resp, err := s.connect(make(chan *ClientEvent, 256), nil)
 	if err != nil {
