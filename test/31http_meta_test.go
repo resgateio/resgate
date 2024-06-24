@@ -11,7 +11,7 @@ import (
 	"github.com/resgateio/resgate/server/reserr"
 )
 
-func TestMeta_HTTPGetRequestWithMeta_ExpectedResponse(t *testing.T) {
+func TestHTTPMeta_HTTPGetRequestWithMeta_ExpectedResponse(t *testing.T) {
 	model := resourceData("test.model")
 	origin := "http://example.com"
 	href := "http://example.com/test/ref"
@@ -297,7 +297,7 @@ func TestMeta_HTTPGetRequestWithMeta_ExpectedResponse(t *testing.T) {
 	}
 }
 
-func TestMeta_HTTPPostRequestWithMeta_ExpectedResponse(t *testing.T) {
+func TestHTTPMeta_HTTPPostRequestWithMeta_ExpectedResponse(t *testing.T) {
 	origin := "http://example.com"
 	href := "http://example.com/test/ref"
 	customError := `{"code":"system.custom","message":"Custom"}`
@@ -594,7 +594,7 @@ func TestMeta_HTTPPostRequestWithMeta_ExpectedResponse(t *testing.T) {
 	}
 }
 
-func TestMeta_HTTPGetRequestWithMetaErrorStatus_ExpectedError(t *testing.T) {
+func TestHTTPMeta_HTTPGetRequestWithMetaErrorStatus_ExpectedError(t *testing.T) {
 	tbl := []struct {
 		Status        int
 		ExpectedError error

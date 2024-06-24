@@ -99,6 +99,7 @@ var resources = map[string]resource{
 	"test.collection.soft.parent":  {typeCollection, `["softparent",{"rid":"test.collection.soft","soft":false}]`, nil},
 	"test.collection.data":         {typeCollection, `["data",{"data":12},{"data":{"foo":["bar"]}},{"data":[{"foo":"bar"}]}]`, nil},
 	"test.collection.data.parent":  {typeCollection, `["dataparent",{"rid":"test.collection.data"}]`, nil},
+	"test.collection.empty":        {typeCollection, `[]`, nil},
 
 	// Cyclic collection resources
 	"test.c.a": {typeCollection, `[{"rid":"test.c.a"}]`, nil},

@@ -1,8 +1,10 @@
 package test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -53,6 +55,13 @@ func (hr *HTTPResponse) Equals(t *testing.T, code int, body interface{}) *HTTPRe
 	return hr
 }
 
+// AssertResponseStatusCode asserts that the response has the expected status code
+func AssertResponseStatusCode(t *testing.T, r *http.Response, code int) {
+	if r.StatusCode != code {
+		t.Fatalf("expected response code to be %d, but got %d", code, r.StatusCode)
+	}
+}
+
 // AssertStatusCode asserts that the response has the expected status code
 func (hr *HTTPResponse) AssertStatusCode(t *testing.T, code int) *HTTPResponse {
 	if hr.Code != code {
@@ -61,8 +70,8 @@ func (hr *HTTPResponse) AssertStatusCode(t *testing.T, code int) *HTTPResponse {
 	return hr
 }
 
-// AssertBody asserts that the response has the expected body
-func (hr *HTTPResponse) AssertBody(t *testing.T, body interface{}) *HTTPResponse {
+// AssertResponseBody asserts that the response has the expected body
+func AssertResponseBody(t *testing.T, r io.Reader, body interface{}) {
 	var err error
 	var bj []byte
 
@@ -76,14 +85,16 @@ func (hr *HTTPResponse) AssertBody(t *testing.T, body interface{}) *HTTPResponse
 		}
 	}
 
-	actual := hr.Body.String()
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r)
+	actual := buf.String()
 
 	// Check if we have an exact string
 	if bj, ok := body.([]byte); ok {
 		if strings.TrimSpace(actual) != string(bj) {
 			f(string(bj), actual)
 		}
-		return hr
+		return
 	}
 
 	var ab interface{}
@@ -99,10 +110,10 @@ func (hr *HTTPResponse) AssertBody(t *testing.T, body interface{}) *HTTPResponse
 		}
 	}
 
-	bb := hr.Body.Bytes()
+	bb := buf.Bytes()
 	// Quick exit if both are empty
 	if len(bb) == 0 && body == nil {
-		return hr
+		return
 	}
 
 	var b interface{}
@@ -114,6 +125,11 @@ func (hr *HTTPResponse) AssertBody(t *testing.T, body interface{}) *HTTPResponse
 	if !reflect.DeepEqual(ab, b) {
 		f(string(bj), actual)
 	}
+}
+
+// AssertBody asserts that the response has the expected body
+func (hr *HTTPResponse) AssertBody(t *testing.T, body interface{}) *HTTPResponse {
+	AssertResponseBody(t, hr.Body, body)
 	return hr
 }
 
@@ -161,10 +177,10 @@ func (hr *HTTPResponse) AssertIsError(t *testing.T) *HTTPResponse {
 	return hr
 }
 
-// AssertHeaders asserts that the response includes the expected headers
-func (hr *HTTPResponse) AssertHeaders(t *testing.T, h map[string]string) *HTTPResponse {
+// AssertResponseHeaders asserts that the response includes the expected headers
+func AssertResponseHeaders(t *testing.T, r *http.Response, h map[string]string) {
 	for k, v := range h {
-		hv := hr.Result().Header.Get(k)
+		hv := r.Header.Get(k)
 		if hv != v {
 			if hv == "" {
 				t.Fatalf("expected response header %s to be %s, but header not found", k, v)
@@ -173,13 +189,18 @@ func (hr *HTTPResponse) AssertHeaders(t *testing.T, h map[string]string) *HTTPRe
 			}
 		}
 	}
+}
+
+// AssertHeaders asserts that the response includes the expected headers
+func (hr *HTTPResponse) AssertHeaders(t *testing.T, h map[string]string) *HTTPResponse {
+	AssertResponseHeaders(t, hr.Result(), h)
 	return hr
 }
 
-// AssertMultiHeaders asserts that the response includes the expected headers, including repeated headers such as Set-Cookie.
-func (hr *HTTPResponse) AssertMultiHeaders(t *testing.T, h map[string][]string) *HTTPResponse {
+// AssertResponseMultiHeaders asserts that the response includes the expected headers, including repeated headers such as Set-Cookie.
+func AssertResponseMultiHeaders(t *testing.T, r *http.Response, h map[string][]string) {
 	for k, v := range h {
-		hv := hr.Result().Header[k]
+		hv := r.Header[k]
 		sort.StringSlice(hv).Sort()
 		sort.StringSlice(v).Sort()
 		if !reflect.DeepEqual(hv, v) {
@@ -192,6 +213,11 @@ func (hr *HTTPResponse) AssertMultiHeaders(t *testing.T, h map[string][]string) 
 			}
 		}
 	}
+}
+
+// AssertMultiHeaders asserts that the response includes the expected headers, including repeated headers such as Set-Cookie.
+func (hr *HTTPResponse) AssertMultiHeaders(t *testing.T, h map[string][]string) *HTTPResponse {
+	AssertResponseMultiHeaders(t, hr.Result(), h)
 	return hr
 }
 

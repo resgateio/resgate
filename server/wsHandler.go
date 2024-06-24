@@ -47,6 +47,7 @@ func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var h http.Header
 	if s.cfg.WSHeaderAuth != nil {
 		// Prevent calling wsHeaderAuth if origin doesn't match. This will cause
 		// CheckOrigin to be called twice, both here and during Upgrade. But it
@@ -54,21 +55,23 @@ func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 		if s.upgrader.CheckOrigin(r) {
 			// Make auth call (if wsHeaderAuth is configured) and if we have a
 			// meta in the response, handle it.
-			meta, err := s.wsHeaderAuth(conn)
+			refRID, meta, err := s.wsHeaderAuth(conn)
 			if meta != nil {
 				if meta.IsDirectResponseStatus() {
 					conn.Dispose()
-					// [TODO] Allow the resource refRID to be used in the Auth response
-					httpStatusResponse(w, s.enc, *meta.Status, meta.Header, "", err)
+					httpStatusResponse(w, s.enc, *meta.Status, meta.Header, RIDToPath(refRID, s.cfg.APIPath), err)
 					return
 				}
-				codec.MergeHeader(w.Header(), meta.Header)
+				if meta.Header != nil {
+					h = make(http.Header, len(meta.Header))
+					codec.MergeHeader(h, meta.Header)
+				}
 			}
 		}
 	}
 
 	// Upgrade to gorilla websocket
-	ws, err := s.upgrader.Upgrade(w, r, nil)
+	ws, err := s.upgrader.Upgrade(w, r, h)
 	if err != nil {
 		conn.Dispose()
 		s.Debugf("Failed to upgrade connection from %s: %s", r.RemoteAddr, err.Error())
@@ -84,23 +87,20 @@ func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 // wsHeaderAuth sends an auth resource request if WSHeaderAuth is set, and
 // awaits the answer, returning any error. If no WSHeaderAuth is set, this is a
 // no-op.
-func (s *Service) wsHeaderAuth(c *wsConn) (meta *codec.Meta, err error) {
-	if s.cfg.WSHeaderAuth == nil {
-		return
-	}
-
+func (s *Service) wsHeaderAuth(c *wsConn) (refRID string, meta *codec.Meta, err error) {
 	done := make(chan struct{})
 	c.Enqueue(func() {
 		// Temporarily set as latest protocol version during the auth call.
 		storedVer := c.protocolVer
 		c.protocolVer = versionLatest
-		c.AuthResourceNoResult(s.cfg.wsHeaderAuthRID, s.cfg.wsHeaderAuthAction, nil, func(_ string, e error, m *codec.Meta) {
+		c.AuthResourceNoResult(s.cfg.wsHeaderAuthRID, s.cfg.wsHeaderAuthAction, nil, func(ref string, e error, m *codec.Meta) {
 			c.protocolVer = storedVer
 			// Validate the status of the meta object.
 			if !m.IsValidStatus() {
 				s.Errorf("Invalid WebSocket meta status: %d", *m.Status)
 				m.Status = nil
 			}
+			refRID = ref
 			meta = m
 			err = e
 			close(done)
