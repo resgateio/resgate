@@ -137,6 +137,7 @@ func TestHTTPGet(t *testing.T) {
 					hreqs := make(map[string]*HTTPRequest)
 					reqs := make(map[string]*Request)
 
+				TestTable:
 					for _, ev := range l {
 						switch ev.Event {
 						case "subscribe":
@@ -147,6 +148,7 @@ func TestHTTPGet(t *testing.T) {
 								treq := s.GetRequest(t)
 								reqs[treq.Subject] = treq
 							}
+							req.AssertPathPayload(t, "isHttp", true)
 							req.RespondSuccess(json.RawMessage(`{"get":true}`))
 						case "accessDenied":
 							for req = reqs["access."+ev.RID]; req == nil; req = reqs["access."+ev.RID] {
@@ -171,9 +173,11 @@ func TestHTTPGet(t *testing.T) {
 						case "response":
 							hreq = hreqs[ev.RID]
 							hreq.GetResponse(t).Equals(t, http.StatusOK, json.RawMessage(enc.Responses[ev.RID]))
+							break TestTable
 						case "errorResponse":
 							hreq = hreqs[ev.RID]
 							hreq.GetResponse(t).AssertIsError(t)
+							break TestTable
 						}
 					}
 				}, func(c *server.Config) {
@@ -200,6 +204,7 @@ func TestHTTPGetOnPrimitiveQueryModel(t *testing.T) {
 				GetRequest(t, "access.test.model").
 				AssertPathPayload(t, "token", nil).
 				AssertPathPayload(t, "query", "q=foo&f=bar").
+				AssertPathPayload(t, "isHttp", true).
 				RespondSuccess(json.RawMessage(`{"get":true}`))
 			mreqs.
 				GetRequest(t, "get.test.model").
@@ -230,6 +235,7 @@ func TestHTTPGetOnPrimitiveQueryCollection(t *testing.T) {
 				GetRequest(t, "access.test.collection").
 				AssertPathPayload(t, "token", nil).
 				AssertPathPayload(t, "query", "q=foo&f=bar").
+				AssertPathPayload(t, "isHttp", true).
 				RespondSuccess(json.RawMessage(`{"get":true}`))
 			mreqs.
 				GetRequest(t, "get.test.collection").
@@ -338,6 +344,7 @@ func TestHTTPGet_HeaderAuth_ExpectedResponse(t *testing.T) {
 			req := s.GetRequest(t)
 			req.AssertSubject(t, "auth.vault.method")
 			req.AssertPathPayload(t, "header.Origin", []string{"example.com"})
+			req.AssertPathPayload(t, "isHttp", true)
 			// Send token
 			expectedToken := l.Token
 			if l.Token != noToken {
@@ -364,6 +371,7 @@ func TestHTTPGet_HeaderAuth_ExpectedResponse(t *testing.T) {
 			mreqs.
 				GetRequest(t, "access.test.model").
 				AssertPathPayload(t, "token", expectedToken).
+				AssertPathPayload(t, "isHttp", true).
 				RespondSuccess(json.RawMessage(`{"get":true}`))
 			mreqs.
 				GetRequest(t, "get.test.model").

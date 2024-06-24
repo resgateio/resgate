@@ -24,12 +24,14 @@ func TestHTTPPostOnPrimitiveQueryModel(t *testing.T) {
 			AssertSubject(t, "access.test.model").
 			AssertPathPayload(t, "token", nil).
 			AssertPathPayload(t, "query", "q=foo&f=bar").
+			AssertPathPayload(t, "isHttp", true).
 			RespondSuccess(json.RawMessage(`{"call":"method"}`))
 		// Handle query model call request
 		s.
 			GetRequest(t).
 			AssertSubject(t, "call.test.model.method").
 			AssertPathPayload(t, "query", "q=foo&f=bar").
+			AssertPathPayload(t, "isHttp", true).
 			RespondSuccess(successResponse)
 
 		// Validate http response
@@ -91,6 +93,7 @@ func TestHTTPPostResponses(t *testing.T) {
 
 			req := s.GetRequest(t)
 			req.AssertSubject(t, "access.test.model")
+			req.AssertPathPayload(t, "isHttp", true)
 			if l.AccessResponse == nil {
 				req.Timeout()
 			} else if err, ok := l.AccessResponse.(*reserr.Error); ok {

@@ -52,6 +52,7 @@ func TestAuthOnResource(t *testing.T) {
 			req.AssertPathType(t, "host", string(""))
 			req.AssertPathType(t, "uri", string(""))
 			req.AssertPathPayload(t, "params", l.Params)
+			req.AssertPathMissing(t, "isHttp")
 			if l.AuthResponse == requestTimeout {
 				req.Timeout()
 			} else if err, ok := l.AuthResponse.(*reserr.Error); ok {

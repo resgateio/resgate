@@ -51,12 +51,22 @@ func TestWebSocketOptions_WSHeaderAuth_ExpectedResponse(t *testing.T) {
 		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
 			authDone := make(chan struct{})
 			expectedToken := l.Token
+
+			// Create LogTesting to log errors in goroutine
+			logt := &LogTesting{
+				NoPanic: true,
+			}
+
+			//  Handle requests send during Connect
 			go func() {
-				req := s.GetRequest(t)
-				req.AssertSubject(t, "auth.vault.method")
+				defer close(authDone)
+				defer logt.Defer()
+				req := s.GetRequest(logt)
+				req.AssertSubject(logt, "auth.vault.method")
+				req.AssertPathPayload(logt, "isHttp", true)
 				// Send token
 				if l.Token != noToken {
-					cid := req.PathPayload(t, "cid").(string)
+					cid := req.PathPayload(logt, "cid").(string)
 					s.ConnEvent(cid, "token", struct {
 						Token interface{} `json:"token"`
 					}{l.Token})
@@ -73,13 +83,16 @@ func TestWebSocketOptions_WSHeaderAuth_ExpectedResponse(t *testing.T) {
 				} else {
 					req.RespondSuccess(l.AuthResponse)
 				}
-				close(authDone)
 			}()
 
 			c := s.Connect()
 
-			// Await auth request handling
 			<-authDone
+
+			// Check for errors during connect
+			if logt.Err != nil {
+				t.Fatal(logt.Err)
+			}
 
 			// Send subscribe request
 			creq := c.Request("subscribe.test.model", nil)
@@ -89,6 +102,7 @@ func TestWebSocketOptions_WSHeaderAuth_ExpectedResponse(t *testing.T) {
 			mreqs.
 				GetRequest(t, "access.test.model").
 				AssertPathPayload(t, "token", expectedToken).
+				AssertPathMissing(t, "isHttp").
 				RespondSuccess(json.RawMessage(`{"get":true}`))
 			mreqs.
 				GetRequest(t, "get.test.model").

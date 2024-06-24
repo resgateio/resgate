@@ -18,10 +18,12 @@ func TestNoEventsOnPrimitiveModelGet(t *testing.T) {
 
 		// Handle model get and access request
 		mreqs := s.GetParallelRequests(t, 2)
-		req := mreqs.GetRequest(t, "access.test.model")
-		req.RespondSuccess(json.RawMessage(`{"get":true}`))
-		req = mreqs.GetRequest(t, "get.test.model")
-		req.RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+		mreqs.GetRequest(t, "access.test.model").
+			AssertPathMissing(t, "isHttp").
+			RespondSuccess(json.RawMessage(`{"get":true}`))
+		mreqs.GetRequest(t, "get.test.model").
+			AssertPathMissing(t, "isHttp").
+			RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
 
 		// Validate client response
 		creq.GetResponse(t)

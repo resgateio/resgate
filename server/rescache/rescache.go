@@ -141,43 +141,46 @@ func (c *Cache) Subscribe(sub Subscriber, t *Throttle) {
 }
 
 // Access sends an access request
-func (c *Cache) Access(sub Subscriber, token interface{}, callback func(access *Access)) {
+func (c *Cache) Access(sub Subscriber, token interface{}, isHTTP bool, callback func(access *Access, meta *codec.Meta)) {
 	rname := sub.ResourceName()
-	payload := codec.CreateRequest(nil, sub, sub.ResourceQuery(), token)
+	payload := codec.CreateRequest(nil, sub, sub.ResourceQuery(), token, isHTTP)
 	subj := "access." + rname
 	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
-			callback(&Access{Error: reserr.RESError(err)})
+			callback(&Access{Error: reserr.RESError(err)}, nil)
 			return
 		}
 
-		access, rerr := codec.DecodeAccessResponse(data)
-		callback(&Access{AccessResult: access, Error: rerr})
+		access, meta, rerr := codec.DecodeAccessResponse(data)
+		if !isHTTP {
+			meta = nil
+		}
+		callback(&Access{AccessResult: access, Error: rerr}, meta)
 	})
 }
 
 // Call sends a method call request
-func (c *Cache) Call(req codec.Requester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, rid string, err error)) {
-	payload := codec.CreateRequest(params, req, query, token)
+func (c *Cache) Call(req codec.Requester, rname, query, action string, token, params interface{}, isHTTP bool, callback func(result json.RawMessage, rid string, meta *codec.Meta, err error)) {
+	payload := codec.CreateRequest(params, req, query, token, isHTTP)
 	subj := "call." + rname + "." + action
 	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
-			callback(nil, "", err)
+			callback(nil, "", nil, err)
 			return
 		}
 
 		// [DEPRECATED:deprecatedNewCallRequest]
 		if action == "new" {
-			result, rid, err := codec.DecodeCallResponse(data)
+			result, rid, meta, err := codec.DecodeCallResponse(data)
 			if err == nil && rid == "" {
 				rid, err = codec.TryDecodeLegacyNewResult(result)
 				if err != nil || rid != "" {
 					c.deprecated(rname, deprecatedNewCallRequest)
-					callback(nil, rid, err)
+					callback(nil, rid, meta, err)
 					return
 				}
 			}
-			callback(result, rid, err)
+			callback(result, rid, meta, err)
 			return
 		}
 
@@ -186,12 +189,12 @@ func (c *Cache) Call(req codec.Requester, rname, query, action string, token, pa
 }
 
 // Auth sends an auth method call
-func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, rid string, err error)) {
-	payload := codec.CreateAuthRequest(params, req, query, token)
+func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token, params interface{}, isHTTP bool, callback func(result json.RawMessage, rid string, meta *codec.Meta, err error)) {
+	payload := codec.CreateAuthRequest(params, req, query, token, isHTTP)
 	subj := "auth." + rname + "." + action
 	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
-			callback(nil, "", err)
+			callback(nil, "", nil, err)
 			return
 		}
 
@@ -200,11 +203,11 @@ func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token
 }
 
 // CustomAuth sends an auth method call to a custom subject
-func (c *Cache) CustomAuth(req codec.AuthRequester, subj, query string, token, params interface{}, callback func(result json.RawMessage, rid string, err error)) {
-	payload := codec.CreateAuthRequest(params, req, query, token)
+func (c *Cache) CustomAuth(req codec.AuthRequester, subj, query string, token, params interface{}, callback func(result json.RawMessage, rid string, meta *codec.Meta, err error)) {
+	payload := codec.CreateAuthRequest(params, req, query, token, false)
 	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
 		if err != nil {
-			callback(nil, "", err)
+			callback(nil, "", nil, err)
 			return
 		}
 

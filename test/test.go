@@ -3,12 +3,14 @@ package test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/posener/wstest"
 	"github.com/resgateio/resgate/server"
 )
@@ -58,25 +60,35 @@ func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 // ConnectWithChannel makes a new mock client websocket connection
 // with a ClientEvent channel.
 func (s *Session) ConnectWithChannel(evs chan *ClientEvent) *Conn {
-	return s.connect(evs, nil)
+	return assertConnect(s.connect(evs, nil))
 }
 
-func (s *Session) connect(evs chan *ClientEvent, h http.Header) *Conn {
+func (s *Session) connect(evs chan *ClientEvent, h http.Header) (*Conn, *http.Response, error) {
 	d := wstest.NewDialer(s.s.GetWSHandlerFunc())
-	c, _, err := d.Dial("ws://example.org/", h)
+	c, response, err := d.Dial("ws://example.org/", h)
 	if err != nil {
-		panic(err)
+		return nil, response, err
 	}
 
 	conn := NewConn(s, d, c, evs)
 	s.conns[conn] = struct{}{}
-	return conn
+	return conn, response, nil
+}
+
+func assertConnect(c *Conn, r *http.Response, err error) *Conn {
+	if err != nil {
+		panic(err)
+	}
+	if c == nil {
+		panic(fmt.Errorf("connection responded with status %d", r.StatusCode))
+	}
+	return c
 }
 
 // Connect makes a new mock client websocket connection
 // that handshakes with version v1.999.999.
 func (s *Session) Connect() *Conn {
-	c := s.connect(make(chan *ClientEvent, 256), nil)
+	c := assertConnect(s.connect(make(chan *ClientEvent, 256), nil))
 
 	// Send version connect
 	creq := c.Request("version", versionRequest)
@@ -88,7 +100,7 @@ func (s *Session) Connect() *Conn {
 // ConnectWithVersion makes a new mock client websocket connection
 // that handshakes with the version string provided.
 func (s *Session) ConnectWithVersion(version string) *Conn {
-	c := s.connect(make(chan *ClientEvent, 256), nil)
+	c := assertConnect(s.connect(make(chan *ClientEvent, 256), nil))
 
 	// Send version connect
 	creq := c.Request("version", struct {
@@ -108,7 +120,27 @@ func (s *Session) ConnectWithoutVersion() *Conn {
 // ConnectWithHeader makes a new mock client websocket connection
 // using provided headers. It does not send a version handshake.
 func (s *Session) ConnectWithHeader(h http.Header) *Conn {
-	return s.connect(make(chan *ClientEvent, 256), h)
+	return assertConnect(s.connect(make(chan *ClientEvent, 256), h))
+}
+
+// ConnectWithResponse makes a new mock client websocket connection that
+// handshakes with version v1.999.999, if a connection is established. If an
+// error occurs, it returns the error without handshake.
+func (s *Session) ConnectWithResponse() (*Conn, *http.Response, error) {
+	c, resp, err := s.connect(make(chan *ClientEvent, 256), nil)
+	if err != nil {
+		return c, resp, err
+	}
+
+	// Send version connect
+	creq := c.Request("version", versionRequest)
+	cresp := creq.GetResponse(s.t)
+	cresp.AssertResult(s.t, versionResult)
+	return c, resp, err
+}
+
+func (s *Session) IsBadHandshake(err error) bool {
+	return errors.Is(err, websocket.ErrBadHandshake)
 }
 
 // HTTPRequest sends a request over HTTP
