@@ -307,7 +307,7 @@ func (rs *ResourceSubscription) handleEventDelete(r *ResourceEvent) {
 	rs.e.mu.Lock()
 }
 
-func (rs *ResourceSubscription) enqueueGetResponse(data []byte, err error) {
+func (rs *ResourceSubscription) enqueueGetResponse(data []byte, responseHeaders map[string][]string, err error) {
 	rs.e.Enqueue(func() {
 		rs, sublist := rs.processGetResponse(data, err)
 
@@ -315,11 +315,11 @@ func (rs *ResourceSubscription) enqueueGetResponse(data []byte, err error) {
 		defer rs.e.mu.Lock()
 		if rs.state == stateError {
 			for _, sub := range sublist {
-				sub.Loaded(nil, rs.err)
+				sub.Loaded(nil, responseHeaders, rs.err)
 			}
 		} else {
 			for _, sub := range sublist {
-				sub.Loaded(rs, nil)
+				sub.Loaded(rs, responseHeaders, nil)
 			}
 		}
 	})
@@ -446,21 +446,21 @@ func (rs *ResourceSubscription) handleResetResource(t *Throttle) {
 
 	if t != nil {
 		t.Add(func() {
-			rs.e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+			rs.e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, responseHeaders map[string][]string, err error) {
 				rs.e.Enqueue(func() {
 					rs.resetting = false
 					rs.processResetGetResponse(data, err)
 				})
 				t.Done()
-			})
+			}, nil)
 		})
 	} else {
-		rs.e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
+		rs.e.cache.mq.SendRequest(subj, payload, func(_ string, data []byte, responseHeaders map[string][]string, err error) {
 			rs.e.Enqueue(func() {
 				rs.resetting = false
 				rs.processResetGetResponse(data, err)
 			})
-		})
+		}, nil)
 	}
 }
 

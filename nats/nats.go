@@ -10,6 +10,7 @@ import (
 	"github.com/jirenius/timerqueue"
 	nats "github.com/nats-io/nats.go"
 	"github.com/resgateio/resgate/logger"
+	"github.com/resgateio/resgate/metrics"
 	"github.com/resgateio/resgate/server/mq"
 )
 
@@ -104,6 +105,8 @@ func (c *Client) Connect() error {
 	c.tq = timerqueue.New(c.onTimeout, c.RequestTimeout)
 	c.stopped = make(chan struct{})
 
+	metrics.NATSConnected.WithLabelValues(c.mq.ConnectedClusterName()).Set(1)
+
 	go c.listener(c.mqCh, c.stopped)
 
 	return nil
@@ -171,6 +174,7 @@ func (c *Client) onClose(conn *nats.Conn) {
 	if c.closeHandler != nil {
 		err := conn.LastError()
 		c.closeHandler(fmt.Errorf("lost NATS connection: %s", err))
+		metrics.NATSConnected.WithLabelValues(c.mq.ConnectedClusterName()).Set(0)
 	}
 }
 
@@ -182,12 +186,12 @@ func (c *Client) onError(conn *nats.Conn, sub *nats.Subscription, err error) {
 }
 
 // SendRequest sends a request to the MQ.
-func (c *Client) SendRequest(subj string, payload []byte, cb mq.Response) {
+func (c *Client) SendRequest(subj string, payload []byte, cb mq.Response, requestHeaders map[string][]string) {
 	inbox := nats.NewInbox()
 
 	// Validate max control line size
 	if len(subj)+len(inbox) > nats.MAX_CONTROL_LINE_SIZE {
-		go cb("", nil, mq.ErrSubjectTooLong)
+		go cb("", nil, nil, mq.ErrSubjectTooLong)
 		return
 	}
 
@@ -196,15 +200,20 @@ func (c *Client) SendRequest(subj string, payload []byte, cb mq.Response) {
 
 	sub, err := c.mq.ChanSubscribe(inbox, c.mqCh)
 	if err != nil {
-		go cb("", nil, err)
+		go cb("", nil, nil, err)
 		return
 	}
 	c.Tracef("<== (%s) %s: %s", inboxSubstr(inbox), subj, payload)
 
-	err = c.mq.PublishRequest(subj, inbox, payload)
+	natsMsg := nats.NewMsg(subj)
+	natsMsg.Reply = inbox
+	natsMsg.Data = payload
+	natsMsg.Header = requestHeaders
+	err = c.mq.PublishMsg(natsMsg)
+
 	if err != nil {
 		sub.Unsubscribe()
-		go cb("", nil, err)
+		go cb("", nil, nil, err)
 		return
 	}
 
@@ -275,14 +284,14 @@ func (c *Client) listener(ch chan *nats.Msg, stopped chan struct{}) {
 				// Handle no responders header, if available
 				if len(msg.Data) == 0 && msg.Header.Get("Status") == "503" {
 					c.Tracef("x=> (%s) No responders", inboxSubstr(msg.Subject))
-					rc.f("", nil, mq.ErrNoResponders)
+					rc.f("", nil, nil, mq.ErrNoResponders)
 					continue
 				}
 				c.Tracef("==> (%s): %s", inboxSubstr(msg.Subject), msg.Data)
 			} else {
 				c.Tracef("=>> %s: %s", msg.Subject, msg.Data)
 			}
-			rc.f(msg.Subject, msg.Data, nil)
+			rc.f(msg.Subject, msg.Data, msg.Header, nil)
 		}
 	}
 
@@ -329,7 +338,7 @@ func (c *Client) onTimeout(v interface{}) {
 	sub.Unsubscribe()
 
 	c.Tracef("x=> (%s) Request timeout", inboxSubstr(sub.Subject))
-	rc.f("", nil, mq.ErrRequestTimeout)
+	rc.f("", nil, nil, mq.ErrRequestTimeout)
 }
 
 func inboxSubstr(s string) string {

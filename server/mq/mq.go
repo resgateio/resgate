@@ -3,7 +3,7 @@ package mq
 import "github.com/resgateio/resgate/server/reserr"
 
 // Response sends a response to the messaging system
-type Response func(subj string, payload []byte, err error)
+type Response func(subj string, payload []byte, responseHeaders map[string][]string, err error)
 
 // Unsubscriber is the interface that wraps the basic Unsubscribe method
 type Unsubscriber interface {
@@ -18,7 +18,7 @@ type Client interface {
 
 	// SendRequest sends an asynchronous request on a subject, expecting the Response
 	// callback to be called once on a separate go routine.
-	SendRequest(subject string, payload []byte, cb Response)
+	SendRequest(subject string, payload []byte, cb Response, requestHeaders map[string][]string)
 
 	// Subscribe to all events on a resource namespace.
 	// The namespace has the format "event."+resource

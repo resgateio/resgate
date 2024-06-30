@@ -38,6 +38,7 @@ Server Options:
     -w, --wspath <path>              WebSocket path for clients (default: /)
     -a, --apipath <path>             Web resource path for clients (default: /api/)
     -r, --reqtimeout <milliseconds>  Timeout duration for NATS requests (default: 3000)
+    -m, --metricsport <port>         HTTP port for prometheus metrics connections, disable if not set
     -u, --headauth <method>          Resource method for header authentication
         --apiencoding <type>         Encoding for web resources: json, jsonflat (default: json)
         --putmethod <methodName>     Call method name mapped to HTTP PUT requests
@@ -126,6 +127,7 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 		configFile   string
 		port         uint
 		headauth     string
+		metricsport  uint
 		addr         string
 		natsRootCAs  StringSlice
 		debugTrace   bool
@@ -151,6 +153,8 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 	fs.StringVar(&c.APIPath, "apipath", "", "Web resource path for clients.")
 	fs.StringVar(&headauth, "u", "", "Resource method for header authentication.")
 	fs.StringVar(&headauth, "headauth", "", "Resource method for header authentication.")
+	fs.UintVar(&metricsport, "m", 0, "HTTP port for prometheus metrics connections, disable if not set.")
+	fs.UintVar(&metricsport, "metricsport", 0, "HTTP port for prometheus metrics connections, disable if not set.")
 	fs.BoolVar(&c.TLS, "tls", false, "Enable TLS for HTTP.")
 	fs.StringVar(&c.TLSCert, "tlscert", "", "HTTP server certificate file.")
 	fs.StringVar(&c.TLSKey, "tlskey", "", "Private key for HTTP server certificate.")
@@ -184,6 +188,15 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 		printAndDie(fmt.Sprintf(`Invalid port "%d": must be less than 65536`, port), true)
 	}
 
+	if metricsport != 0 {
+		if metricsport >= 1<<16 {
+			printAndDie(fmt.Sprintf(`Invalid metrics port "%d": must be less than 65536`, metricsport), true)
+		}
+		if metricsport == port {
+			printAndDie(fmt.Sprintf(`Invalid metrics port "%d": must be different from API port ("%d")`, metricsport, port), true)
+		}
+	}
+
 	if showHelp {
 		usage()
 	}
@@ -215,6 +228,9 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 
 	if port > 0 {
 		c.Port = uint16(port)
+	}
+	if metricsport > 0 {
+		c.MetricsPort = uint16(metricsport)
 	}
 
 	// Helper function to set string pointers to nil if empty.
