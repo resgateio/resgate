@@ -2,6 +2,7 @@ package server
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -157,13 +158,17 @@ func TestNewServiceConfigError(t *testing.T) {
 	}
 }
 
-// Test that the travis version tag (if existing) matches that
+// Test that the git version tag (if existing) matches that
 // of the Version constant.
 func TestVersionMatchesTag(t *testing.T) {
-	tag := os.Getenv("TRAVIS_TAG")
-	if tag == "" {
-		t.SkipNow()
+	ref := os.Getenv("GITHUB_REF")
+	if ref == "" {
+		t.Skip("no GITHUB_REF environment value")
 	}
+	if !strings.HasPrefix(ref, "refs/tags/") {
+		t.Skipf("GITHUB_REF environment value not starting with refs/tags/: %s", ref)
+	}
+	tag := ref[:len("refs/tags/")]
 	if tag[0] != 'v' {
 		t.Fatalf("Expected tag to start with `v`, got %+v", tag)
 	}
