@@ -40,7 +40,7 @@ jobs:
     - name: Build
       run: go build -v ./...
     - name: Test
-      run: go test -v -covermode=atomic -coverprofile=cover.out -coverpkg=./server/... ./test
+      run: go test -v -covermode=atomic -coverprofile=cover.out -coverpkg=./server/... ./...
     - name: Install goveralls
       run: go install github.com/mattn/goveralls@latest
     - name: Send coverage
