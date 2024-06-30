@@ -110,7 +110,7 @@ MUST be a number.
 HTTP headers to set on the HTTP response. MAY be omitted.  
 SHOULD be ignored if **isHttp** is not set to `true` on the request.  
 MUST be a key/value object, where the key is the canonical format of the MIME header, and the value is an array of strings associated with the key.  
-If the header key is `"Set-Cookie"`, the value will be addeded to any existing values, otherwise it will replace any existing value.
+If the header key is `"Set-Cookie"`, the value will be added to any existing values, otherwise it will replace any existing value.
 
 ### Status codes
 The status code is a subset of the HTTP status codes. Behavior is only defined for redirection (3XX), client error (4XX), and server error (5XX).  
