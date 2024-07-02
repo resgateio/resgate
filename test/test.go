@@ -29,6 +29,7 @@ type Session struct {
 	*NATSTestClient
 	s     *server.Service
 	conns map[*Conn]struct{}
+	dcCh  chan struct{}
 	*CountLogger
 }
 
@@ -49,6 +50,15 @@ func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 		conns:          make(map[*Conn]struct{}),
 		CountLogger:    l,
 	}
+
+	// Set on WS close handler to synchronize tests with WebSocket disconnects.
+	serv.SetOnWSClose(func(_ *websocket.Conn) {
+		ch := s.dcCh
+		s.dcCh = nil
+		if ch != nil {
+			close(ch)
+		}
+	})
 
 	if err := serv.Start(); err != nil {
 		panic("test: failed to start server: " + err.Error())

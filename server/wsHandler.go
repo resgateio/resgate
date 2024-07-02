@@ -93,6 +93,10 @@ func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 	if s.metrics != nil {
 		s.metrics.WSConnections.Add(-1)
 	}
+
+	if s.onWSClose != nil {
+		s.onWSClose(ws)
+	}
 }
 
 // wsHeaderAuth sends an auth resource request if WSHeaderAuth is set, and

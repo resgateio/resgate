@@ -39,6 +39,9 @@ type Service struct {
 	upgrader websocket.Upgrader
 	conns    map[string]*wsConn // Connections by wsConn Id's
 	wg       sync.WaitGroup     // Wait for all connections to be disconnected
+
+	// handlers for testing
+	onWSClose func(*websocket.Conn)
 }
 
 // NewService creates a new Service
@@ -72,6 +75,20 @@ func (s *Service) SetLogger(l logger.Logger) *Service {
 
 	s.logger = l
 	s.cache.SetLogger(l)
+	return s
+}
+
+// SetOnWSClose sets a callback to be calld when a websocket connection is
+// closed. Used for testing.
+func (s *Service) SetOnWSClose(cb func(ws *websocket.Conn)) *Service {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.stop != nil {
+		panic("SetOnWSClose must be called before starting server")
+	}
+
+	s.onWSClose = cb
 	return s
 }
 
