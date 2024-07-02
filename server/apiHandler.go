@@ -89,6 +89,11 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 	case "HEAD":
 		fallthrough
 	case "GET":
+		// Metrics
+		if s.metrics != nil {
+			s.metrics.HTTPRequestsGet.Add(1)
+		}
+
 		rid = PathToRID(path, r.URL.RawQuery, apiPath)
 		if !codec.IsValidRID(rid, true) {
 			notFoundHandler(w, s.enc)
@@ -107,6 +112,11 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case "POST":
+		// Metrics
+		if s.metrics != nil {
+			s.metrics.HTTPRequestsPost.Add(1)
+		}
+
 		rid, action = PathToRIDAction(path, r.URL.RawQuery, apiPath)
 	default:
 		var m *string

@@ -7,7 +7,7 @@ import (
 )
 
 func (s *Service) initMQClient() {
-	s.cache = rescache.NewCache(s.mq, CacheWorkers, s.cfg.ResetThrottle, UnsubscribeDelay, s.logger)
+	s.cache = rescache.NewCache(s.mq, CacheWorkers, s.cfg.ResetThrottle, UnsubscribeDelay, s.logger, s.metrics)
 }
 
 // startMQClients creates a connection to the messaging system.

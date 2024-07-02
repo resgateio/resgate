@@ -228,6 +228,11 @@ func (c *wsConn) Reply(data []byte) {
 }
 
 func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)) {
+	// Metrics
+	if c.serv.metrics != nil {
+		c.serv.metrics.WSRequestsGet.Add(1)
+	}
+
 	sub, err := c.Subscribe(rid, true, nil)
 	if err != nil {
 		cb(nil, err)
@@ -358,6 +363,11 @@ func (c *wsConn) GetHTTPSubscription(rid string, cb func(sub *Subscription, meta
 }
 
 func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err error)) {
+	// Metrics
+	if c.serv.metrics != nil {
+		c.serv.metrics.WSRequestsSubscribe.Add(1)
+	}
+
 	sub, err := c.Subscribe(rid, true, nil)
 	if err != nil {
 		cb(nil, err)
@@ -386,6 +396,11 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 }
 
 func (c *wsConn) CallResource(rid, action string, params interface{}, cb func(result interface{}, err error)) {
+	// Metrics
+	if c.serv.metrics != nil {
+		c.serv.metrics.WSRequestsCall.Add(1)
+	}
+
 	c.call(rid, action, params, func(result json.RawMessage, refRID string, err error) {
 		c.handleCallAuthResponse(result, refRID, err, cb)
 	})
@@ -462,6 +477,11 @@ func (c *wsConn) AuthResourceNoResult(rid, action string, params interface{}, cb
 }
 
 func (c *wsConn) AuthResource(rid, action string, params interface{}, cb func(result interface{}, err error)) {
+	// Metrics
+	if c.serv.metrics != nil {
+		c.serv.metrics.WSRequestsAuth.Add(1)
+	}
+
 	rname, query := parseRID(c.ExpandCID(rid))
 	c.serv.cache.Auth(c, rname, query, action, c.token, params, false, func(result json.RawMessage, refRID string, _ *codec.Meta, err error) {
 		c.Enqueue(func() {
@@ -471,6 +491,12 @@ func (c *wsConn) AuthResource(rid, action string, params interface{}, cb func(re
 }
 
 func (c *wsConn) NewResource(rid string, params interface{}, cb func(result interface{}, err error)) {
+	// Metrics
+	if c.serv.metrics != nil {
+		// Add it as a call, since it translates to that
+		c.serv.metrics.WSRequestsCall.Add(1)
+	}
+
 	c.call(rid, "new", params, func(result json.RawMessage, refRID string, err error) {
 		if err != nil {
 			cb(nil, err)

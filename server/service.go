@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/resgateio/resgate/logger"
+	"github.com/resgateio/resgate/server/metrics"
 	"github.com/resgateio/resgate/server/mq"
 	"github.com/resgateio/resgate/server/rescache"
 )
@@ -29,6 +30,10 @@ type Service struct {
 	enc      APIEncoder
 	mimetype string
 
+	// metrics
+	m       *http.Server
+	metrics *metrics.MetricSet
+
 	// wsListener/wsConn
 	upgrader websocket.Upgrader
 	conns    map[string]*wsConn // Connections by wsConn Id's
@@ -45,6 +50,7 @@ func NewService(mq mq.Client, cfg Config) (*Service, error) {
 	if err := s.cfg.prepare(); err != nil {
 		return nil, err
 	}
+	s.initMetricsServer()
 	s.initHTTPServer()
 	s.initWSHandler()
 	s.initMQClient()
@@ -121,6 +127,8 @@ func (s *Service) start() error {
 		return err
 	}
 
+	s.startMetricsServer()
+
 	s.startHTTPServer()
 	s.Logf("Server ready")
 
@@ -142,6 +150,7 @@ func (s *Service) Stop(err error) {
 	}
 	s.Logf("Stopping server...")
 
+	s.stopMetricsServer()
 	s.stopWSHandler()
 	s.stopHTTPServer()
 	s.stopMQClient()
