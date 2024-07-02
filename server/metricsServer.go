@@ -26,7 +26,7 @@ func (s *Service) startMetricsServer() {
 		return
 	}
 
-	reg := openmetrics.NewRegistry()
+	reg := openmetrics.NewConsistentRegistry(func() time.Time { return time.Now() })
 	ms := s.metrics
 	ms.Register(reg, Version, ProtocolVersion)
 
