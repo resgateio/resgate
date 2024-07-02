@@ -31,8 +31,9 @@ type Service struct {
 	mimetype string
 
 	// metrics
-	m       *http.Server
-	metrics *metrics.MetricSet
+	m        *http.Server
+	metrics  *metrics.MetricSet
+	metricsh http.Handler
 
 	// wsListener/wsConn
 	upgrader websocket.Upgrader

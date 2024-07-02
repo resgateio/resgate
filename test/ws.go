@@ -116,6 +116,7 @@ func (c *Conn) Request(method string, params interface{}) *ClientRequest {
 // Disconnect closes the connection to the gateway
 func (c *Conn) Disconnect() {
 	c.ws.Close()
+	<-c.closeCh
 }
 
 // PanicOnError panics if the connection has encountered an error.

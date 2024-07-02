@@ -175,6 +175,31 @@ func (s *Session) HTTPRequest(method, url string, body []byte, opts ...func(r *h
 	return hr
 }
 
+// MetricsHTTPRequest sends a request over HTTP to the metrics handler.
+func (s *Session) MetricsHTTPRequest(opts ...func(r *http.Request)) *http.Response {
+	req, err := http.NewRequest(http.MethodGet, server.MetricsPattern, nil)
+	if err != nil {
+		panic("test: failed to create new metrics http request: " + err.Error())
+	}
+
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	// Record the response into a httptest.ResponseRecorder
+	rr := httptest.NewRecorder()
+
+	s.Tracef("M-> GET %s", server.MetricsPattern)
+	s.s.MetricsHandler().ServeHTTP(rr, req)
+	s.Tracef("<-M GET %s: (%d)\n%s", server.MetricsPattern, rr.Code, rr.Body.String())
+
+	if rr.Code != http.StatusOK {
+		s.t.Fatalf("metrics http request responded with code %d", rr.Code)
+	}
+
+	return rr.Result()
+}
+
 func teardown(s *Session) {
 	for conn := range s.conns {
 		err := conn.Error()

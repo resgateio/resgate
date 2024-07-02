@@ -11,13 +11,18 @@ import (
 	"github.com/resgateio/resgate/server/metrics"
 )
 
-const metricsPath = "/metrics"
+const MetricsPattern = "/metrics"
 
 func (s *Service) initMetricsServer() {
 	if s.cfg.MetricsPort == 0 {
 		return
 	}
 	s.metrics = &metrics.MetricSet{}
+}
+
+// MetricsHandler returns any metrics HTTP handler for testing purposes.
+func (s *Service) MetricsHandler() http.Handler {
+	return s.metricsh
 }
 
 // startMetricsServer initializes the server and starts a goroutine with a prometheus metrics server
@@ -30,12 +35,19 @@ func (s *Service) startMetricsServer() {
 	ms := s.metrics
 	ms.Register(reg, Version, ProtocolVersion)
 
-	mux := http.NewServeMux()
 	h := omhttp.NewHandler(reg)
-	mux.Handle(metricsPath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s.metricsh = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ms.Scrape()
 		h.ServeHTTP(w, r)
-	}))
+	})
+
+	// For testing
+	if s.cfg.NoHTTP {
+		return
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle(MetricsPattern, s.metricsh)
 
 	hln, err := net.Listen("tcp", s.cfg.metricsNetAddr)
 	if err != nil {
@@ -48,7 +60,7 @@ func (s *Service) startMetricsServer() {
 	}
 	s.m = metricsServer
 
-	s.Logf("Metrics endpoint listening on %s://%s%s", s.cfg.scheme, s.cfg.metricsNetAddr, metricsPath)
+	s.Logf("Metrics endpoint listening on %s://%s%s", s.cfg.scheme, s.cfg.metricsNetAddr, MetricsPattern)
 
 	go func() {
 		var err error

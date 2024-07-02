@@ -53,12 +53,14 @@ func (m *MetricSet) Register(reg *openmetrics.Registry, version string, protocol
 		Name: "go_memstats_sys_bytes",
 		Help: "Number of bytes obtained from system.",
 	}).With()
+	m.MemSysBytes.Set(0)
 
 	// WebSocket connections
 	m.WSConnections = reg.Gauge(openmetrics.Desc{
 		Name: "resgate_ws_current_connections",
 		Help: "Current established WebSocket connections.",
 	}).With()
+	m.WSConnections.Set(0)
 	m.WSConnectionCount = reg.Counter(openmetrics.Desc{
 		Name: "resgate_ws_connections",
 		Help: "Total established WebSocket connections.",
@@ -89,8 +91,10 @@ func (m *MetricSet) Register(reg *openmetrics.Registry, version string, protocol
 		Name: "resgate_cache_resources",
 		Help: "Current number of resources stored in the cache.",
 	}).With()
+	m.CacheResources.Set(0)
 	m.CacheSubscriptions = reg.Gauge(openmetrics.Desc{
 		Name: "resgate_cache_subscriptions",
 		Help: "Current number of subscriptions on cached resources.",
 	}).With()
+	m.CacheSubscriptions.Set(0)
 }
