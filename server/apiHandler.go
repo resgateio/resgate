@@ -139,6 +139,12 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 			httpError(w, reserr.ErrMethodNotAllowed, s.enc)
 			return
 		}
+
+		// Metrics
+		if s.metrics != nil {
+			s.metrics.HTTPRequests.With(r.Method).Add(1)
+		}
+
 		rid = PathToRID(path, r.URL.RawQuery, apiPath)
 		action = *m
 	}

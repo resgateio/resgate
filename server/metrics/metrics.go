@@ -22,6 +22,7 @@ type MetricSet struct {
 	CacheResources     openmetrics.Gauge
 	CacheSubscriptions openmetrics.Gauge
 	// HTTP requests
+	HTTPRequests     openmetrics.CounterFamily
 	HTTPRequestsGet  openmetrics.Counter
 	HTTPRequestsPost openmetrics.Counter
 }
@@ -75,13 +76,13 @@ func (m *MetricSet) Register(reg *openmetrics.Registry, version string, protocol
 	m.WSRequestsAuth = wsRequests.With("auth")
 
 	// HTTP requests
-	httpRequests := reg.Counter(openmetrics.Desc{
+	m.HTTPRequests = reg.Counter(openmetrics.Desc{
 		Name:   "resgate_http_requests",
 		Help:   "Total HTTP client requests.",
 		Labels: []string{"method"},
 	})
-	m.HTTPRequestsGet = httpRequests.With("GET")
-	m.HTTPRequestsPost = httpRequests.With("POST")
+	m.HTTPRequestsGet = m.HTTPRequests.With("GET")
+	m.HTTPRequestsPost = m.HTTPRequests.With("POST")
 
 	// Cache
 	m.CacheResources = reg.Gauge(openmetrics.Desc{

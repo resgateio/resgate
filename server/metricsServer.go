@@ -11,6 +11,8 @@ import (
 	"github.com/resgateio/resgate/server/metrics"
 )
 
+const metricsPath = "/metrics"
+
 func (s *Service) initMetricsServer() {
 	if s.cfg.MetricsPort == 0 {
 		return
@@ -30,7 +32,7 @@ func (s *Service) startMetricsServer() {
 
 	mux := http.NewServeMux()
 	h := omhttp.NewHandler(reg)
-	mux.Handle("/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle(metricsPath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ms.Scrape()
 		h.ServeHTTP(w, r)
 	}))
@@ -46,7 +48,7 @@ func (s *Service) startMetricsServer() {
 	}
 	s.m = metricsServer
 
-	s.Logf("Metrics endpoint listening on %s://%s", s.cfg.scheme, s.cfg.metricsNetAddr)
+	s.Logf("Metrics endpoint listening on %s://%s%s", s.cfg.scheme, s.cfg.metricsNetAddr, metricsPath)
 
 	go func() {
 		var err error
