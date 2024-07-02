@@ -87,6 +87,10 @@ func (c *Config) prepare() error {
 		}
 	}
 
+	if c.Port == c.MetricsPort {
+		return fmt.Errorf(`invalid metrics port "%d": must be different from API port ("%d")`, c.MetricsPort, c.Port)
+	}
+
 	// Resolve network address
 	c.netAddr = ""
 	if c.Addr != nil {
@@ -107,7 +111,9 @@ func (c *Config) prepare() error {
 	} else {
 		c.netAddr = DefaultAddr
 	}
-	c.metricsNetAddr = c.netAddr + fmt.Sprintf(":%d", c.MetricsPort)
+	if c.MetricsPort != 0 {
+		c.metricsNetAddr = c.netAddr + fmt.Sprintf(":%d", c.MetricsPort)
+	}
 	c.netAddr += fmt.Sprintf(":%d", c.Port)
 
 	if c.HeaderAuth != nil {

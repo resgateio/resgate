@@ -191,13 +191,8 @@ func (c *Config) Init(fs *flag.FlagSet, args []string) {
 		printAndDie(fmt.Sprintf(`Invalid port "%d": must be less than 65536`, port), true)
 	}
 
-	if metricsport != 0 {
-		if metricsport >= 1<<16 {
-			printAndDie(fmt.Sprintf(`Invalid metrics port "%d": must be less than 65536`, metricsport), true)
-		}
-		if metricsport == port {
-			printAndDie(fmt.Sprintf(`Invalid metrics port "%d": must be different from API port ("%d")`, metricsport, port), true)
-		}
+	if metricsport >= 1<<16 {
+		printAndDie(fmt.Sprintf(`Invalid metrics port "%d": must be less than 65536`, metricsport), true)
 	}
 
 	if showHelp {
