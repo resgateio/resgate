@@ -25,7 +25,19 @@ func subscribeToResource(t *testing.T, s *Session, c *Conn, rid string) string {
 	return subscribeToCustomResource(t, s, c, rid, rsrc)
 }
 
+func subscribeToCachedResource(t *testing.T, s *Session, c *Conn, rid string) string {
+	rsrc, ok := resources[rid]
+	if !ok {
+		panic("no resource named " + rid)
+	}
+	return subscribeToCustomResourceExt(t, s, c, rid, rsrc, true)
+}
+
 func subscribeToCustomResource(t *testing.T, s *Session, c *Conn, rid string, rsrc resource) string {
+	return subscribeToCustomResourceExt(t, s, c, rid, rsrc, false)
+}
+
+func subscribeToCustomResourceExt(t *testing.T, s *Session, c *Conn, rid string, rsrc resource, isCached bool) string {
 	var r string
 	if rsrc.typ == typeError {
 		b, _ := json.Marshal(rsrc.err)
@@ -38,7 +50,11 @@ func subscribeToCustomResource(t *testing.T, s *Session, c *Conn, rid string, rs
 	creq := c.Request("subscribe."+rid, nil)
 
 	// Handle model get and access request
-	mreqs := s.GetParallelRequests(t, 2)
+	reqCount := 2
+	if isCached {
+		reqCount = 1
+	}
+	mreqs := s.GetParallelRequests(t, reqCount)
 	// Handle access
 	req := mreqs.GetRequest(t, "access."+rid)
 	cid := req.PathPayload(t, "cid").(string)
@@ -46,10 +62,14 @@ func subscribeToCustomResource(t *testing.T, s *Session, c *Conn, rid string, rs
 	// Handle resource and validate client response
 	switch rsrc.typ {
 	case typeModel:
-		mreqs.GetRequest(t, "get."+rid).RespondSuccess(json.RawMessage(`{"model":` + r + `}`))
+		if !isCached {
+			mreqs.GetRequest(t, "get."+rid).RespondSuccess(json.RawMessage(`{"model":` + r + `}`))
+		}
 		creq.GetResponse(t) // .AssertResult(t, json.RawMessage(`{"models":{"`+rid+`":`+r+`}}`))
 	case typeCollection:
-		mreqs.GetRequest(t, "get."+rid).RespondSuccess(json.RawMessage(`{"collection":` + r + `}`))
+		if !isCached {
+			mreqs.GetRequest(t, "get."+rid).RespondSuccess(json.RawMessage(`{"collection":` + r + `}`))
+		}
 		creq.GetResponse(t) // .AssertResult(t, json.RawMessage(`{"collections":{"`+rid+`":`+r+`}}`))
 	default:
 		panic("invalid type")

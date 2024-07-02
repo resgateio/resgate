@@ -10,6 +10,7 @@ import (
 	"github.com/jirenius/timerqueue"
 	"github.com/resgateio/resgate/logger"
 	"github.com/resgateio/resgate/server/codec"
+	"github.com/resgateio/resgate/server/metrics"
 	"github.com/resgateio/resgate/server/mq"
 	"github.com/resgateio/resgate/server/reserr"
 )
@@ -22,6 +23,7 @@ type Cache struct {
 	resetThrottle    int
 	unsubscribeDelay time.Duration
 	conns            map[string]Conn
+	metrics          *metrics.MetricSet
 
 	mu         sync.Mutex
 	started    bool
@@ -66,7 +68,7 @@ type ResourceEvent struct {
 }
 
 // NewCache creates a new Cache instance
-func NewCache(mq mq.Client, workers int, resetThrottle int, unsubscribeDelay time.Duration, l logger.Logger) *Cache {
+func NewCache(mq mq.Client, workers int, resetThrottle int, unsubscribeDelay time.Duration, l logger.Logger, ms *metrics.MetricSet) *Cache {
 	return &Cache{
 		mq:               mq,
 		logger:           l,
@@ -75,6 +77,7 @@ func NewCache(mq mq.Client, workers int, resetThrottle int, unsubscribeDelay tim
 		unsubscribeDelay: unsubscribeDelay,
 		conns:            make(map[string]Conn),
 		depLogged:        make(map[string]featureType),
+		metrics:          ms,
 	}
 }
 
@@ -257,8 +260,20 @@ func (c *Cache) getSubscription(name string, subscribe bool) (*EventSubscription
 		}
 
 		c.eventSubs[name] = eventSub
+
+		// Metrics
+		if c.metrics != nil {
+			c.metrics.CacheResources.Add(1)
+			c.metrics.CacheSubscriptions.Add(1)
+		}
+
 	} else {
 		eventSub.addCount()
+
+		// Metrics
+		if c.metrics != nil {
+			c.metrics.CacheSubscriptions.Add(1)
+		}
 	}
 
 	if subscribe && eventSub.mqSub == nil {
@@ -303,6 +318,11 @@ func (c *Cache) mqUnsubscribe(v interface{}) {
 	}
 
 	delete(c.eventSubs, eventSub.ResourceName)
+
+	// Metrics
+	if c.metrics != nil {
+		c.metrics.CacheResources.Add(-1)
+	}
 }
 
 func (c *Cache) handleSystemReset(payload []byte) {

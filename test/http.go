@@ -231,3 +231,37 @@ func (hr *HTTPResponse) AssertMissingHeaders(t *testing.T, h []string) *HTTPResp
 	}
 	return hr
 }
+
+// AssertResponseContainsMetrics asserts that the body of the response contains the metric values.
+func AssertResponseContainsMetrics(t *testing.T, r *http.Response, metrics []string) {
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r.Body)
+	s := buf.String()
+
+	rows := strings.Split(s, "\n")
+NextMetric:
+	for _, m := range metrics {
+		mname, mvalue := SplitAtLastSpace(m)
+		for _, row := range rows {
+			rowname, rowvalue := SplitAtLastSpace(row)
+
+			if mname == rowname {
+				if mvalue == rowvalue {
+					continue NextMetric
+				}
+				t.Fatalf("expected metric to be:\n\t%s\nbut got:\n\t%s", m, row)
+			}
+		}
+		t.Fatalf("expected to find metric:\n\t%s\nbut found no matching row.", m)
+	}
+}
+
+// SplitAtLastSpace splits a string at the last space found.
+func SplitAtLastSpace(s string) (string, string) {
+	idx := strings.LastIndexByte(s, ' ')
+	if idx < 0 {
+		return s, ""
+	}
+
+	return s[:idx], s[idx+1:]
+}

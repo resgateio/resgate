@@ -80,8 +80,23 @@ func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
 
 	conn.Tracef("Connected: %s", ws.RemoteAddr())
 
+	// Metrics
+	if s.metrics != nil {
+		s.metrics.WSConnectionCount.Add(1)
+		s.metrics.WSConnections.Add(1)
+	}
+
 	// Set websocket and start listening
 	conn.listen(ws)
+
+	// Metrics
+	if s.metrics != nil {
+		s.metrics.WSConnections.Add(-1)
+	}
+
+	if s.onWSClose != nil {
+		s.onWSClose(ws)
+	}
 }
 
 // wsHeaderAuth sends an auth resource request if WSHeaderAuth is set, and

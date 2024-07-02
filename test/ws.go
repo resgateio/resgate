@@ -115,7 +115,24 @@ func (c *Conn) Request(method string, params interface{}) *ClientRequest {
 
 // Disconnect closes the connection to the gateway
 func (c *Conn) Disconnect() {
+	var dcCh chan struct{}
+	if c.s.dcCh == nil {
+		dcCh = make(chan struct{})
+		c.s.dcCh = dcCh
+	}
+
 	c.ws.Close()
+	<-c.closeCh
+
+	// Await synchronization
+	if dcCh != nil {
+		select {
+		case <-dcCh:
+		case <-time.After(time.Second):
+		}
+	}
+
+	delete(c.s.conns, c)
 }
 
 // PanicOnError panics if the connection has encountered an error.

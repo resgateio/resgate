@@ -18,6 +18,7 @@ type Config struct {
 	Port         uint16  `json:"port"`
 	WSPath       string  `json:"wsPath"`
 	APIPath      string  `json:"apiPath"`
+	MetricsPort  uint16  `json:"metricsPort"`
 	APIEncoding  string  `json:"apiEncoding"`
 	HeaderAuth   *string `json:"headerAuth"`
 	WSHeaderAuth *string `json:"wsHeaderAuth"`
@@ -39,6 +40,7 @@ type Config struct {
 
 	scheme             string
 	netAddr            string
+	metricsNetAddr     string
 	headerAuthRID      string
 	headerAuthAction   string
 	wsHeaderAuthRID    string
@@ -85,6 +87,10 @@ func (c *Config) prepare() error {
 		}
 	}
 
+	if c.Port == c.MetricsPort {
+		return fmt.Errorf(`invalid metrics port "%d": must be different from API port ("%d")`, c.MetricsPort, c.Port)
+	}
+
 	// Resolve network address
 	c.netAddr = ""
 	if c.Addr != nil {
@@ -104,6 +110,9 @@ func (c *Config) prepare() error {
 		}
 	} else {
 		c.netAddr = DefaultAddr
+	}
+	if c.MetricsPort != 0 {
+		c.metricsNetAddr = c.netAddr + fmt.Sprintf(":%d", c.MetricsPort)
 	}
 	c.netAddr += fmt.Sprintf(":%d", c.Port)
 

@@ -72,6 +72,10 @@ func TestConfigPrepare(t *testing.T) {
 		{Config{WSPath: "/", DELETEMethod: &method}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", DELETEMethod: &method, scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST, DELETE"}, false},
 		{Config{WSPath: "/", PATCHMethod: &method}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", PATCHMethod: &method, scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST, PATCH"}, false},
 		{Config{WSPath: "/", PUTMethod: &method, DELETEMethod: &method, PATCHMethod: &method}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", PUTMethod: &method, DELETEMethod: &method, PATCHMethod: &method, scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST, PUT, DELETE, PATCH"}, false},
+		// Metrics port
+		{Config{Addr: &emptyAddr, WSPath: "/", MetricsPort: 8090}, Config{Addr: &emptyAddr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: ":80", metricsNetAddr: ":8090", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		{Config{Addr: &localAddr, WSPath: "/", MetricsPort: 8090}, Config{Addr: &localAddr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "127.0.0.1:80", metricsNetAddr: "127.0.0.1:8090", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		{Config{Addr: &ipv6Addr, WSPath: "/", MetricsPort: 8090}, Config{Addr: &ipv6Addr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "[::1]:80", metricsNetAddr: "[::1]:8090", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
 		// Invalid config
 		{Config{Addr: &invalidAddr, WSPath: "/"}, Config{}, true},
 		{Config{HeaderAuth: &invalidHeaderAuth, WSPath: "/"}, Config{}, true},
@@ -84,6 +88,7 @@ func TestConfigPrepare(t *testing.T) {
 		{Config{PUTMethod: &invalidMethod, WSPath: "/"}, Config{}, true},
 		{Config{DELETEMethod: &invalidMethod, WSPath: "/"}, Config{}, true},
 		{Config{PATCHMethod: &invalidMethod, WSPath: "/"}, Config{}, true},
+		{Config{Addr: &defaultAddr, Port: 8080, MetricsPort: 8080, WSPath: "/"}, Config{}, true},
 	}
 
 	for i, r := range tbl {
@@ -112,6 +117,7 @@ func TestConfigPrepare(t *testing.T) {
 
 		compareString(t, "scheme", cfg.scheme, r.Expected.scheme, i)
 		compareString(t, "netAddr", cfg.netAddr, r.Expected.netAddr, i)
+		compareString(t, "metricsNetAddr", cfg.metricsNetAddr, r.Expected.metricsNetAddr, i)
 		compareString(t, "headerAuthAction", cfg.headerAuthAction, r.Expected.headerAuthAction, i)
 		compareString(t, "headerAuthRID", cfg.headerAuthRID, r.Expected.headerAuthRID, i)
 		compareString(t, "wsHeaderAuthAction", cfg.wsHeaderAuthAction, r.Expected.wsHeaderAuthAction, i)

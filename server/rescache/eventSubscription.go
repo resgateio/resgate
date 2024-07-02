@@ -110,6 +110,12 @@ func (e *EventSubscription) addSubscriber(sub Subscriber, t *Throttle) {
 			e.count--
 			e.mu.Unlock()
 			defer e.mu.Lock()
+
+			// Metrics
+			if e.cache.metrics != nil {
+				e.cache.metrics.CacheSubscriptions.Add(-1)
+			}
+
 			sub.Loaded(nil, rs.err)
 
 		// stateModel or stateCollection
@@ -220,6 +226,11 @@ func (e *EventSubscription) removeCount(n int64) {
 	e.count -= n
 	if e.count == 0 && n != 0 {
 		e.cache.unsubQueue.Add(e)
+	}
+
+	// Metrics
+	if e.cache.metrics != nil {
+		e.cache.metrics.CacheSubscriptions.Add(float64(-n))
 	}
 }
 
