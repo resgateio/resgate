@@ -27,6 +27,7 @@ func TestMetrics_DefaultResponse_ContainsExpectedValues(t *testing.T) {
 			`resgate_ws_connections_total 0`,
 			`# TYPE resgate_ws_requests counter`,
 			`resgate_ws_requests_total{method="get"} 0`,
+			`resgate_ws_requests_total{method="unsubscribe"} 0`,
 			`resgate_ws_requests_total{method="auth"} 0`,
 			`resgate_ws_requests_total{method="subscribe"} 0`,
 			`resgate_ws_requests_total{method="call"} 0`,
@@ -127,6 +128,21 @@ func TestMetrics_WSRequestsGet_IncreasesCounter(t *testing.T) {
 
 		AssertResponseContainsMetrics(t, s.MetricsHTTPRequest(), []string{
 			`resgate_ws_requests_total{method="get"} 1`,
+		})
+	}, func(cfg *server.Config) {
+		cfg.MetricsPort = 8090
+	})
+}
+
+func TestMetrics_WSRequestsUnsubscribe_IncreasesCounter(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		// Send subscribe request
+		subscribeToTestModel(t, s, c)
+		c.Request("unsubscribe.test.model", nil).GetResponse(t)
+
+		AssertResponseContainsMetrics(t, s.MetricsHTTPRequest(), []string{
+			`resgate_ws_requests_total{method="unsubscribe"} 1`,
 		})
 	}, func(cfg *server.Config) {
 		cfg.MetricsPort = 8090

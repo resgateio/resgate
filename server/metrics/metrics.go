@@ -14,10 +14,11 @@ type MetricSet struct {
 	WSConnections     openmetrics.Gauge
 	WSConnectionCount openmetrics.Counter
 	// WebSocket requests
-	WSRequestsGet       openmetrics.Counter
-	WSRequestsSubscribe openmetrics.Counter
-	WSRequestsCall      openmetrics.Counter
-	WSRequestsAuth      openmetrics.Counter
+	WSRequestsGet         openmetrics.Counter
+	WSRequestsSubscribe   openmetrics.Counter
+	WSRequestsUnsubscribe openmetrics.Counter
+	WSRequestsCall        openmetrics.Counter
+	WSRequestsAuth        openmetrics.Counter
 	// Cache
 	CacheResources     openmetrics.Gauge
 	CacheSubscriptions openmetrics.Gauge
@@ -74,6 +75,7 @@ func (m *MetricSet) Register(reg *openmetrics.Registry, version string, protocol
 	})
 	m.WSRequestsGet = wsRequests.With("get")
 	m.WSRequestsSubscribe = wsRequests.With("subscribe")
+	m.WSRequestsUnsubscribe = wsRequests.With("unsubscribe")
 	m.WSRequestsCall = wsRequests.With("call")
 	m.WSRequestsAuth = wsRequests.With("auth")
 

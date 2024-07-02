@@ -576,6 +576,11 @@ func (c *wsConn) handleResourceResult(refRID string, cb func(result interface{},
 }
 
 func (c *wsConn) UnsubscribeResource(rid string, count int, cb func(ok bool)) {
+	// Metrics
+	if c.serv.metrics != nil {
+		c.serv.metrics.WSRequestsUnsubscribe.Add(1)
+	}
+
 	cb(c.UnsubscribeByRID(rid, count))
 }
 
