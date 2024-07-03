@@ -290,33 +290,6 @@ func (c *wsConn) SetVersion(protocol string) (string, error) {
 	return ProtocolVersion, nil
 }
 
-func (c *wsConn) GetSubscription(rid string, cb func(sub *Subscription, err error)) {
-	sub, err := c.Subscribe(rid, true, nil)
-	if err != nil {
-		cb(nil, err)
-		return
-	}
-
-	sub.CanGet(func(err error) {
-		if err != nil {
-			cb(nil, err)
-			c.Unsubscribe(sub, true, false, 1, true)
-			return
-		}
-
-		sub.OnReady(func() {
-			err := sub.Error()
-			if err != nil {
-				cb(nil, err)
-				return
-			}
-			cb(sub, nil)
-			sub.ReleaseRPCResources()
-			c.Unsubscribe(sub, true, false, 1, true)
-		})
-	})
-}
-
 // GetHTTPSubscription is called from apiHandler on a HTTP GET request. It
 // differs from GetSubscription by making an access call separately, and not
 // within the subscription, in order to call access with isHTTP set to true.

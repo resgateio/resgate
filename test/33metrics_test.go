@@ -371,6 +371,7 @@ func TestMetrics_CacheResources_ExpectedGaugeValues(t *testing.T) {
 			Actions: func(t *testing.T, s *Session, c *Conn) {
 				subscribeToTestModel(t, s, c)
 				c.Request("unsubscribe.test.model", nil).GetResponse(t)
+				c.AssertNoEvent(t, "test.model")
 			},
 			ExpectedResources:     1,
 			ExpectedSubscriptions: 0,
@@ -380,6 +381,7 @@ func TestMetrics_CacheResources_ExpectedGaugeValues(t *testing.T) {
 			Actions: func(t *testing.T, s *Session, c *Conn) {
 				subscribeToTestModelParent(t, s, c, false)
 				c.Request("unsubscribe.test.model.parent", nil).GetResponse(t)
+				c.AssertNoEvent(t, "test.model.parent")
 			},
 			ExpectedResources:     2,
 			ExpectedSubscriptions: 0,
@@ -390,6 +392,7 @@ func TestMetrics_CacheResources_ExpectedGaugeValues(t *testing.T) {
 				subscribeToTestModel(t, s, c)
 				subscribeToTestModelParent(t, s, c, true)
 				c.Request("unsubscribe.test.model", nil).GetResponse(t)
+				c.AssertNoEvent(t, "test.model")
 			},
 			ExpectedResources:     2,
 			ExpectedSubscriptions: 2,
@@ -400,6 +403,7 @@ func TestMetrics_CacheResources_ExpectedGaugeValues(t *testing.T) {
 				subscribeToTestModel(t, s, c)
 				subscribeToTestModelParent(t, s, c, true)
 				c.Request("unsubscribe.test.model.parent", nil).GetResponse(t)
+				c.AssertNoEvent(t, "test.model.parent")
 			},
 			ExpectedResources:     2,
 			ExpectedSubscriptions: 1,

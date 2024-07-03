@@ -78,7 +78,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 
 	apiPath := s.cfg.APIPath
 
-	// NotFound on oaths with trailing slash (unless it is only the APIPath)
+	// NotFound on paths with trailing slash (unless it is only the APIPath)
 	if len(path) > len(apiPath) && path[len(path)-1] == '/' {
 		notFoundHandler(w, s.enc)
 		return

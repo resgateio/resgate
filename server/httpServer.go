@@ -10,8 +10,8 @@ import (
 func (s *Service) initHTTPServer() {
 }
 
-// startHTTPServer initializes the server and starts a goroutine with a http server
-// Service.mu is held when called
+// startHTTPServer initializes the server and starts a goroutine with a http
+// server Service.mu is held when called.
 func (s *Service) startHTTPServer() {
 	if s.cfg.NoHTTP {
 		return
@@ -60,6 +60,7 @@ func (s *Service) stopHTTPServer() {
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Global OPTIONS handling taken from http.ServeMux
 	if r.RequestURI == "*" {
 		if r.ProtoAtLeast(1, 1) {
 			w.Header().Set("Connection", "close")

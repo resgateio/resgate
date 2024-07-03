@@ -40,6 +40,8 @@ jobs:
     - name: Build
       run: go build -v ./...
     - name: Test
+      env:
+        RESGATE_TEST_EXTENDED: 1
       run: go test -v -covermode=atomic -coverprofile=cover.out -coverpkg=./server/... ./...
     - name: Install goveralls
       run: go install github.com/mattn/goveralls@latest
