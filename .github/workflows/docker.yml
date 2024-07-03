@@ -36,7 +36,7 @@ jobs:
             type=semver,pattern={{version}}-linux
             type=semver,pattern={{major}}.{{minor}}-linux
             type=semver,pattern={{major}}-linux
-            type=semver,value=linux
+            type=semver,pattern=linux
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}

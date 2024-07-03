@@ -8,6 +8,7 @@
   * [Request subject](#request-subject)
   * [Request payload](#request-payload)
   * [Response](#response)
+  * [Meta object](#meta-object)
   * [Error object](#error-object)
   * [Pre-defined errors](#pre-defined-errors)
   * [Pre-response](#pre-response)
