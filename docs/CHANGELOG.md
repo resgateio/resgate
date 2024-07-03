@@ -2,6 +2,10 @@
 
 All changes to the RES Protocol will be documented in this file.
 
+## v1.2.3 [Resgate v1.8.0](compare/v1.7.0...v1.8.0) - 2024-07-03
+
+* #251 Meta object for custom response headers.
+
 ## v1.2.2 [Resgate v1.7.0](compare/v1.6.0...v1.7.0) - 2020-06-15
 
 * #202 Token ID.
