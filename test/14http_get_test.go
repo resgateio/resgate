@@ -26,23 +26,29 @@ func TestHTTPGetInvalidURLs(t *testing.T) {
 		{"/api/test/mådel/action", http.StatusNotFound, reserr.ErrNotFound},
 	}
 
-	for i, l := range tbl {
-		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
-			hreq := s.HTTPRequest("GET", l.URL, nil)
-			hresp := hreq.
-				GetResponse(t).
-				AssertStatusCode(t, l.ExpectedCode)
+	encodings := []string{"json", "jsonFlat"}
 
-			if l.Expected != nil {
-				if err, ok := l.Expected.(*reserr.Error); ok {
-					hresp.AssertError(t, err)
-				} else if code, ok := l.Expected.(string); ok {
-					hresp.AssertErrorCode(t, code)
-				} else {
-					hresp.AssertBody(t, l.Expected)
+	for _, enc := range encodings {
+		for i, l := range tbl {
+			runNamedTest(t, fmt.Sprintf("#%d (%s)", i+1, enc), func(s *Session) {
+				hreq := s.HTTPRequest("GET", l.URL, nil)
+				hresp := hreq.
+					GetResponse(t).
+					AssertStatusCode(t, l.ExpectedCode)
+
+				if l.Expected != nil {
+					if err, ok := l.Expected.(*reserr.Error); ok {
+						hresp.AssertError(t, err)
+					} else if code, ok := l.Expected.(string); ok {
+						hresp.AssertErrorCode(t, code)
+					} else {
+						hresp.AssertBody(t, l.Expected)
+					}
 				}
-			}
-		})
+			}, func(c *server.Config) {
+				c.APIEncoding = enc
+			})
+		}
 	}
 }
 
