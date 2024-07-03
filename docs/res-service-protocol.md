@@ -1,6 +1,6 @@
 # The RES-Service Protocol Specification
 
-*Version: [1.2.2](res-protocol-semver.md)*
+*Version: [1.2.3](res-protocol-semver.md)*
 
 ## Table of contents
 - [Introduction](#introduction)
@@ -64,23 +64,72 @@ The content of the payload depends on the subject type.
 
 
 ## Response
-When a request is received by a service, it should send a response as a JSON object. The object MUST have one of the following members, dependent upon whether the response is a successful *result*, a *resource*, or an *error*:
+When a request is received by a service, it should send a response as a JSON object. The object MUST have one of the members, *result*, *resource*, or *error*, depending upon whether the request is successful, is a resource response, or is an error. In addition, the response MAY contain a *meta* member.
 
 **result**  
+Raw data from a successful request.  
 Is REQUIRED on success if **resource** is not set.  
 SHOULD be ignored if **error** or **resource** is set.  
 The value is determined by the request subject.
 
 **resource**  
+A successful request resulting in a reference to a resource.  
 MUST be omitted if the request type is not `call` or `auth`.  
 Is REQUIRED on success if **result** is not set.  
 SHOULD be ignored if **error** is set.  
 The value MUST be a valid [resource reference](res-protocol.md#resource-references).
 
 **error**  
+Error encountered during the request.  
 Is REQUIRED on error.  
 MUST be omitted on success.  
 The value MUST be an [error object](#error-object).
+
+**meta**
+Metadata about the response. May be omitted.  
+The value MUST be a [meta object](#meta-object).
+
+
+## Meta object
+
+In addition to the *result*, *resource*, or *error* member of a response, the response may contain a *meta* member which allows the service to specify things like HTTP status and headers set in the HTTP response of a client's HTTP or WebSocket connection. If multiple responses contains overlapping metadata that affects the same connection, the priority of the metadata SHOULD be as follow, listed with the highest priority first:
+* [call request](#call-request)
+* [access request](#access-request)
+* [auth request](#auth-request)
+
+The value is an object with the following members:
+
+**status**  
+HTTP status code, overriding default HTTP response status code. MAY be omitted.  
+SHOULD be ignored if **isHttp** is not set to `true` on the request.  
+SHOULD be ignored if [status codes](#status-codes) has no definition for the value.  
+MUST be a one of the defined [status codes]
+MUST be a number.
+
+**header**  
+HTTP headers to set on the HTTP response. MAY be omitted.  
+SHOULD be ignored if **isHttp** is not set to `true` on the request.  
+MUST be a key/value object, where the key is the canonical format of the MIME header, and the value is an array of strings associated with the key.  
+If the header key is `"Set-Cookie"`, the value will be added to any existing values, otherwise it will replace any existing value.
+
+### Status codes
+The status code is a subset of the HTTP status codes. Behavior is only defined for redirection (3XX), client error (4XX), and server error (5XX).  
+The gateway MUST respond to the HTTP or WebSocket connection using the given status code, if behavior is defined for it. Otherwise it SHOULD ignore the code and make a fallback to default behavior.
+
+**3XX**
+SHOULD result in an immediate response to the client, without subsequent service requests.  
+SHOULD have the `"Location"` header set if the **resource** field is not set on the response.  
+SHOULD result in no content being sent to the client making the request.
+
+**4XX**
+SHOULD result in an immediate response to the client, without subsequent service requests.  
+If **error** is set on the response, that error value should be sent in the client response.  
+If no **error** is set on the response, the gateway SHOULD respond to the client with an error matching the code.
+
+**5XX**
+SHOULD result in an immediate response to the client, without subsequent service requests.  
+If **error** is set on the response, that error value should be sent in the client response.  
+If no **error** is set on the response, the gateway SHOULD respond to the client with an error matching the code.
 
 ## Error object
 
@@ -88,7 +137,7 @@ On error, the error member contains a value that is an object with the following
 
 **code**  
 A dot-separated string identifying the error.  
-Custom errors SHOULD begin with the service name.  
+Custom errors SHOULD NOT begin with `system.`.  
 MUST be a string.
 
 **message**  
@@ -151,6 +200,11 @@ The value is defined by the service issuing the token.
 Query part of the [resource ID](res-protocol.md#resource-ids) without the question mark separator.  
 MUST be omitted if the resource ID has no query.  
 MUST be a string.
+
+**isHttp** 
+Flag telling if the response's [meta object](#meta-object) may contain *status* and *header* members.  
+MAY be omitted if the value is otherwise `false`.  
+MUST be a boolean.
 
 ### Result
 
@@ -235,6 +289,11 @@ MUST be a string.
 Method parameters as defined by the service or by the appropriate [pre-defined call method](#pre-defined-call-methods).  
 MAY be omitted.
 
+**isHttp** 
+Flag telling if the response's [meta object](#meta-object) may contain *status* and *header* members.  
+MAY be omitted if the value is otherwise `false`.  
+MUST be a boolean.
+
 ### Result
 
 The result is defined by the service, or by the appropriate [pre-defined call method](#pre-defined-call-methods). The result may be null.
@@ -296,6 +355,11 @@ MUST be a string.
 The unmodified Request-URI of the Request-Line (RFC 2616, Section 5.1) as sent by the client when connecting to the gateway.  
 May be omitted.  
 MUST be a string.
+
+**isHttp** 
+Flag telling if the response's [meta object](#meta-object) may contain *status* and *header* members.  
+MAY be omitted if the value is otherwise `false`.  
+MUST be a boolean.
 
 ### Result
 

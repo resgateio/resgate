@@ -19,12 +19,12 @@ func TestGetAndAccessOnSubscribe(t *testing.T) {
 		mreqs := s.GetParallelRequests(t, 2)
 
 		// Validate get request
-		req := mreqs.GetRequest(t, "get.test.model")
-		req.AssertPayload(t, json.RawMessage(`{}`))
-
+		mreqs.GetRequest(t, "get.test.model").
+			AssertPayload(t, json.RawMessage(`{}`))
 		// Validate access request
-		req = mreqs.GetRequest(t, "access.test.model")
-		req.AssertPathPayload(t, "token", json.RawMessage(`null`))
+		mreqs.GetRequest(t, "access.test.model").
+			AssertPathPayload(t, "token", json.RawMessage(`null`)).
+			AssertPathMissing(t, "isHttp")
 	})
 }
 
@@ -549,5 +549,69 @@ func TestSubscribe_WithThrottleOnNestedReferences_ThrottlesRequests(t *testing.T
 
 	}, func(c *server.Config) {
 		c.ReferenceThrottle = referenceThrottle
+	})
+}
+
+// Test that two connections subscribing to the same model, both waiting for the
+// response of the get request, gets the returned resource.
+func TestSubscribe_MultipleSubscribersOnPendingModel_ModelSentToAllSubscribers(t *testing.T) {
+	model := resourceData("test.model")
+
+	runTest(t, func(s *Session) {
+		c1 := s.Connect()
+		c2 := s.Connect()
+		// Subscribe with client 1
+		creq1 := c1.Request("subscribe.test.model", nil)
+		mreqs1 := s.GetParallelRequests(t, 2)
+		// Handle access request
+		mreqs1.GetRequest(t, "access.test.model").
+			RespondSuccess(json.RawMessage(`{"get":true}`))
+		getreq := mreqs1.GetRequest(t, "get.test.model")
+
+		// Subscribe with client 2
+		creq2 := c2.Request("subscribe.test.model", nil)
+		// Handle access request
+		s.GetRequest(t).
+			AssertSubject(t, "access.test.model").
+			RespondSuccess(json.RawMessage(`{"get":true}`))
+
+		// Handle get request
+		getreq.RespondSuccess(json.RawMessage(`{"model":` + model + `}`))
+
+		// Validate client 1 response and validate
+		creq1.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model":`+model+`}}`))
+		// Validate client 2 response and validate
+		creq2.GetResponse(t).AssertResult(t, json.RawMessage(`{"models":{"test.model":`+model+`}}`))
+	})
+}
+
+// Test that two connections subscribing to the same model, both waiting for the
+// response of the get request, gets the returned error.
+func TestSubscribe_MultipleSubscribersOnPendingError_ErrorSentToAllSubscribers(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c1 := s.Connect()
+		c2 := s.Connect()
+		// Subscribe with client 1
+		creq1 := c1.Request("subscribe.test.model", nil)
+		mreqs1 := s.GetParallelRequests(t, 2)
+		// Handle access request
+		mreqs1.GetRequest(t, "access.test.model").
+			RespondSuccess(json.RawMessage(`{"get":true}`))
+		getreq := mreqs1.GetRequest(t, "get.test.model")
+
+		// Subscribe with client 2
+		creq2 := c2.Request("subscribe.test.model", nil)
+		// Handle access request
+		s.GetRequest(t).
+			AssertSubject(t, "access.test.model").
+			RespondSuccess(json.RawMessage(`{"get":true}`))
+
+		// Handle get request
+		getreq.RespondError(reserr.ErrNotFound)
+
+		// Validate client 1 response and validate
+		creq1.GetResponse(t).AssertError(t, reserr.ErrNotFound)
+		// Validate client 2 response and validate
+		creq2.GetResponse(t).AssertError(t, reserr.ErrNotFound)
 	})
 }

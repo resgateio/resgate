@@ -6,63 +6,45 @@ type ResourcePattern struct {
 	hasWild bool
 }
 
-const (
-	pwc   = '*'
-	fwc   = '>'
-	btsep = '.'
-)
-
-// ParseResourcePattern parses a string as a resource pattern.
-// It uses the same wildcard matching as used in NATS
-func ParseResourcePattern(pattern string) ResourcePattern {
-	p := ResourcePattern{
-		pattern: pattern,
-	}
-
-	plen := len(pattern)
-	if plen == 0 {
+// ParseResourcePattern parses a string as a resource pattern p. It uses the
+// same wildcard matching as used in NATS.
+func ParseResourcePattern(p string) ResourcePattern {
+	l := len(p)
+	if l == 0 || p[l-1] == '.' {
 		return ResourcePattern{}
 	}
-
-	var c byte
-	tcount := 0
-	offset := 0
+	start := true
+	alone := false
 	hasWild := false
-	for i := 0; i <= plen; i++ {
-		if i == plen {
-			c = btsep
-		} else {
-			c = pattern[i]
-		}
-
-		switch c {
-		case btsep:
-			// Empty tokens are invalid
-			if offset == i {
+	for i, c := range p {
+		if c == '.' {
+			if start {
 				return ResourcePattern{}
 			}
-			if hasWild {
-				if i-offset > 1 {
+			alone = false
+			start = true
+		} else {
+			if alone || c < 33 || c > 126 || c == '?' {
+				return ResourcePattern{}
+			}
+			switch c {
+			case '>':
+				if !start || i < l-1 {
 					return ResourcePattern{}
 				}
-				hasWild = false
+				hasWild = true
+			case '*':
+				if !start {
+					return ResourcePattern{}
+				}
+				hasWild = true
+				alone = true
 			}
-			offset = i + 1
-			tcount++
-		case pwc:
-			p.hasWild = true
-			hasWild = true
-		case fwc:
-			// If wildcard isn't the last char
-			if i < plen-1 {
-				return ResourcePattern{}
-			}
-			p.hasWild = true
-			hasWild = true
+			start = false
 		}
 	}
 
-	return p
+	return ResourcePattern{pattern: p, hasWild: hasWild}
 }
 
 // IsValid reports whether the resource pattern is valid
@@ -70,9 +52,10 @@ func (p ResourcePattern) IsValid() bool {
 	return len(p.pattern) > 0
 }
 
-// Match reports whether a resource name, s, matches the resource pattern
+// Match reports whether a resource name, s, matches the resource pattern.
 func (p ResourcePattern) Match(s string) bool {
-	if len(p.pattern) == 0 {
+	plen := len(p.pattern)
+	if plen == 0 {
 		return false
 	}
 
@@ -81,7 +64,6 @@ func (p ResourcePattern) Match(s string) bool {
 	}
 
 	slen := len(s)
-	plen := len(p.pattern)
 
 	if plen > slen {
 		return false
@@ -91,12 +73,12 @@ func (p ResourcePattern) Match(s string) bool {
 	pi := 0
 	for {
 		switch p.pattern[pi] {
-		case fwc:
+		case '>':
 			return true
-		case pwc:
+		case '*':
 			pi++
 			for {
-				if s[si] == btsep {
+				if s[si] == '.' {
 					break
 				}
 				si++

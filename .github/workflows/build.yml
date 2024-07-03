@@ -1,0 +1,76 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - develop
+      - master
+  pull_request:
+
+jobs:
+
+  go-legacy-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [ '1.20', '1.21' ]
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: Go get
+      run: go get -t ./...
+    - name: Build
+      run: go build -v ./...
+    - name: Test
+      run: go test -v ./...
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22.4'
+    - name: Go get
+      run: go get -t ./...
+    - name: Build
+      run: go build -v ./...
+    - name: Test
+      env:
+        RESGATE_TEST_EXTENDED: 1
+      run: go test -v -covermode=atomic -coverprofile=cover.out -coverpkg=./server/... ./...
+    - name: Install goveralls
+      run: go install github.com/mattn/goveralls@latest
+    - name: Send coverage
+      env:
+        COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: goveralls -coverprofile=cover.out -service=github
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22.4'
+    - name: Install checks
+      run: |
+        go install honnef.co/go/tools/cmd/staticcheck@latest
+        go install github.com/client9/misspell/cmd/misspell@latest
+    - name: Go get
+      run: go get -t ./...
+    - name: Go Vet
+      run: go vet $(go list ./... | grep -v /vendor/)
+    - name: Go Mod
+      run: go mod tidy; git diff --exit-code go.mod go.sum
+    - name: Go FMT
+      run: go fmt $(go list ./... | grep -v /vendor/); git diff --exit-code
+    - name: Staticcheck
+      run: staticcheck -checks all,-ST1000  ./...
+    - name: Misspell
+      run: misspell -error -locale US .

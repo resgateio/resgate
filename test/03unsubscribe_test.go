@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/resgateio/resgate/server"
 	"github.com/resgateio/resgate/server/reserr"
 )
 
@@ -265,4 +266,34 @@ func TestUnsubscribe_WithInvalidPayload_DoesNotUnsubscribesModel(t *testing.T) {
 			c.GetEvent(t).AssertEventName(t, "test.model.custom")
 		})
 	}
+}
+
+// Test that a model that no client subscribes to gets unsubscribed and removed
+// from the cache.
+func TestUnsubscribe_Model_UnsubcribesFromCache(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestModel(t, s, c)
+
+		// Call unsubscribe
+		c.Request("unsubscribe.test.model", nil).GetResponse(t)
+		s.AssertUnsubscribe("test.model")
+	}, func(cfg *server.Config) {
+		cfg.NoUnsubscribeDelay = true
+	})
+}
+
+// Test that a linked model resources that no client subscribes to gets
+// unsubscribed and removed from the cache.
+func TestUnsubscribe_LinkedModel_UnsubscribesFromCache(t *testing.T) {
+	runTest(t, func(s *Session) {
+		c := s.Connect()
+		subscribeToTestModelParent(t, s, c, false)
+
+		// Call unsubscribe
+		c.Request("unsubscribe.test.model.parent", nil).GetResponse(t)
+		s.AssertUnsubscribe("test.model", "test.model.parent")
+	}, func(cfg *server.Config) {
+		cfg.NoUnsubscribeDelay = true
+	})
 }

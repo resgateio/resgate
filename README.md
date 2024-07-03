@@ -5,9 +5,9 @@
 </p>
 
 <p align="center">
-<a href="http://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
-<a href="http://goreportcard.com/report/resgateio/resgate"><img src="http://goreportcard.com/badge/github.com/resgateio/resgate" alt="Report Card"></a>
-<a href="https://travis-ci.com/resgateio/resgate"><img src="https://travis-ci.com/resgateio/resgate.svg?branch=master" alt="Build Status"></a>
+<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="license"></a>
+<a href="https://goreportcard.com/report/resgateio/resgate"><img src="http://goreportcard.com/badge/github.com/resgateio/resgate" alt="Report Card"></a>
+<a href="https://github.com/resgateio/resgate/actions/workflows/build.yml?query=branch%3Amaster"><img src="https://img.shields.io/github/actions/workflow/status/resgateio/resgate/build.yml?branch=master" alt="Build Status"></a>
 <a href="https://coveralls.io/github/resgateio/resgate?branch=master"><img src="https://coveralls.io/repos/github/resgateio/resgate/badge.svg?branch=master" alt="Coverage"></a>
 </p>
 
@@ -90,6 +90,8 @@ resgate [options]
 | <code>-a, --apipath &lt;path&gt;</code> | Web resource path for clients | `/api/`
 | <code>-r, --reqtimeout &lt;seconds&gt;</code> | Timeout duration for NATS requests | `3000`
 | <code>-u, --headauth &lt;method&gt;</code> | Resource method for header authentication |
+| <code>-t, --wsheadauth &lt;method&gt;</code> | Resource method for WebSocket header authentication |
+| <code>-m, --metricsport &lt;port&gt;</code> | HTTP port for OpenMetrics connections | `0` (disabled)
 | <code>&nbsp;&nbsp;&nbsp;&nbsp;--apiencoding &lt;type&gt;</code> | Encoding for web resources: json, jsonflat | `json`
 | <code>&nbsp;&nbsp;&nbsp;&nbsp;--putmethod &lt;methodName&gt;</code> | Call method name mapped to HTTP PUT requests |
 | <code>&nbsp;&nbsp;&nbsp;&nbsp;--deletemethod &lt;methodName&gt;</code> | Call method name mapped to HTTP DELETE requests |
@@ -147,6 +149,12 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
     // If the port value is missing or 0, standard http(s) port is used.
     "port": 8080,
 
+    // Metrics port for the OpenMetrics http server to listen on.
+    // If the port value is missing or 0, metrics are disabled.
+    // Must be different from the configured api port.
+    // Metrics are available at the path: /metrics
+    "metricsPort": 0,
+
     // Path for accessing the RES API WebSocket.
     "wsPath": "/",
 
@@ -160,12 +168,20 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
     "bufferSize": 8192,
 
     // Header authentication resource method for web resources.
-    // Prior to accessing the resource, this resource method will be
-    // called, allowing an auth service to set a token using
-    // information such as the request headers.
+    // Prior to accessing the resource, this resource method will be called,
+    // allowing a service to set a token using information such as the request
+    // headers.
     // Missing value or null will disable header authentication.
     // Eg. "authService.headerLogin"
     "headerAuth": null,
+
+    // Header authentication resource method for WebSocket connections.
+    // Prior to responding to a WebSocket connection, this resource method will
+    // be called, allowing a service to set a token using information such as
+    // the request headers.
+    // Missing value or null will disable WebSocket header authentication.
+    // Eg. "authService.headerLogin"
+    "wsHeaderAuth": null,
 
     // Encoding for web resources.
     // Available encodings are:

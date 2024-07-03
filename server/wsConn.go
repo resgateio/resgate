@@ -41,7 +41,7 @@ var (
 	errInvalidNewResourceResponse = reserr.InternalError(errors.New("non-resource response on new request"))
 )
 
-func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request, protocol int) *wsConn {
+func (s *Service) newWSConn(request *http.Request, protocol int) *wsConn {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -52,7 +52,6 @@ func (s *Service) newWSConn(ws *websocket.Conn, request *http.Request, protocol 
 
 	conn := &wsConn{
 		cid:         xid.New().String(),
-		ws:          ws,
 		request:     request,
 		serv:        s,
 		subs:        make(map[string]*Subscription),
@@ -91,9 +90,13 @@ func (c *wsConn) ProtocolVersion() int {
 	return c.protocolVer
 }
 
-func (c *wsConn) listen() {
+// listen sets a websocket for the connection and starts listening to it,
+// returning once the socket is closed.
+func (c *wsConn) listen(ws *websocket.Conn) {
 	var in []byte
 	var err error
+
+	c.ws = ws
 
 	// Loop until an error is returned when reading
 	for {
@@ -225,6 +228,11 @@ func (c *wsConn) Reply(data []byte) {
 }
 
 func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)) {
+	// Metrics
+	if c.serv.metrics != nil {
+		c.serv.metrics.WSRequestsGet.Add(1)
+	}
+
 	sub, err := c.Subscribe(rid, true, nil)
 	if err != nil {
 		cb(nil, err)
@@ -234,7 +242,7 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 	sub.CanGet(func(err error) {
 		if err != nil {
 			cb(nil, err)
-			c.Unsubscribe(sub, true, 1, true)
+			c.Unsubscribe(sub, true, false, 1, true)
 			return
 		}
 
@@ -245,9 +253,9 @@ func (c *wsConn) GetResource(rid string, cb func(data *rpc.Resources, err error)
 				return
 			}
 
-			cb(sub.GetRPCResources(), nil)
+			cb(sub.GetRPCResources(false), nil)
 			sub.ReleaseRPCResources()
-			c.Unsubscribe(sub, true, 1, true)
+			c.Unsubscribe(sub, true, false, 1, true)
 		})
 	})
 }
@@ -282,34 +290,57 @@ func (c *wsConn) SetVersion(protocol string) (string, error) {
 	return ProtocolVersion, nil
 }
 
-func (c *wsConn) GetSubscription(rid string, cb func(sub *Subscription, err error)) {
+// GetHTTPSubscription is called from apiHandler on a HTTP GET request. It
+// differs from GetSubscription by making an access call separately, and not
+// within the subscription, in order to call access with isHTTP set to true.
+func (c *wsConn) GetHTTPSubscription(rid string, cb func(sub *Subscription, meta *codec.Meta, err error)) {
 	sub, err := c.Subscribe(rid, true, nil)
 	if err != nil {
-		cb(nil, err)
+		cb(nil, nil, err)
 		return
 	}
 
-	sub.CanGet(func(err error) {
-		if err != nil {
-			cb(nil, err)
-			c.Unsubscribe(sub, true, 1, true)
-			return
-		}
-
-		sub.OnReady(func() {
-			err := sub.Error()
-			if err != nil {
-				cb(nil, err)
+	c.serv.cache.Access(sub, c.token, true, func(access *rescache.Access, meta *codec.Meta) {
+		c.Enqueue(func() {
+			// If the status value in the meta should lead to a response without
+			// any subsequent requests, make a quick exit.
+			if meta.IsDirectResponseStatus() {
+				var err error
+				if access.Error != nil {
+					err = access.Error
+				}
+				cb(nil, meta, err)
+				c.Unsubscribe(sub, true, false, 1, true)
 				return
 			}
-			cb(sub, nil)
-			sub.ReleaseRPCResources()
-			c.Unsubscribe(sub, true, 1, true)
+
+			err := access.CanGet()
+			if err != nil {
+				cb(nil, meta, err)
+				c.Unsubscribe(sub, true, false, 1, true)
+				return
+			}
+
+			sub.OnReady(func() {
+				err := sub.Error()
+				if err != nil {
+					cb(nil, meta, err)
+					return
+				}
+				cb(sub, meta, nil)
+				sub.ReleaseRPCResources()
+				c.Unsubscribe(sub, true, false, 1, true)
+			})
 		})
 	})
 }
 
 func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err error)) {
+	// Metrics
+	if c.serv.metrics != nil {
+		c.serv.metrics.WSRequestsSubscribe.Add(1)
+	}
+
 	sub, err := c.Subscribe(rid, true, nil)
 	if err != nil {
 		cb(nil, err)
@@ -319,7 +350,7 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 	sub.CanGet(func(err error) {
 		if err != nil {
 			cb(nil, err)
-			c.Unsubscribe(sub, true, 1, true)
+			c.Unsubscribe(sub, true, false, 1, true)
 			return
 		}
 
@@ -327,31 +358,64 @@ func (c *wsConn) SubscribeResource(rid string, cb func(data *rpc.Resources, err 
 			err := sub.Error()
 			if err != nil {
 				cb(nil, err)
-				c.Unsubscribe(sub, true, 1, true)
+				c.Unsubscribe(sub, true, false, 1, true)
 				return
 			}
 
-			cb(sub.GetRPCResources(), nil)
+			cb(sub.GetRPCResources(false), nil)
 			sub.ReleaseRPCResources()
 		})
 	})
 }
 
 func (c *wsConn) CallResource(rid, action string, params interface{}, cb func(result interface{}, err error)) {
+	// Metrics
+	if c.serv.metrics != nil {
+		c.serv.metrics.WSRequestsCall.Add(1)
+	}
+
 	c.call(rid, action, params, func(result json.RawMessage, refRID string, err error) {
 		c.handleCallAuthResponse(result, refRID, err, cb)
 	})
 }
 
-func (c *wsConn) CallHTTPResource(rid, prefix, action string, params interface{}, cb func(result json.RawMessage, href string, err error)) {
-	c.call(rid, action, params, func(result json.RawMessage, refRID string, err error) {
-		if err != nil {
-			cb(nil, "", err)
-		} else if refRID != "" {
-			cb(nil, RIDToPath(refRID, prefix), nil)
-		} else {
-			cb(result, "", nil)
-		}
+// CallHTTPResource is called from apiHandler on a HTTP POST request. It differs
+// from CallResource by making an access call separately, and not within the
+// subscription, in order to call access with isHTTP set to true. It also
+// transform any href RID to a path on callback call.
+func (c *wsConn) CallHTTPResource(rid, action string, params interface{}, cb func(result json.RawMessage, href string, err error, meta *codec.Meta)) {
+	sub := NewSubscription(c, rid, nil)
+
+	c.serv.cache.Access(sub, c.token, true, func(access *rescache.Access, accessMeta *codec.Meta) {
+		c.Enqueue(func() {
+			// If the status value in the meta should lead to a response without
+			// any subsequent requests, make a quick exit.
+			if accessMeta.IsDirectResponseStatus() {
+				var err error
+				if access.Error != nil {
+					err = access.Error
+				}
+				cb(nil, "", err, accessMeta)
+				return
+			}
+			err := access.CanCall(action)
+			if err != nil {
+				cb(nil, "", err, accessMeta)
+				return
+			}
+			c.serv.cache.Call(c, sub.ResourceName(), sub.ResourceQuery(), action, c.token, params, true, func(result json.RawMessage, refRID string, callMeta *codec.Meta, err error) {
+				c.Enqueue(func() {
+					meta := accessMeta.Merge(callMeta)
+					if err != nil {
+						cb(nil, "", err, meta)
+					} else if refRID != "" {
+						cb(nil, refRID, nil, meta)
+					} else {
+						cb(result, "", nil, meta)
+					}
+				})
+			})
+		})
 	})
 }
 
@@ -366,7 +430,7 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result jso
 			cb(nil, "", err)
 			return
 		}
-		c.serv.cache.Call(c, sub.ResourceName(), sub.ResourceQuery(), action, c.token, params, func(result json.RawMessage, refRID string, err error) {
+		c.serv.cache.Call(c, sub.ResourceName(), sub.ResourceQuery(), action, c.token, params, false, func(result json.RawMessage, refRID string, _ *codec.Meta, err error) {
 			c.Enqueue(func() {
 				cb(result, refRID, err)
 			})
@@ -374,9 +438,25 @@ func (c *wsConn) call(rid, action string, params interface{}, cb func(result jso
 	})
 }
 
-func (c *wsConn) AuthResource(rid, action string, params interface{}, cb func(result interface{}, err error)) {
+// AuthResourceNoResult is used by resgate when headerAuth or wsHeaderAuth is
+// set, while still establishing the HTTP/WebSocket connection.
+func (c *wsConn) AuthResourceNoResult(rid, action string, params interface{}, cb func(refRID string, err error, meta *codec.Meta)) {
 	rname, query := parseRID(c.ExpandCID(rid))
-	c.serv.cache.Auth(c, rname, query, action, c.token, params, func(result json.RawMessage, refRID string, err error) {
+	c.serv.cache.Auth(c, rname, query, action, c.token, params, true, func(result json.RawMessage, refRID string, meta *codec.Meta, err error) {
+		c.Enqueue(func() {
+			cb(refRID, err, meta)
+		})
+	})
+}
+
+func (c *wsConn) AuthResource(rid, action string, params interface{}, cb func(result interface{}, err error)) {
+	// Metrics
+	if c.serv.metrics != nil {
+		c.serv.metrics.WSRequestsAuth.Add(1)
+	}
+
+	rname, query := parseRID(c.ExpandCID(rid))
+	c.serv.cache.Auth(c, rname, query, action, c.token, params, false, func(result json.RawMessage, refRID string, _ *codec.Meta, err error) {
 		c.Enqueue(func() {
 			c.handleCallAuthResponse(result, refRID, err, cb)
 		})
@@ -384,6 +464,12 @@ func (c *wsConn) AuthResource(rid, action string, params interface{}, cb func(re
 }
 
 func (c *wsConn) NewResource(rid string, params interface{}, cb func(result interface{}, err error)) {
+	// Metrics
+	if c.serv.metrics != nil {
+		// Add it as a call, since it translates to that
+		c.serv.metrics.WSRequestsCall.Add(1)
+	}
+
 	c.call(rid, "new", params, func(result json.RawMessage, refRID string, err error) {
 		if err != nil {
 			cb(nil, err)
@@ -446,7 +532,7 @@ func (c *wsConn) handleResourceResult(refRID string, cb func(result interface{},
 					},
 				},
 			}, nil)
-			c.Unsubscribe(sub, true, 1, true)
+			c.Unsubscribe(sub, true, false, 1, true)
 			return
 		}
 
@@ -455,7 +541,7 @@ func (c *wsConn) handleResourceResult(refRID string, cb func(result interface{},
 			// as the call in itself succeeded.
 			cb(&rpc.CallResourceResult{
 				RID:       sub.RID(),
-				Resources: sub.GetRPCResources(),
+				Resources: sub.GetRPCResources(false),
 			}, nil)
 			sub.ReleaseRPCResources()
 		})
@@ -463,6 +549,11 @@ func (c *wsConn) handleResourceResult(refRID string, cb func(result interface{},
 }
 
 func (c *wsConn) UnsubscribeResource(rid string, count int, cb func(ok bool)) {
+	// Metrics
+	if c.serv.metrics != nil {
+		c.serv.metrics.WSRequestsUnsubscribe.Add(1)
+	}
+
 	cb(c.UnsubscribeByRID(rid, count))
 }
 
@@ -502,12 +593,12 @@ func (c *wsConn) Subscribe(rid string, direct bool, t *rescache.Throttle) (*Subs
 
 // unsubscribe counts down the subscription counter
 // and deletes the subscription if the count reached 0.
-func (c *wsConn) Unsubscribe(sub *Subscription, direct bool, count int, tryDelete bool) {
+func (c *wsConn) Unsubscribe(sub *Subscription, direct bool, sent bool, count int, tryDelete bool) {
 	if c.disposing {
 		return
 	}
 
-	c.removeCount(sub, direct, count, tryDelete)
+	c.removeCount(sub, direct, sent, count, tryDelete)
 }
 
 func (c *wsConn) UnsubscribeByRID(rid string, count int) bool {
@@ -520,7 +611,7 @@ func (c *wsConn) UnsubscribeByRID(rid string, count int) bool {
 		return false
 	}
 
-	c.removeCount(sub, true, count, true)
+	c.removeCount(sub, true, false, count, true)
 	return true
 }
 
@@ -539,10 +630,13 @@ func (c *wsConn) addCount(s *Subscription, direct bool) error {
 	return nil
 }
 
-// removeCount decreases the subscription count and disposes the subscription
-// if indirect and direct subscription count reaches 0
-func (c *wsConn) removeCount(s *Subscription, direct bool, count int, tryDelete bool) {
-	if s.direct+s.indirect == 0 {
+// removeCount decreases the subscription count and disposes the subscription if
+// indirect, indirectsent, and direct subscription count reaches 0. If direct is
+// false and the parent resource indirectly referencing the subscription has
+// been sent to the client, sent should bet true. If direct is true, sent is
+// ignored.
+func (c *wsConn) removeCount(s *Subscription, direct bool, sent bool, count int, tryDelete bool) {
+	if s.direct+s.indirect+s.indirectsent == 0 {
 		return
 	}
 
@@ -550,6 +644,9 @@ func (c *wsConn) removeCount(s *Subscription, direct bool, count int, tryDelete 
 		s.direct -= count
 	} else {
 		s.indirect -= count
+		if sent {
+			s.indirectsent -= count
+		}
 	}
 
 	if tryDelete {
@@ -573,7 +670,9 @@ func (c *wsConn) setToken(token json.RawMessage, tid string) {
 }
 
 func (c *wsConn) Access(s *Subscription, cb func(*rescache.Access)) {
-	c.serv.cache.Access(s, c.token, cb)
+	c.serv.cache.Access(s, c.token, false, func(access *rescache.Access, _ *codec.Meta) {
+		cb(access)
+	})
 }
 
 func (c *wsConn) outputWorker() {
@@ -651,7 +750,7 @@ func (c *wsConn) TokenReset(tids map[string]bool, subject string) {
 		if c.tid == "" || !tids[c.tid] {
 			return
 		}
-		c.serv.cache.CustomAuth(c, subject, "", c.token, nil, func(_ json.RawMessage, _ string, err error) {
+		c.serv.cache.CustomAuth(c, subject, "", c.token, nil, func(_ json.RawMessage, _ string, _ *codec.Meta, err error) {
 			// Discard response, but log an error if auth request timed out.
 			if err == mq.ErrRequestTimeout {
 				c.Errorf("Token reset auth request timeout on subject: %s", subject)

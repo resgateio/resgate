@@ -3,7 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime"
 	"net/http"
 	"strings"
@@ -78,9 +78,9 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 
 	apiPath := s.cfg.APIPath
 
-	// NotFound on oaths with trailing slash (unless it is only the APIPath)
+	// NotFound on paths with trailing slash (unless it is only the APIPath)
 	if len(path) > len(apiPath) && path[len(path)-1] == '/' {
-		notFoundHandler(w, r, s.enc)
+		notFoundHandler(w, s.enc)
 		return
 	}
 
@@ -89,25 +89,34 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 	case "HEAD":
 		fallthrough
 	case "GET":
+		// Metrics
+		if s.metrics != nil {
+			s.metrics.HTTPRequestsGet.Add(1)
+		}
+
 		rid = PathToRID(path, r.URL.RawQuery, apiPath)
 		if !codec.IsValidRID(rid, true) {
-			notFoundHandler(w, r, s.enc)
+			notFoundHandler(w, s.enc)
 			return
 		}
 
-		s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, error, bool)) {
-			c.GetSubscription(rid, func(sub *Subscription, err error) {
-				if err != nil {
-					cb(nil, err, false)
-					return
+		s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, string, error, *codec.Meta)) {
+			c.GetHTTPSubscription(rid, func(sub *Subscription, meta *codec.Meta, err error) {
+				var b []byte
+				if err == nil && !meta.IsDirectResponseStatus() {
+					b, err = s.enc.EncodeGET(sub)
 				}
-				b, err := s.enc.EncodeGET(sub)
-				cb(b, err, false)
+				cb(b, "", err, meta)
 			})
 		})
 		return
 
 	case "POST":
+		// Metrics
+		if s.metrics != nil {
+			s.metrics.HTTPRequestsPost.Add(1)
+		}
+
 		rid, action = PathToRIDAction(path, r.URL.RawQuery, apiPath)
 	default:
 		var m *string
@@ -130,6 +139,12 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 			httpError(w, reserr.ErrMethodNotAllowed, s.enc)
 			return
 		}
+
+		// Metrics
+		if s.metrics != nil {
+			s.metrics.HTTPRequests.With(r.Method).Add(1)
+		}
+
 		rid = PathToRID(path, r.URL.RawQuery, apiPath)
 		action = *m
 	}
@@ -137,7 +152,7 @@ func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
 	s.handleCall(w, r, rid, action)
 }
 
-func notFoundHandler(w http.ResponseWriter, r *http.Request, enc APIEncoder) {
+func notFoundHandler(w http.ResponseWriter, enc APIEncoder) {
 	w.Header().Set("Content-Type", enc.ContentType())
 	w.WriteHeader(http.StatusNotFound)
 	w.Write(enc.NotFoundError())
@@ -145,12 +160,12 @@ func notFoundHandler(w http.ResponseWriter, r *http.Request, enc APIEncoder) {
 
 func (s *Service) handleCall(w http.ResponseWriter, r *http.Request, rid string, action string) {
 	if !codec.IsValidRID(rid, true) || !codec.IsValidRIDPart(action) {
-		notFoundHandler(w, r, s.enc)
+		notFoundHandler(w, s.enc)
 		return
 	}
 
 	// Try to parse the body
-	b, err := ioutil.ReadAll(r.Body)
+	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		httpError(w, &reserr.Error{Code: reserr.CodeBadRequest, Message: "Error reading request body: " + err.Error()}, s.enc)
 		return
@@ -165,59 +180,96 @@ func (s *Service) handleCall(w http.ResponseWriter, r *http.Request, rid string,
 		}
 	}
 
-	s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, error, bool)) {
-		c.CallHTTPResource(rid, s.cfg.APIPath, action, params, func(r json.RawMessage, href string, err error) {
-			if err != nil {
-				cb(nil, err, false)
-			} else if href != "" {
-				w.Header().Set("Location", href)
-				w.WriteHeader(http.StatusOK)
-				cb(nil, nil, true)
-			} else {
-				b, err := s.enc.EncodePOST(r)
-				cb(b, err, false)
+	s.temporaryConn(w, r, func(c *wsConn, cb func([]byte, string, error, *codec.Meta)) {
+		c.CallHTTPResource(rid, action, params, func(r json.RawMessage, refRID string, err error, meta *codec.Meta) {
+			var b []byte
+			if err == nil && refRID == "" && !meta.IsDirectResponseStatus() {
+				b, err = s.enc.EncodePOST(r)
 			}
+			cb(b, RIDToPath(refRID, s.cfg.APIPath), err, meta)
 		})
 	})
 }
 
-func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func([]byte, error, bool))) {
-	c := s.newWSConn(nil, r, versionLatest)
+// temporaryConn creates a temporary connection which is provides through a
+// callback. Once the callback calls its write callback, the temporaryConn will
+// return.
+// The write callback takes 4 arguments, with priority in order: meta, err, href, out
+// * out  - If not nil, it will be the output with a status OK response
+// * href - If not empty, it will be used as Location for a Found response
+// * err  - If not empty, it will be encoded into an error for an error response based on the error code
+// * meta - If not empty, may change the behavior of all the others.
+func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(*wsConn, func(out []byte, href string, err error, meta *codec.Meta))) {
+	c := s.newWSConn(r, versionLatest)
 	if c == nil {
 		httpError(w, reserr.ErrServiceUnavailable, s.enc)
 		return
 	}
 
 	done := make(chan struct{})
-	rs := func(out []byte, err error, headerWritten bool) {
+	var authMeta *codec.Meta
+	rs := func(out []byte, href string, err error, meta *codec.Meta) {
 		defer c.dispose()
 		defer close(done)
 
+		// Merge auth meta into the callbacks meta
+		meta = authMeta.Merge(meta)
+
+		// Validate the status of the meta object.
+		if !meta.IsValidStatus() {
+			s.Errorf("Invalid meta status: %d", *meta.Status)
+			meta.Status = nil
+		}
+
+		// Handle meta override
+		if meta.IsDirectResponseStatus() {
+			httpStatusResponse(w, s.enc, *meta.Status, meta.Header, href, err)
+			return
+		}
+
+		// Merge any meta headers into the response header.
+		codec.MergeHeader(w.Header(), meta.GetHeader())
+
+		// Handle error
 		if err != nil {
 			// Convert system.methodNotFound to system.methodNotAllowed for PUT/DELETE/PATCH
 			if rerr, ok := err.(*reserr.Error); ok {
 				if rerr.Code == reserr.CodeMethodNotFound && (r.Method == "PUT" || r.Method == "DELETE" || r.Method == "PATCH") {
-					httpError(w, reserr.ErrMethodNotAllowed, s.enc)
-					return
+					err = reserr.ErrMethodNotAllowed
 				}
 			}
 			httpError(w, err, s.enc)
 			return
 		}
 
+		// Handle href
+		if href != "" {
+			w.Header().Set("Location", href)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Output content
 		if len(out) > 0 {
 			w.Header().Set("Content-Type", s.enc.ContentType())
 			w.Write(out)
 			return
 		}
 
-		if !headerWritten {
-			w.WriteHeader(http.StatusNoContent)
-		}
+		// No content
+		w.WriteHeader(http.StatusNoContent)
 	}
 	c.Enqueue(func() {
 		if s.cfg.HeaderAuth != nil {
-			c.AuthResource(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(_ interface{}, err error) {
+			c.AuthResourceNoResult(s.cfg.headerAuthRID, s.cfg.headerAuthAction, nil, func(refRID string, err error, m *codec.Meta) {
+				if m.IsDirectResponseStatus() {
+					httpStatusResponse(w, s.enc, *m.Status, m.Header, RIDToPath(refRID, s.cfg.APIPath), err)
+					c.dispose()
+					close(done)
+					return
+				}
+
+				authMeta = m
 				cb(c, rs)
 			})
 		} else {
@@ -227,7 +279,34 @@ func (s *Service) temporaryConn(w http.ResponseWriter, r *http.Request, cb func(
 	<-done
 }
 
-func httpError(w http.ResponseWriter, err error, enc APIEncoder) {
+func httpStatusResponse(w http.ResponseWriter, enc APIEncoder, status int, header http.Header, href string, err error) {
+	// Redirect
+	if status >= 300 && status < 400 {
+		if href != "" {
+			if _, ok := header["Location"]; !ok {
+				w.Header().Set("Location", href)
+			}
+		}
+		codec.MergeHeader(w.Header(), header)
+		w.WriteHeader(status)
+		return
+	}
+
+	// 4xx and 5xx errors
+	var rerr *reserr.Error
+	if err == nil {
+		rerr = statusError(status)
+	} else {
+		rerr = reserr.RESError(err)
+	}
+
+	codec.MergeHeader(w.Header(), header)
+	w.Header().Set("Content-Type", enc.ContentType())
+	w.WriteHeader(status)
+	w.Write(enc.EncodeError(rerr))
+}
+
+func errorStatus(err error) (*reserr.Error, int) {
 	rerr := reserr.RESError(err)
 
 	var code int
@@ -254,7 +333,74 @@ func httpError(w http.ResponseWriter, err error, enc APIEncoder) {
 		code = http.StatusBadRequest
 	}
 
+	return rerr, code
+}
+
+func httpError(w http.ResponseWriter, err error, enc APIEncoder) {
+	rerr, code := errorStatus(err)
 	w.Header().Set("Content-Type", enc.ContentType())
 	w.WriteHeader(code)
 	w.Write(enc.EncodeError(rerr))
+}
+
+// statusError returns a res error based on a HTTP status.
+func statusError(status int) *reserr.Error {
+	if status >= 400 {
+		if status < 500 {
+			switch status {
+			// Access denied
+			case http.StatusUnauthorized:
+				fallthrough
+			case http.StatusPaymentRequired:
+				fallthrough
+			case http.StatusProxyAuthRequired:
+				return reserr.ErrAccessDenied
+
+			// Forbidden
+			case http.StatusForbidden:
+				fallthrough
+			case http.StatusUnavailableForLegalReasons:
+				return reserr.ErrForbidden
+
+			// Not found
+			case http.StatusGone:
+				fallthrough
+			case http.StatusNotFound:
+				return reserr.ErrNotFound
+
+			// Method not allowed
+			case http.StatusMethodNotAllowed:
+				return reserr.ErrMethodNotAllowed
+
+			// Timeout
+			case http.StatusRequestTimeout:
+				return reserr.ErrTimeout
+
+			// Bad request (default)
+			default:
+				return reserr.ErrBadRequest
+			}
+		}
+		if status < 600 {
+			switch status {
+			// Not implemented
+			case http.StatusNotImplemented:
+				return reserr.ErrNotImplemented
+
+			// Service unavailable
+			case http.StatusServiceUnavailable:
+				return reserr.ErrServiceUnavailable
+
+			// Timeout
+			case http.StatusGatewayTimeout:
+				return reserr.ErrTimeout
+
+			// Internal error (default)
+			default:
+				return reserr.ErrInternalError
+			}
+		}
+	}
+
+	return reserr.ErrInternalError
 }

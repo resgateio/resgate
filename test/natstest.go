@@ -8,7 +8,6 @@ import (
 	"runtime/pprof"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -169,7 +168,7 @@ func (c *NATSTestClient) SetClosedHandler(_ func(error)) {
 }
 
 // HasSubscriptions asserts that there is a subscription for the given resource IDs
-func (c *NATSTestClient) HasSubscriptions(t *testing.T, rids ...string) {
+func (c *NATSTestClient) HasSubscriptions(t Testing, rids ...string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -198,7 +197,7 @@ func (c *NATSTestClient) HasSubscriptions(t *testing.T, rids ...string) {
 
 // NoSubscriptions asserts that there isn't any subscription for the given
 // resource IDs.
-func (c *NATSTestClient) NoSubscriptions(t *testing.T, rids ...string) {
+func (c *NATSTestClient) NoSubscriptions(t Testing, rids ...string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -275,7 +274,7 @@ func (s *Subscription) Unsubscribe() error {
 // GetRequest gets a pending request that is sent to NATS.
 // If no request is received within a set amount of time,
 // it will log it as a fatal error.
-func (c *NATSTestClient) GetRequest(t *testing.T) *Request {
+func (c *NATSTestClient) GetRequest(t Testing) *Request {
 	select {
 	case r := <-c.reqs:
 		return r
@@ -291,7 +290,7 @@ func (c *NATSTestClient) GetRequest(t *testing.T) *Request {
 }
 
 // GetParallelRequests gets n number of requests where the order is uncertain.
-func (c *NATSTestClient) GetParallelRequests(t *testing.T, n int) ParallelRequests {
+func (c *NATSTestClient) GetParallelRequests(t Testing, n int) ParallelRequests {
 	pr := make(ParallelRequests, n)
 	for i := 0; i < n; i++ {
 		pr[i] = c.GetRequest(t)
@@ -369,14 +368,14 @@ func (r *Request) Timeout() {
 }
 
 // Equals asserts that the request has the expected subject and payload
-func (r *Request) Equals(t *testing.T, subject string, payload interface{}) *Request {
+func (r *Request) Equals(t Testing, subject string, payload interface{}) *Request {
 	r.AssertSubject(t, subject)
 	r.AssertPayload(t, payload)
 	return r
 }
 
 // AssertSubject asserts that the request has the expected subject
-func (r *Request) AssertSubject(t *testing.T, subject string) *Request {
+func (r *Request) AssertSubject(t Testing, subject string) *Request {
 	if r.Subject != subject {
 		t.Fatalf("expected subject to be %#v, but got %#v", subject, r.Subject)
 	}
@@ -384,7 +383,7 @@ func (r *Request) AssertSubject(t *testing.T, subject string) *Request {
 }
 
 // AssertPayload asserts that the request has the expected payload
-func (r *Request) AssertPayload(t *testing.T, payload interface{}) *Request {
+func (r *Request) AssertPayload(t Testing, payload interface{}) *Request {
 	var err error
 	pj, err := json.Marshal(payload)
 	if err != nil {
@@ -405,7 +404,7 @@ func (r *Request) AssertPayload(t *testing.T, payload interface{}) *Request {
 
 // AssertPathPayload asserts that a the request payload at a given dot-separated
 // path in a nested object has the expected payload.
-func (r *Request) AssertPathPayload(t *testing.T, path string, payload interface{}) *Request {
+func (r *Request) AssertPathPayload(t Testing, path string, payload interface{}) *Request {
 	pp := r.PathPayload(t, path)
 
 	var err error
@@ -432,7 +431,7 @@ func (r *Request) AssertPathPayload(t *testing.T, path string, payload interface
 
 // AssertPathType asserts that a the request payload at a given dot-separated
 // path in a nested object has the same type as typ.
-func (r *Request) AssertPathType(t *testing.T, path string, typ interface{}) *Request {
+func (r *Request) AssertPathType(t Testing, path string, typ interface{}) *Request {
 	pp := r.PathPayload(t, path)
 
 	ppt := reflect.TypeOf(pp)
@@ -444,9 +443,75 @@ func (r *Request) AssertPathType(t *testing.T, path string, typ interface{}) *Re
 	return r
 }
 
+// AssertPathMissing asserts that the request payload at a given dot-separated
+// path in a nested object is missing. It gives a fatal error if any other part
+// of the patch except for the last part of the path is missing.
+func (r *Request) AssertPathMissing(t Testing, path string) *Request {
+	if v, ok := r.TryPathPayload(t, path); ok {
+		t.Fatalf("expected not to find path %#v, but found value %#v", path, v)
+	}
+	return r
+}
+
+// AssertNotPathPayload asserts that the request payload at a given dot-separated
+// path in a nested object does not have the provided payload or is missing.
+func (r *Request) AssertNotPathPayload(t Testing, path string, payload interface{}) *Request {
+	pp, ok := r.TryPathPayload(t, path)
+
+	// Quick exit if value is missing.
+	if !ok {
+		return r
+	}
+
+	var err error
+	pj, err := json.Marshal(payload)
+	if err != nil {
+		panic("test: error marshaling assertion path payload: " + err.Error())
+	}
+	var p interface{}
+	err = json.Unmarshal(pj, &p)
+	if err != nil {
+		panic("test: error unmarshaling assertion path payload: " + err.Error())
+	}
+
+	if reflect.DeepEqual(p, pp) {
+		t.Fatalf("expected request payload of path %#v not to be:\n%s\nbut it was", path, pj)
+	}
+	return r
+}
+
+// TryPathPayload returns the request payload at a given dot-separated path in a
+// nested object, and true, if it exist. Otherwise it returns nil and false. It
+// gives a fatal error if any other part of the patch except for the last part
+// of the path is missing. It gives a fatal error if the path doesn't exist.
+func (r *Request) TryPathPayload(t Testing, path string) (interface{}, bool) {
+	parts := strings.Split(path, ".")
+	v := reflect.ValueOf(r.Payload)
+	for i, part := range parts {
+		if v.Kind() == reflect.Interface {
+			v = v.Elem()
+		}
+		typ := v.Type()
+		if typ.Kind() != reflect.Map {
+			t.Fatalf("expected to find path %#v, but part %#v is of type %s", path, part, typ)
+		}
+		if typ.Key().Kind() != reflect.String {
+			panic("test: key of part " + part + " of path " + path + " is not of type string")
+		}
+		v = v.MapIndex(reflect.ValueOf(part))
+		if !v.IsValid() && i < len(parts)-1 {
+			t.Fatalf("expected to find path %#v, but missing map key %#v", path, part)
+		}
+	}
+	if v.IsValid() {
+		return v.Interface(), true
+	}
+	return nil, false
+}
+
 // PathPayload returns the request payload at a given dot-separated path in a nested object.
 // It gives a fatal error if the path doesn't exist.
-func (r *Request) PathPayload(t *testing.T, path string) interface{} {
+func (r *Request) PathPayload(t Testing, path string) interface{} {
 	parts := strings.Split(path, ".")
 	v := reflect.ValueOf(r.Payload)
 	for _, part := range parts {
@@ -470,7 +535,7 @@ func (r *Request) PathPayload(t *testing.T, path string) interface{} {
 }
 
 // GetRequest returns a request based on subject.
-func (pr ParallelRequests) GetRequest(t *testing.T, subject string) *Request {
+func (pr ParallelRequests) GetRequest(t Testing, subject string) *Request {
 	for _, r := range pr {
 		if r.Subject == subject {
 			return r
@@ -483,7 +548,7 @@ func (pr ParallelRequests) GetRequest(t *testing.T, subject string) *Request {
 
 // AssertPanic expects the callback function to panic, otherwise
 // logs an error with t.Errorf
-func AssertPanic(t *testing.T, cb func()) {
+func AssertPanic(t Testing, cb func()) {
 	defer func() {
 		v := recover()
 		if v == nil {

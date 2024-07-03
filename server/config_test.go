@@ -2,6 +2,7 @@ package server
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -40,6 +41,9 @@ func TestConfigPrepare(t *testing.T) {
 	allowOriginInvalidMultipleAll := "http://localhost;*"
 	allowOriginInvalidMultipleSame := "http://localhost;*"
 	allowOriginInvalidOrigin := "http://this.is/invalid"
+	headerAuth := "auth.test.foo"
+	headerAuthRID := "auth.test"
+	headerAuthAction := "foo"
 	method := "foo"
 	invalidMethod := "foo.bar"
 	defaultCfg := Config{}
@@ -56,6 +60,9 @@ func TestConfigPrepare(t *testing.T) {
 		{Config{Addr: &emptyAddr, WSPath: "/"}, Config{Addr: &emptyAddr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: ":80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
 		{Config{Addr: &localAddr, WSPath: "/"}, Config{Addr: &localAddr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "127.0.0.1:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
 		{Config{Addr: &ipv6Addr, WSPath: "/"}, Config{Addr: &ipv6Addr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "[::1]:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		// Header auth
+		{Config{WSPath: "/", HeaderAuth: &headerAuth}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", HeaderAuth: &headerAuth, scheme: "http", netAddr: "0.0.0.0:80", headerAuthRID: headerAuthRID, headerAuthAction: headerAuthAction, allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		{Config{WSPath: "/", WSHeaderAuth: &headerAuth}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", WSHeaderAuth: &headerAuth, scheme: "http", netAddr: "0.0.0.0:80", wsHeaderAuthRID: headerAuthRID, wsHeaderAuthAction: headerAuthAction, allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
 		// Allow origin
 		{Config{AllowOrigin: &allowOriginAll, WSPath: "/"}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
 		{Config{AllowOrigin: &allowOriginSingle, WSPath: "/"}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"http://resgate.io"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
@@ -65,9 +72,14 @@ func TestConfigPrepare(t *testing.T) {
 		{Config{WSPath: "/", DELETEMethod: &method}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", DELETEMethod: &method, scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST, DELETE"}, false},
 		{Config{WSPath: "/", PATCHMethod: &method}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", PATCHMethod: &method, scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST, PATCH"}, false},
 		{Config{WSPath: "/", PUTMethod: &method, DELETEMethod: &method, PATCHMethod: &method}, Config{Addr: nil, Port: 80, WSPath: "/", APIPath: "/", PUTMethod: &method, DELETEMethod: &method, PATCHMethod: &method, scheme: "http", netAddr: "0.0.0.0:80", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST, PUT, DELETE, PATCH"}, false},
+		// Metrics port
+		{Config{Addr: &emptyAddr, WSPath: "/", MetricsPort: 8090}, Config{Addr: &emptyAddr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: ":80", metricsNetAddr: ":8090", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		{Config{Addr: &localAddr, WSPath: "/", MetricsPort: 8090}, Config{Addr: &localAddr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "127.0.0.1:80", metricsNetAddr: "127.0.0.1:8090", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
+		{Config{Addr: &ipv6Addr, WSPath: "/", MetricsPort: 8090}, Config{Addr: &ipv6Addr, Port: 80, WSPath: "/", APIPath: "/", scheme: "http", netAddr: "[::1]:80", metricsNetAddr: "[::1]:8090", allowOrigin: []string{"*"}, allowMethods: "GET, HEAD, OPTIONS, POST"}, false},
 		// Invalid config
 		{Config{Addr: &invalidAddr, WSPath: "/"}, Config{}, true},
 		{Config{HeaderAuth: &invalidHeaderAuth, WSPath: "/"}, Config{}, true},
+		{Config{WSHeaderAuth: &invalidHeaderAuth, WSPath: "/"}, Config{}, true},
 		{Config{AllowOrigin: &allowOriginInvalidEmpty, WSPath: "/"}, Config{}, true},
 		{Config{AllowOrigin: &allowOriginInvalidEmptyOrigin, WSPath: "/"}, Config{}, true},
 		{Config{AllowOrigin: &allowOriginInvalidMultipleAll, WSPath: "/"}, Config{}, true},
@@ -76,6 +88,7 @@ func TestConfigPrepare(t *testing.T) {
 		{Config{PUTMethod: &invalidMethod, WSPath: "/"}, Config{}, true},
 		{Config{DELETEMethod: &invalidMethod, WSPath: "/"}, Config{}, true},
 		{Config{PATCHMethod: &invalidMethod, WSPath: "/"}, Config{}, true},
+		{Config{Addr: &defaultAddr, Port: 8080, MetricsPort: 8080, WSPath: "/"}, Config{}, true},
 	}
 
 	for i, r := range tbl {
@@ -104,8 +117,11 @@ func TestConfigPrepare(t *testing.T) {
 
 		compareString(t, "scheme", cfg.scheme, r.Expected.scheme, i)
 		compareString(t, "netAddr", cfg.netAddr, r.Expected.netAddr, i)
+		compareString(t, "metricsNetAddr", cfg.metricsNetAddr, r.Expected.metricsNetAddr, i)
 		compareString(t, "headerAuthAction", cfg.headerAuthAction, r.Expected.headerAuthAction, i)
 		compareString(t, "headerAuthRID", cfg.headerAuthRID, r.Expected.headerAuthRID, i)
+		compareString(t, "wsHeaderAuthAction", cfg.wsHeaderAuthAction, r.Expected.wsHeaderAuthAction, i)
+		compareString(t, "wsHeaderAuthRID", cfg.wsHeaderAuthRID, r.Expected.wsHeaderAuthRID, i)
 		compareString(t, "allowMethods", cfg.allowMethods, r.Expected.allowMethods, i)
 
 		if len(cfg.allowOrigin) != len(r.Expected.allowOrigin) {
@@ -118,6 +134,7 @@ func TestConfigPrepare(t *testing.T) {
 		}
 
 		compareStringPtr(t, "HeaderAuth", cfg.HeaderAuth, r.Expected.HeaderAuth, i)
+		compareStringPtr(t, "WSHeaderAuth", cfg.WSHeaderAuth, r.Expected.WSHeaderAuth, i)
 	}
 }
 
@@ -147,13 +164,17 @@ func TestNewServiceConfigError(t *testing.T) {
 	}
 }
 
-// Test that the travis version tag (if existing) matches that
+// Test that the git version tag (if existing) matches that
 // of the Version constant.
 func TestVersionMatchesTag(t *testing.T) {
-	tag := os.Getenv("TRAVIS_TAG")
-	if tag == "" {
-		t.SkipNow()
+	ref := os.Getenv("GITHUB_REF")
+	if ref == "" {
+		t.Skip("no GITHUB_REF environment value")
 	}
+	if !strings.HasPrefix(ref, "refs/tags/") {
+		t.Skipf("GITHUB_REF environment value not starting with refs/tags/: %s", ref)
+	}
+	tag := ref[:len("refs/tags/")]
 	if tag[0] != 'v' {
 		t.Fatalf("Expected tag to start with `v`, got %+v", tag)
 	}

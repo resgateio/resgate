@@ -1,4 +1,4 @@
-package rescache_test
+package test
 
 import (
 	"encoding/json"
@@ -129,13 +129,13 @@ func jsonMap(t *testing.T, v interface{}) (interface{}, []byte) {
 	var err error
 	j, err := json.Marshal(v)
 	if err != nil {
-		panic(fmt.Sprintf("test: error marshaling value:\n\t%+v\nerror:\n\t%s", v, err))
+		t.Fatalf("test: error marshaling value:\n\t%+v\nerror:\n\t%s", v, err)
 	}
 
 	var m interface{}
 	err = json.Unmarshal(j, &m)
 	if err != nil {
-		panic(fmt.Sprintf("test: error unmarshaling value:\n\t%s\nerror:\n\t%s", j, err))
+		t.Fatalf("test: error unmarshaling value:\n\t%s\nerror:\n\t%s", j, err)
 	}
 
 	return m, j

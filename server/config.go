@@ -18,8 +18,10 @@ type Config struct {
 	Port         uint16  `json:"port"`
 	WSPath       string  `json:"wsPath"`
 	APIPath      string  `json:"apiPath"`
+	MetricsPort  uint16  `json:"metricsPort"`
 	APIEncoding  string  `json:"apiEncoding"`
 	HeaderAuth   *string `json:"headerAuth"`
+	WSHeaderAuth *string `json:"wsHeaderAuth"`
 	AllowOrigin  *string `json:"allowOrigin"`
 	PUTMethod    *string `json:"putMethod"`
 	DELETEMethod *string `json:"deleteMethod"`
@@ -34,14 +36,18 @@ type Config struct {
 	ResetThrottle     int `json:"resetThrottle"`
 	ReferenceThrottle int `json:"referenceThrottle"`
 
-	NoHTTP bool `json:"-"` // Disable start of the HTTP server. Used for testing
+	NoHTTP             bool `json:"-"` // Disable start of the HTTP server. Used for testing
+	NoUnsubscribeDelay bool `json:"-"` // Set remove and unsubscribe from cache delay to 0. Used for testing.
 
-	scheme           string
-	netAddr          string
-	headerAuthRID    string
-	headerAuthAction string
-	allowOrigin      []string
-	allowMethods     string
+	scheme             string
+	netAddr            string
+	metricsNetAddr     string
+	headerAuthRID      string
+	headerAuthAction   string
+	wsHeaderAuthRID    string
+	wsHeaderAuthAction string
+	allowOrigin        []string
+	allowMethods       string
 }
 
 // SetDefault sets the default values
@@ -82,6 +88,10 @@ func (c *Config) prepare() error {
 		}
 	}
 
+	if c.Port == c.MetricsPort {
+		return fmt.Errorf(`invalid metrics port "%d": must be different from API port ("%d")`, c.MetricsPort, c.Port)
+	}
+
 	// Resolve network address
 	c.netAddr = ""
 	if c.Addr != nil {
@@ -102,6 +112,9 @@ func (c *Config) prepare() error {
 	} else {
 		c.netAddr = DefaultAddr
 	}
+	if c.MetricsPort != 0 {
+		c.metricsNetAddr = c.netAddr + fmt.Sprintf(":%d", c.MetricsPort)
+	}
 	c.netAddr += fmt.Sprintf(":%d", c.Port)
 
 	if c.HeaderAuth != nil {
@@ -112,6 +125,17 @@ func (c *Config) prepare() error {
 			c.headerAuthAction = s[idx+1:]
 		} else {
 			return fmt.Errorf("invalid headerAuth setting (%s)\n\tmust be a valid resource method", s)
+		}
+	}
+
+	if c.WSHeaderAuth != nil {
+		s := *c.WSHeaderAuth
+		idx := strings.LastIndexByte(s, '.')
+		if codec.IsValidRID(s, false) && idx >= 0 {
+			c.wsHeaderAuthRID = s[:idx]
+			c.wsHeaderAuthAction = s[idx+1:]
+		} else {
+			return fmt.Errorf("invalid wsHeaderAuth setting (%s)\n\tmust be a valid resource method", s)
 		}
 	}
 

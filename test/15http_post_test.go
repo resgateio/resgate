@@ -13,28 +13,36 @@ import (
 
 // Test response to a HTTP POST request to a primitive query model method
 func TestHTTPPostOnPrimitiveQueryModel(t *testing.T) {
-	runTest(t, func(s *Session) {
-		successResponse := json.RawMessage(`{"foo":"bar"}`)
+	encodings := []string{"json", "jsonFlat"}
 
-		hreq := s.HTTPRequest("POST", "/api/test/model/method?q=foo&f=bar", nil)
+	for _, enc := range encodings {
+		runNamedTest(t, enc, func(s *Session) {
+			successResponse := json.RawMessage(`{"foo":"bar"}`)
 
-		// Handle query model access request
-		s.
-			GetRequest(t).
-			AssertSubject(t, "access.test.model").
-			AssertPathPayload(t, "token", nil).
-			AssertPathPayload(t, "query", "q=foo&f=bar").
-			RespondSuccess(json.RawMessage(`{"call":"method"}`))
-		// Handle query model call request
-		s.
-			GetRequest(t).
-			AssertSubject(t, "call.test.model.method").
-			AssertPathPayload(t, "query", "q=foo&f=bar").
-			RespondSuccess(successResponse)
+			hreq := s.HTTPRequest("POST", "/api/test/model/method?q=foo&f=bar", nil)
 
-		// Validate http response
-		hreq.GetResponse(t).Equals(t, http.StatusOK, successResponse)
-	})
+			// Handle query model access request
+			s.
+				GetRequest(t).
+				AssertSubject(t, "access.test.model").
+				AssertPathPayload(t, "token", nil).
+				AssertPathPayload(t, "query", "q=foo&f=bar").
+				AssertPathPayload(t, "isHttp", true).
+				RespondSuccess(json.RawMessage(`{"call":"method"}`))
+			// Handle query model call request
+			s.
+				GetRequest(t).
+				AssertSubject(t, "call.test.model.method").
+				AssertPathPayload(t, "query", "q=foo&f=bar").
+				AssertPathPayload(t, "isHttp", true).
+				RespondSuccess(successResponse)
+
+			// Validate http response
+			hreq.GetResponse(t).Equals(t, http.StatusOK, successResponse)
+		}, func(c *server.Config) {
+			c.APIEncoding = enc
+		})
+	}
 }
 
 // Test responses to HTTP post requests
@@ -84,51 +92,59 @@ func TestHTTPPostResponses(t *testing.T) {
 		{nil, fullCallAccess, []byte(`{"resource":{"rid":"test..model"}}`), http.StatusInternalServerError, nil, reserr.CodeInternalError},
 	}
 
-	for i, l := range tbl {
-		runNamedTest(t, fmt.Sprintf("#%d", i+1), func(s *Session) {
-			// Send HTTP post request
-			hreq := s.HTTPRequest("POST", "/api/test/model/method", l.Params)
+	encodings := []string{"json", "jsonFlat"}
 
-			req := s.GetRequest(t)
-			req.AssertSubject(t, "access.test.model")
-			if l.AccessResponse == nil {
-				req.Timeout()
-			} else if err, ok := l.AccessResponse.(*reserr.Error); ok {
-				req.RespondError(err)
-			} else {
-				req.RespondSuccess(l.AccessResponse)
-			}
+	for _, enc := range encodings {
+		for i, l := range tbl {
+			runNamedTest(t, fmt.Sprintf("#%d (%s)", i+1, enc), func(s *Session) {
+				// Send HTTP post request
+				hreq := s.HTTPRequest("POST", "/api/test/model/method", l.Params)
 
-			if l.CallResponse != noRequest {
-				// Get call request
-				req = s.GetRequest(t)
-				req.AssertSubject(t, "call.test.model.method")
-				req.AssertPathPayload(t, "params", json.RawMessage(l.Params))
-				if l.CallResponse == requestTimeout {
+				req := s.GetRequest(t)
+				req.AssertSubject(t, "access.test.model")
+				req.AssertPathPayload(t, "isHttp", true)
+				if l.AccessResponse == nil {
 					req.Timeout()
-				} else if err, ok := l.CallResponse.(*reserr.Error); ok {
+				} else if err, ok := l.AccessResponse.(*reserr.Error); ok {
 					req.RespondError(err)
-				} else if raw, ok := l.CallResponse.([]byte); ok {
-					req.RespondRaw(raw)
 				} else {
-					req.RespondSuccess(l.CallResponse)
+					req.RespondSuccess(l.AccessResponse)
 				}
-			}
 
-			// Validate client response
-			hresp := hreq.GetResponse(t)
-			hresp.AssertStatusCode(t, l.ExpectedCode)
-			if err, ok := l.Expected.(*reserr.Error); ok {
-				hresp.AssertError(t, err)
-			} else if code, ok := l.Expected.(string); ok {
-				hresp.AssertErrorCode(t, code)
-			} else {
-				hresp.AssertBody(t, l.Expected)
-			}
+				if l.CallResponse != noRequest {
+					// Get call request
+					req = s.GetRequest(t)
+					req.AssertSubject(t, "call.test.model.method")
+					req.AssertPathPayload(t, "params", json.RawMessage(l.Params))
+					if l.CallResponse == requestTimeout {
+						req.Timeout()
+					} else if err, ok := l.CallResponse.(*reserr.Error); ok {
+						req.RespondError(err)
+					} else if raw, ok := l.CallResponse.([]byte); ok {
+						req.RespondRaw(raw)
+					} else {
+						req.RespondSuccess(l.CallResponse)
+					}
+				}
 
-			// Validate headers
-			hresp.AssertHeaders(t, l.ExpectedHeaders)
-		})
+				// Validate client response
+				hresp := hreq.GetResponse(t)
+				hresp.AssertStatusCode(t, l.ExpectedCode)
+				if err, ok := l.Expected.(*reserr.Error); ok {
+					hresp.AssertError(t, err)
+				} else if code, ok := l.Expected.(string); ok {
+					hresp.AssertErrorCode(t, code)
+				} else {
+					hresp.AssertBody(t, l.Expected)
+				}
+
+				// Validate headers
+				hresp.AssertHeaders(t, l.ExpectedHeaders)
+
+			}, func(c *server.Config) {
+				c.APIEncoding = enc
+			})
+		}
 	}
 }
 

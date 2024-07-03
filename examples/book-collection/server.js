@@ -162,11 +162,10 @@ nats.subscribe('call.library.books.delete', (req, reply) => {
 // Resgate will then update any cached resource from library
 nats.publish('system.reset', JSON.stringify({ resources: [ 'library.>' ] }));
 
-
-// Run a simple webserver to serve the client.
-// This is only for the purpose of making the example easier to run
-const connect = require('connect');
-const serveStatic = require('serve-static');
-connect().use(serveStatic(__dirname)).listen(8083, () => {
+// Create a simple webserver to serve the index.html client.
+const express = require('express');
+let app = express();
+app.use('/', express.static(__dirname));
+app.listen(8083, () => {
 	console.log('Client available at http://localhost:8083');
 });

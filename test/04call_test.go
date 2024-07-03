@@ -87,6 +87,7 @@ func TestCallOnResource(t *testing.T) {
 				// Handle model get and access request
 				mreqs := s.GetParallelRequests(t, 2)
 				req := mreqs.GetRequest(t, "access.test.model")
+				req.AssertPathMissing(t, "isHttp")
 				if l.AccessResponse == nil {
 					req.Timeout()
 				} else if err, ok := l.AccessResponse.(*reserr.Error); ok {
@@ -109,6 +110,7 @@ func TestCallOnResource(t *testing.T) {
 					req.AssertPathType(t, "cid", string(""))
 					req.AssertPathPayload(t, "token", nil)
 					req.AssertPathPayload(t, "params", l.Params)
+					req.AssertPathMissing(t, "isHttp")
 					if l.CallResponse == requestTimeout {
 						req.Timeout()
 					} else if err, ok := l.CallResponse.(*reserr.Error); ok {
@@ -140,6 +142,7 @@ func TestCallOnResource(t *testing.T) {
 					req = s.GetRequest(t)
 					req.AssertSubject(t, "call.test.model.method")
 					req.AssertPathPayload(t, "params", l.Params)
+					req.AssertPathMissing(t, "isHttp")
 					if l.CallResponse == requestTimeout {
 						req.Timeout()
 					} else if err, ok := l.CallResponse.(*reserr.Error); ok {

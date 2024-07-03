@@ -8,28 +8,37 @@ const (
 	gcStateNone
 	gcStateDelete
 	gcStateKeep
+	gcStateUnsend
 )
-
-type subRef struct {
-	sub      *Subscription
-	indirect int
-	state    gcState
-}
 
 type traverseCallback func(sub *Subscription, state gcState) gcState
 
 func (c *wsConn) tryDelete(s *Subscription) {
+	type subRef struct {
+		sub          *Subscription
+		indirect     int
+		indirectsent int
+		state        gcState
+	}
+
 	if s.direct > 0 {
 		return
 	}
 
 	refs := make(map[string]*subRef, len(s.refs)+1)
 	rr := &subRef{
-		sub:      s,
-		indirect: s.indirect,
-		state:    gcStateNone,
+		sub:          s,
+		indirect:     s.indirect,
+		indirectsent: s.indirectsent,
+		state:        gcStateNone,
 	}
 	refs[s.RID()] = rr
+
+	sent := s.IsSent()
+	sentDiff := 0
+	if sent {
+		sentDiff = 1
+	}
 
 	// Count down indirect references
 	s.traverse(gcStateRoot, func(s *Subscription, state gcState) gcState {
@@ -39,31 +48,38 @@ func (c *wsConn) tryDelete(s *Subscription) {
 
 		if r, ok := refs[s.RID()]; ok {
 			r.indirect--
+			r.indirectsent -= sentDiff
 			return gcStateStop
 		}
 		refs[s.RID()] = &subRef{
-			sub:      s,
-			indirect: s.indirect - 1,
-			state:    gcStateNone,
+			sub:          s,
+			indirect:     s.indirect - 1,
+			indirectsent: s.indirectsent - sentDiff,
+			state:        gcStateNone,
 		}
 		return gcStateNone
 	})
 
-	// Quick exit if root reference is not to be deleted
-	if rr.indirect > 0 {
+	// Quick exit if root reference is not to be deleted, and that root is not
+	// to be considered unsent.
+	if rr.indirect > 0 && !(sent && rr.indirectsent == 0) {
 		return
 	}
 
-	// Mark for deletion
+	// Mark for deletion or unsend
 	s.traverse(gcStateDelete, func(s *Subscription, state gcState) gcState {
 		r := refs[s.RID()]
 
-		if r.state == gcStateKeep {
+		if r.state >= gcStateKeep {
 			return gcStateStop
 		}
 
 		if r.indirect > 0 || state == gcStateKeep {
-			r.state = gcStateKeep
+			if sent && r.indirectsent == 0 {
+				r.state = gcStateUnsend
+			} else {
+				r.state = gcStateKeep
+			}
 			return gcStateKeep
 		}
 
@@ -76,9 +92,12 @@ func (c *wsConn) tryDelete(s *Subscription) {
 	})
 
 	for rid, ref := range refs {
-		if ref.state == gcStateDelete {
+		switch ref.state {
+		case gcStateDelete:
 			ref.sub.Dispose()
 			delete(c.subs, rid)
+		case gcStateUnsend:
+			ref.sub.Unsend()
 		}
 	}
 }

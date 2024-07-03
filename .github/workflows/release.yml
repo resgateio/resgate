@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+# Make sure the GITHUB_TOKEN has permission to upload to our releases
+permissions:
+  contents: write
+
+jobs:
+
+  cross-compile:
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - goos: 'linux'
+            goarch: '386'
+          - goos: 'linux'
+            goarch: 'amd64'
+          - goos: 'linux'
+            goarch: 'arm'
+            goarm: '6'
+          - goos: 'linux'
+            goarch: 'arm'
+            goarm: '7'
+          - goos: 'linux'
+            goarch: 'arm64'
+          - goos: 'darwin'
+            goarch: 'amd64'
+          - goos: 'darwin'
+            goarch: 'arm64'
+          - goos: 'windows'
+            goarch: '386'
+            suffix: '.exe'
+          - goos: 'windows'
+            goarch: 'amd64'
+            suffix: '.exe'
+    env:
+      dir_name: 'resgate-${{ github.ref_name }}-${{ matrix.build.goos }}-${{ matrix.build.goarch }}${{ matrix.build.goarm }}'
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22.4'
+
+    - name: Go get
+      run: go get -t ./...
+    - name: Build
+      run: env CGO_ENABLED=0 GOOS=${{ matrix.build.goos }} GOARCH=${{ matrix.build.goarch }} GOARM=${{ matrix.build.goarm }} go build -ldflags="-s -w" -o="${{ env.dir_name }}/resgate${{ matrix.build.suffix }}"
+    - name: Copy license & readme
+      run: |
+        cp README.md ${{ env.dir_name }}/README.md
+        cp LICENSE ${{ env.dir_name }}/LICENSE
+    - name: Zip package
+      run: zip -q ${{ env.dir_name }}.zip -r ${{ env.dir_name }}
+    - name: '📦 Upload package ${{ env.dir_name }}.zip'
+      env:
+        GITHUB_TOKEN: ${{ github.TOKEN }}
+      shell: bash
+      run: |
+          gh release upload ${{ github.ref_name }} ${{ env.dir_name }}.zip

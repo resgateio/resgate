@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/resgateio/resgate/logger"
+	"github.com/resgateio/resgate/server/metrics"
 	"github.com/resgateio/resgate/server/mq"
 	"github.com/resgateio/resgate/server/rescache"
 )
@@ -29,10 +30,18 @@ type Service struct {
 	enc      APIEncoder
 	mimetype string
 
+	// metrics
+	m        *http.Server
+	metrics  *metrics.MetricSet
+	metricsh http.Handler
+
 	// wsListener/wsConn
 	upgrader websocket.Upgrader
 	conns    map[string]*wsConn // Connections by wsConn Id's
 	wg       sync.WaitGroup     // Wait for all connections to be disconnected
+
+	// handlers for testing
+	onWSClose func(*websocket.Conn)
 }
 
 // NewService creates a new Service
@@ -45,6 +54,7 @@ func NewService(mq mq.Client, cfg Config) (*Service, error) {
 	if err := s.cfg.prepare(); err != nil {
 		return nil, err
 	}
+	s.initMetricsServer()
 	s.initHTTPServer()
 	s.initWSHandler()
 	s.initMQClient()
@@ -66,6 +76,18 @@ func (s *Service) SetLogger(l logger.Logger) *Service {
 	s.logger = l
 	s.cache.SetLogger(l)
 	return s
+}
+
+// SetOnWSClose sets a callback to be calld when a websocket connection is
+// closed. Used for testing.
+func (s *Service) SetOnWSClose(cb func(ws *websocket.Conn)) {
+	s.onWSClose = cb
+}
+
+// SetOnUnsubscribe sets a callback that is called when a resource is removed
+// from the cache and unsubscribed. Used for testing.
+func (s *Service) SetOnUnsubscribe(cb func(rid string)) {
+	s.cache.SetOnUnsubscribe(cb)
 }
 
 // Logf writes a formatted log message
@@ -121,6 +143,8 @@ func (s *Service) start() error {
 		return err
 	}
 
+	s.startMetricsServer()
+
 	s.startHTTPServer()
 	s.Logf("Server ready")
 
@@ -142,6 +166,7 @@ func (s *Service) Stop(err error) {
 	}
 	s.Logf("Stopping server...")
 
+	s.stopMetricsServer()
 	s.stopWSHandler()
 	s.stopHTTPServer()
 	s.stopMQClient()

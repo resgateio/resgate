@@ -86,6 +86,7 @@ func TestLegacyNewOnResource(t *testing.T) {
 
 			req := s.GetRequest(t)
 			req.AssertSubject(t, "access.test.collection")
+			req.AssertPathMissing(t, "isHttp")
 			if l.CallAccessResponse == requestTimeout {
 				req.Timeout()
 			} else if err, ok := l.CallAccessResponse.(*reserr.Error); ok {
@@ -99,6 +100,7 @@ func TestLegacyNewOnResource(t *testing.T) {
 				req = s.GetRequest(t)
 				req.AssertSubject(t, "call.test.collection.new")
 				req.AssertPathPayload(t, "params", l.Params)
+				req.AssertPathMissing(t, "isHttp")
 				if l.CallResponse == requestTimeout {
 					req.Timeout()
 				} else if err, ok := l.CallResponse.(*reserr.Error); ok {

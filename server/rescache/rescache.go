@@ -10,6 +10,7 @@ import (
 	"github.com/jirenius/timerqueue"
 	"github.com/resgateio/resgate/logger"
 	"github.com/resgateio/resgate/server/codec"
+	"github.com/resgateio/resgate/server/metrics"
 	"github.com/resgateio/resgate/server/mq"
 	"github.com/resgateio/resgate/server/reserr"
 )
@@ -22,6 +23,7 @@ type Cache struct {
 	resetThrottle    int
 	unsubscribeDelay time.Duration
 	conns            map[string]Conn
+	metrics          *metrics.MetricSet
 
 	mu         sync.Mutex
 	started    bool
@@ -29,6 +31,9 @@ type Cache struct {
 	inCh       chan *EventSubscription
 	unsubQueue *timerqueue.Queue
 	resetSub   mq.Unsubscriber
+
+	// Handlers for testing
+	onUnsubscribe func(rid string)
 
 	// Deprecated behavior logging
 	depMutex  sync.Mutex
@@ -66,7 +71,7 @@ type ResourceEvent struct {
 }
 
 // NewCache creates a new Cache instance
-func NewCache(mq mq.Client, workers int, resetThrottle int, unsubscribeDelay time.Duration, l logger.Logger) *Cache {
+func NewCache(mq mq.Client, workers int, resetThrottle int, unsubscribeDelay time.Duration, l logger.Logger, ms *metrics.MetricSet) *Cache {
 	return &Cache{
 		mq:               mq,
 		logger:           l,
@@ -75,16 +80,25 @@ func NewCache(mq mq.Client, workers int, resetThrottle int, unsubscribeDelay tim
 		unsubscribeDelay: unsubscribeDelay,
 		conns:            make(map[string]Conn),
 		depLogged:        make(map[string]featureType),
+		metrics:          ms,
 	}
 }
 
-// SetLogger sets the logger
+// SetLogger sets the logger.
+// Must be called before Start is called.
 func (c *Cache) SetLogger(l logger.Logger) {
 	c.logger = l
 }
 
+// SetOnUnsubscribe sets a callback that is called when a resource is removed
+// from the cache and unsubscribed. Used for testing purpose.
+// Must be called before Start is called.
+func (c *Cache) SetOnUnsubscribe(cb func(rid string)) {
+	c.onUnsubscribe = cb
+}
+
 // Start will initialize the cache, subscribing to global events
-// It is assumed mq.Connect has already been called
+// It is assumed mq.Connect has already been called.
 func (c *Cache) Start() error {
 	if c.started {
 		return errors.New("cache: already started")
@@ -141,43 +155,46 @@ func (c *Cache) Subscribe(sub Subscriber, t *Throttle) {
 }
 
 // Access sends an access request
-func (c *Cache) Access(sub Subscriber, token interface{}, callback func(access *Access)) {
+func (c *Cache) Access(sub Subscriber, token interface{}, isHTTP bool, callback func(access *Access, meta *codec.Meta)) {
 	rname := sub.ResourceName()
-	payload := codec.CreateRequest(nil, sub, sub.ResourceQuery(), token)
+	payload := codec.CreateRequest(nil, sub, sub.ResourceQuery(), token, isHTTP)
 	subj := "access." + rname
 	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
-			callback(&Access{Error: reserr.RESError(err)})
+			callback(&Access{Error: reserr.RESError(err)}, nil)
 			return
 		}
 
-		access, rerr := codec.DecodeAccessResponse(data)
-		callback(&Access{AccessResult: access, Error: rerr})
+		access, meta, rerr := codec.DecodeAccessResponse(data)
+		if !isHTTP {
+			meta = nil
+		}
+		callback(&Access{AccessResult: access, Error: rerr}, meta)
 	})
 }
 
 // Call sends a method call request
-func (c *Cache) Call(req codec.Requester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, rid string, err error)) {
-	payload := codec.CreateRequest(params, req, query, token)
+func (c *Cache) Call(req codec.Requester, rname, query, action string, token, params interface{}, isHTTP bool, callback func(result json.RawMessage, rid string, meta *codec.Meta, err error)) {
+	payload := codec.CreateRequest(params, req, query, token, isHTTP)
 	subj := "call." + rname + "." + action
 	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
-			callback(nil, "", err)
+			callback(nil, "", nil, err)
 			return
 		}
 
 		// [DEPRECATED:deprecatedNewCallRequest]
 		if action == "new" {
-			result, rid, err := codec.DecodeCallResponse(data)
+			result, rid, meta, err := codec.DecodeCallResponse(data)
 			if err == nil && rid == "" {
 				rid, err = codec.TryDecodeLegacyNewResult(result)
 				if err != nil || rid != "" {
 					c.deprecated(rname, deprecatedNewCallRequest)
-					callback(nil, rid, err)
+					callback(nil, rid, meta, err)
 					return
 				}
 			}
-			callback(result, rid, err)
+			callback(result, rid, meta, err)
 			return
 		}
 
@@ -186,12 +203,12 @@ func (c *Cache) Call(req codec.Requester, rname, query, action string, token, pa
 }
 
 // Auth sends an auth method call
-func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token, params interface{}, callback func(result json.RawMessage, rid string, err error)) {
-	payload := codec.CreateAuthRequest(params, req, query, token)
+func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token, params interface{}, isHTTP bool, callback func(result json.RawMessage, rid string, meta *codec.Meta, err error)) {
+	payload := codec.CreateAuthRequest(params, req, query, token, isHTTP)
 	subj := "auth." + rname + "." + action
 	c.sendRequest(rname, subj, payload, func(data []byte, err error) {
 		if err != nil {
-			callback(nil, "", err)
+			callback(nil, "", nil, err)
 			return
 		}
 
@@ -200,11 +217,11 @@ func (c *Cache) Auth(req codec.AuthRequester, rname, query, action string, token
 }
 
 // CustomAuth sends an auth method call to a custom subject
-func (c *Cache) CustomAuth(req codec.AuthRequester, subj, query string, token, params interface{}, callback func(result json.RawMessage, rid string, err error)) {
-	payload := codec.CreateAuthRequest(params, req, query, token)
+func (c *Cache) CustomAuth(req codec.AuthRequester, subj, query string, token, params interface{}, callback func(result json.RawMessage, rid string, meta *codec.Meta, err error)) {
+	payload := codec.CreateAuthRequest(params, req, query, token, false)
 	c.mq.SendRequest(subj, payload, func(_ string, data []byte, err error) {
 		if err != nil {
-			callback(nil, "", err)
+			callback(nil, "", nil, err)
 			return
 		}
 
@@ -254,8 +271,20 @@ func (c *Cache) getSubscription(name string, subscribe bool) (*EventSubscription
 		}
 
 		c.eventSubs[name] = eventSub
+
+		// Metrics
+		if c.metrics != nil {
+			c.metrics.CacheResources.Add(1)
+			c.metrics.CacheSubscriptions.Add(1)
+		}
+
 	} else {
 		eventSub.addCount()
+
+		// Metrics
+		if c.metrics != nil {
+			c.metrics.CacheSubscriptions.Add(1)
+		}
 	}
 
 	if subscribe && eventSub.mqSub == nil {
@@ -300,6 +329,15 @@ func (c *Cache) mqUnsubscribe(v interface{}) {
 	}
 
 	delete(c.eventSubs, eventSub.ResourceName)
+
+	// Metrics
+	if c.metrics != nil {
+		c.metrics.CacheResources.Add(-1)
+	}
+
+	if c.onUnsubscribe != nil {
+		c.onUnsubscribe(eventSub.ResourceName)
+	}
 }
 
 func (c *Cache) handleSystemReset(payload []byte) {
@@ -373,7 +411,7 @@ func (c *Cache) handleSystemTokenReset(payload []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Iterate over all currenct connects and let them each validate against any
+	// Iterate over all current connections and let each validate against any
 	// existing token ID (tid).
 	for _, sub := range c.conns {
 		sub.TokenReset(m, r.Subject)

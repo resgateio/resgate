@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/resgateio/resgate/server/codec"
 )
 
 func (s *Service) initWSHandler() {
@@ -41,21 +42,87 @@ func (s *Service) GetWSHandlerFunc() http.Handler {
 }
 
 func (s *Service) wsHandler(w http.ResponseWriter, r *http.Request) {
-	// Upgrade to gorilla websocket
-	ws, err := s.upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		s.Debugf("Failed to upgrade connection from %s: %s", r.RemoteAddr, err.Error())
+	conn := s.newWSConn(r, versionLegacy)
+	if conn == nil {
 		return
 	}
 
-	conn := s.newWSConn(ws, r, versionLegacy)
-	if conn == nil {
+	var h http.Header
+	if s.cfg.WSHeaderAuth != nil {
+		// Prevent calling wsHeaderAuth if origin doesn't match. This will cause
+		// CheckOrigin to be called twice, both here and during Upgrade. But it
+		// will prevent unnecessary auth requests.
+		if s.upgrader.CheckOrigin(r) {
+			// Make auth call (if wsHeaderAuth is configured) and if we have a
+			// meta in the response, handle it.
+			refRID, meta, err := s.wsHeaderAuth(conn)
+			if meta != nil {
+				if meta.IsDirectResponseStatus() {
+					conn.Dispose()
+					httpStatusResponse(w, s.enc, *meta.Status, meta.Header, RIDToPath(refRID, s.cfg.APIPath), err)
+					return
+				}
+				if meta.Header != nil {
+					h = make(http.Header, len(meta.Header))
+					codec.MergeHeader(h, meta.Header)
+				}
+			}
+		}
+	}
+
+	// Upgrade to gorilla websocket
+	ws, err := s.upgrader.Upgrade(w, r, h)
+	if err != nil {
+		conn.Dispose()
+		s.Debugf("Failed to upgrade connection from %s: %s", r.RemoteAddr, err.Error())
 		return
 	}
 
 	conn.Tracef("Connected: %s", ws.RemoteAddr())
 
-	conn.listen()
+	// Metrics
+	if s.metrics != nil {
+		s.metrics.WSConnectionCount.Add(1)
+		s.metrics.WSConnections.Add(1)
+	}
+
+	// Set websocket and start listening
+	conn.listen(ws)
+
+	// Metrics
+	if s.metrics != nil {
+		s.metrics.WSConnections.Add(-1)
+	}
+
+	if s.onWSClose != nil {
+		s.onWSClose(ws)
+	}
+}
+
+// wsHeaderAuth sends an auth resource request if WSHeaderAuth is set, and
+// awaits the answer, returning any error. If no WSHeaderAuth is set, this is a
+// no-op.
+func (s *Service) wsHeaderAuth(c *wsConn) (refRID string, meta *codec.Meta, err error) {
+	done := make(chan struct{})
+	c.Enqueue(func() {
+		// Temporarily set as latest protocol version during the auth call.
+		storedVer := c.protocolVer
+		c.protocolVer = versionLatest
+		c.AuthResourceNoResult(s.cfg.wsHeaderAuthRID, s.cfg.wsHeaderAuthAction, nil, func(ref string, e error, m *codec.Meta) {
+			c.protocolVer = storedVer
+			// Validate the status of the meta object.
+			if !m.IsValidStatus() {
+				s.Errorf("Invalid WebSocket meta status: %d", *m.Status)
+				m.Status = nil
+			}
+			refRID = ref
+			meta = m
+			err = e
+			close(done)
+		})
+	})
+	<-done
+	return
 }
 
 // stopWSHandler disconnects all ws connections.

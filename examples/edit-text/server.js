@@ -32,3 +32,11 @@ nats.subscribe('call.example.shared.set', (req, reply) => {
 // System resets tells Resgate that the service has been (re)started.
 // Resgate will then update any cached resource from example
 nats.publish('system.reset', JSON.stringify({ resources: [ 'example.>' ] }));
+
+// Create a simple webserver to serve the index.html client.
+const express = require('express');
+let app = express();
+app.use('/', express.static(__dirname));
+app.listen(8082, () => {
+	console.log('Client available at http://localhost:8082');
+});

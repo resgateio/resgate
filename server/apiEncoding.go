@@ -114,6 +114,9 @@ func PathToRIDAction(path, query, prefix string) (string, string) {
 // The prefix is the part of the path that should be prepended
 // to the resource ID path, and it should both start and end with /. Eg. "/api/".
 func RIDToPath(rid, prefix string) string {
+	if rid == "" {
+		return ""
+	}
 	return prefix + strings.Replace(url.PathEscape(rid), ".", "/", -1)
 }
 
