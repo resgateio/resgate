@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"testing"
 	"time"
 
@@ -27,9 +28,10 @@ var (
 type Session struct {
 	t *testing.T
 	*NATSTestClient
-	s     *server.Service
-	conns map[*Conn]struct{}
-	dcCh  chan struct{}
+	s      *server.Service
+	conns  map[*Conn]struct{}
+	dcCh   chan struct{}
+	unsubs chan string
 	*CountLogger
 }
 
@@ -49,6 +51,7 @@ func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 		s:              serv,
 		conns:          make(map[*Conn]struct{}),
 		CountLogger:    l,
+		unsubs:         make(chan string, 256),
 	}
 
 	// Set on WS close handler to synchronize tests with WebSocket disconnects.
@@ -58,6 +61,9 @@ func setup(t *testing.T, cfgs ...func(*server.Config)) *Session {
 		if ch != nil {
 			close(ch)
 		}
+	})
+	serv.SetOnUnsubscribe(func(rid string) {
+		s.unsubs <- rid
 	})
 
 	if err := serv.Start(); err != nil {
@@ -208,6 +214,62 @@ func (s *Session) MetricsHTTPRequest(opts ...func(r *http.Request)) *http.Respon
 	}
 
 	return rr.Result()
+}
+
+// AssertUnsubscribe awaits for one or more resources to be unsubscribed by the
+// cache, and asserts that they match the provided resource IDs.
+func (s *Session) AssertUnsubscribe(rids ...string) *Session {
+	if len(rids) == 0 {
+		return s
+	}
+
+	var rs []string
+	for count := 0; count < len(rids); count++ {
+		select {
+		case r := <-s.unsubs:
+			rs = append(rs, r)
+		case <-time.After(3 * time.Second):
+			if s.t != nil {
+				s.t.Fatalf("expected %d resource(s) to be unsubscribed from cache, but got %d", len(rids), count)
+			} else {
+				panic("test: assert unsubscribe called outside of test")
+			}
+		}
+	}
+
+	sort.StringSlice(rs).Sort()
+	sort.StringSlice(rids).Sort()
+
+NextRID:
+	for _, rid := range rids {
+		for _, r := range rs {
+			if rid == r {
+				continue NextRID
+			}
+		}
+		if s.t != nil {
+			s.t.Fatalf("expected unsubscribed resources:\n\t%#v\nbut got :\n\t%#v", rids, rs)
+		} else {
+			panic("test: assert unsubscribe called outside of test")
+		}
+	}
+	return s
+}
+
+// AwaitUnsubscribe awaits for a resource to be unsubscribed by the cache,
+// returning the resource ID.
+func (s *Session) AwaitUnsubscribe() string {
+	var rid string
+	select {
+	case rid = <-s.unsubs:
+	case <-time.After(3 * time.Second):
+		if s.t != nil {
+			s.t.Fatalf("expected a cache unsubscribe but got none.")
+		} else {
+			panic("test: await unsubscribe timeout")
+		}
+	}
+	return rid
 }
 
 func teardown(s *Session) {

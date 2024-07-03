@@ -302,6 +302,7 @@ func TestMetrics_CacheResources_ExpectedGaugeValues(t *testing.T) {
 	table := []struct {
 		Name                  string
 		Actions               func(t *testing.T, s *Session, c *Conn)
+		Config                func(cfg *server.Config)
 		ExpectedResources     int
 		ExpectedSubscriptions int
 	}{
@@ -408,6 +409,51 @@ func TestMetrics_CacheResources_ExpectedGaugeValues(t *testing.T) {
 			ExpectedResources:     2,
 			ExpectedSubscriptions: 1,
 		},
+
+		{
+			Name: "unsubscribe simple model and wait for cache unsubscribe",
+			Actions: func(t *testing.T, s *Session, c *Conn) {
+				subscribeToTestModel(t, s, c)
+				c.Request("unsubscribe.test.model", nil).GetResponse(t)
+				s.AssertUnsubscribe("test.model")
+				c.AssertNoEvent(t, "test.model")
+			},
+			Config: func(cfg *server.Config) {
+				cfg.NoUnsubscribeDelay = true
+			},
+			ExpectedResources:     0,
+			ExpectedSubscriptions: 0,
+		},
+		{
+			Name: "unsubscribe parent model and wait for cache unsubscribe",
+			Actions: func(t *testing.T, s *Session, c *Conn) {
+				subscribeToTestModelParent(t, s, c, false)
+				c.Request("unsubscribe.test.model.parent", nil).GetResponse(t)
+				s.AwaitUnsubscribe()
+				s.AwaitUnsubscribe()
+				c.AssertNoEvent(t, "test.model.parent")
+			},
+			Config: func(cfg *server.Config) {
+				cfg.NoUnsubscribeDelay = true
+			},
+			ExpectedResources:     0,
+			ExpectedSubscriptions: 0,
+		},
+		{
+			Name: "unsubscribe overlapping parent model and wait for cache unsubscribe",
+			Actions: func(t *testing.T, s *Session, c *Conn) {
+				subscribeToTestModel(t, s, c)
+				subscribeToTestModelParent(t, s, c, true)
+				c.Request("unsubscribe.test.model.parent", nil).GetResponse(t)
+				c.AssertNoEvent(t, "test.model.parent")
+				s.AssertUnsubscribe("test.model.parent")
+			},
+			Config: func(cfg *server.Config) {
+				cfg.NoUnsubscribeDelay = true
+			},
+			ExpectedResources:     1,
+			ExpectedSubscriptions: 1,
+		},
 	}
 	for _, l := range table {
 		runNamedTest(t, l.Name, func(s *Session) {
@@ -420,6 +466,9 @@ func TestMetrics_CacheResources_ExpectedGaugeValues(t *testing.T) {
 			})
 		}, func(cfg *server.Config) {
 			cfg.MetricsPort = 8090
+			if l.Config != nil {
+				l.Config(cfg)
+			}
 		})
 	}
 }

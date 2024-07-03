@@ -32,6 +32,9 @@ type Cache struct {
 	unsubQueue *timerqueue.Queue
 	resetSub   mq.Unsubscriber
 
+	// Handlers for testing
+	onUnsubscribe func(rid string)
+
 	// Deprecated behavior logging
 	depMutex  sync.Mutex
 	depLogged map[string]featureType
@@ -81,13 +84,21 @@ func NewCache(mq mq.Client, workers int, resetThrottle int, unsubscribeDelay tim
 	}
 }
 
-// SetLogger sets the logger
+// SetLogger sets the logger.
+// Must be called before Start is called.
 func (c *Cache) SetLogger(l logger.Logger) {
 	c.logger = l
 }
 
+// SetOnUnsubscribe sets a callback that is called when a resource is removed
+// from the cache and unsubscribed. Used for testing purpose.
+// Must be called before Start is called.
+func (c *Cache) SetOnUnsubscribe(cb func(rid string)) {
+	c.onUnsubscribe = cb
+}
+
 // Start will initialize the cache, subscribing to global events
-// It is assumed mq.Connect has already been called
+// It is assumed mq.Connect has already been called.
 func (c *Cache) Start() error {
 	if c.started {
 		return errors.New("cache: already started")
@@ -322,6 +333,10 @@ func (c *Cache) mqUnsubscribe(v interface{}) {
 	// Metrics
 	if c.metrics != nil {
 		c.metrics.CacheResources.Add(-1)
+	}
+
+	if c.onUnsubscribe != nil {
+		c.onUnsubscribe(eventSub.ResourceName)
 	}
 }
 

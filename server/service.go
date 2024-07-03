@@ -80,16 +80,14 @@ func (s *Service) SetLogger(l logger.Logger) *Service {
 
 // SetOnWSClose sets a callback to be calld when a websocket connection is
 // closed. Used for testing.
-func (s *Service) SetOnWSClose(cb func(ws *websocket.Conn)) *Service {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.stop != nil {
-		panic("SetOnWSClose must be called before starting server")
-	}
-
+func (s *Service) SetOnWSClose(cb func(ws *websocket.Conn)) {
 	s.onWSClose = cb
-	return s
+}
+
+// SetOnCahceUnsubscribe sets a callback that is called when a resource is
+// removed from the cache and unsubscribed. Used for testing.
+func (s *Service) SetOnUnsubscribe(cb func(rid string)) {
+	s.cache.SetOnUnsubscribe(cb)
 }
 
 // Logf writes a formatted log message

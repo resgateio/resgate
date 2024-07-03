@@ -36,7 +36,8 @@ type Config struct {
 	ResetThrottle     int `json:"resetThrottle"`
 	ReferenceThrottle int `json:"referenceThrottle"`
 
-	NoHTTP bool `json:"-"` // Disable start of the HTTP server. Used for testing
+	NoHTTP             bool `json:"-"` // Disable start of the HTTP server. Used for testing
+	NoUnsubscribeDelay bool `json:"-"` // Set remove and unsubscribe from cache delay to 0. Used for testing.
 
 	scheme             string
 	netAddr            string
