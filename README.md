@@ -91,6 +91,7 @@ resgate [options]
 | <code>-r, --reqtimeout &lt;seconds&gt;</code> | Timeout duration for NATS requests | `3000`
 | <code>-u, --headauth &lt;method&gt;</code> | Resource method for header authentication |
 | <code>-t, --wsheadauth &lt;method&gt;</code> | Resource method for WebSocket header authentication |
+| <code>-m, --metricsport &lt;port&gt;</code> | HTTP port for OpenMetrics connections | `0` (disabled)
 | <code>&nbsp;&nbsp;&nbsp;&nbsp;--apiencoding &lt;type&gt;</code> | Encoding for web resources: json, jsonflat | `json`
 | <code>&nbsp;&nbsp;&nbsp;&nbsp;--putmethod &lt;methodName&gt;</code> | Call method name mapped to HTTP PUT requests |
 | <code>&nbsp;&nbsp;&nbsp;&nbsp;--deletemethod &lt;methodName&gt;</code> | Call method name mapped to HTTP DELETE requests |
@@ -147,6 +148,12 @@ Configuration is a JSON encoded file. If no config file is found at the given pa
     // Port for the http server to listen on.
     // If the port value is missing or 0, standard http(s) port is used.
     "port": 8080,
+
+    // Metrics port for the OpenMetrics http server to listen on.
+    // If the port value is missing or 0, metrics are disabled.
+    // Must be different from the configured api port.
+    // Metrics are available at the path: /metrics
+    "metricsPort": 0,
 
     // Path for accessing the RES API WebSocket.
     "wsPath": "/",
