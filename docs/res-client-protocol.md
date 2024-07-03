@@ -1,6 +1,6 @@
 # The RES-Client Protocol Specification
 
-*Version: [1.2.2](res-protocol-semver.md)*
+*Version: [1.2.3](res-protocol-semver.md)*
 
 ## Table of contents
 - [Introduction](#introduction)
