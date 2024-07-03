@@ -84,8 +84,8 @@ func (s *Service) SetOnWSClose(cb func(ws *websocket.Conn)) {
 	s.onWSClose = cb
 }
 
-// SetOnCahceUnsubscribe sets a callback that is called when a resource is
-// removed from the cache and unsubscribed. Used for testing.
+// SetOnUnsubscribe sets a callback that is called when a resource is removed
+// from the cache and unsubscribed. Used for testing.
 func (s *Service) SetOnUnsubscribe(cb func(rid string)) {
 	s.cache.SetOnUnsubscribe(cb)
 }
