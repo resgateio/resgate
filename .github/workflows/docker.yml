@@ -39,7 +39,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            resgateio/resgate
+            ${{ github.repository }}
             ghcr.io/${{ github.repository }}
           tags: |
             type=semver,pattern={{version}}-linux
@@ -61,11 +61,16 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Generate artifact attestation
+      - name: Generate artifact attestation Docker Hub
         uses: actions/attest-build-provenance@v1
         with:
-          subject-name: |
-            index.docker.io/resgateio/resgate
-            ghcr.io/${{ github.repository }}
+          subject-name: docker.io/${{ github.repository }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate artifact attestation GitHub Container Registery
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
