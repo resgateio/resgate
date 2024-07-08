@@ -1,4 +1,4 @@
-FROM golang:1.22.4-alpine3.20 as builder
+FROM golang:1.22.4-alpine3.20 AS builder
 
 LABEL maintainer="Samuel Jirenius <samuel@jirenius.com>"
 
