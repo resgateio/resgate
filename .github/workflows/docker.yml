@@ -68,7 +68,7 @@ jobs:
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
-      - name: Generate artifact attestation GitHub Container Registery
+      - name: Generate artifact attestation GitHub Container Registry
         uses: actions/attest-build-provenance@v1
         with:
           subject-name: ghcr.io/${{ github.repository }}
