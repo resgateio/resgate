@@ -65,7 +65,7 @@ jobs:
         uses: actions/attest-build-provenance@v1
         with:
           subject-name: |
-            docker.io/resgateio/resgate
+            index.docker.io/resgateio/resgate
             ghcr.io/${{ github.repository }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
