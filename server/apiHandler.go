@@ -28,46 +28,43 @@ func (s *Service) initAPIHandler() error {
 }
 
 // setCommonHeaders sets common headers such as Access-Control-*.
-// It returns error if the origin header does not match any allowed origin.
-func (s *Service) setCommonHeaders(w http.ResponseWriter, r *http.Request) error {
-	if s.cfg.HeaderAuth != nil {
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-	}
-	if s.cfg.allowOrigin[0] == "*" {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		return nil
+func (s *Service) setCommonHeaders(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	if origin == "" || origin == "null" {
+		return
 	}
 
-	// CORS validation
-	origin := r.Header["Origin"]
-	// If no Origin header is set, or the value is null, we can allow access
-	// as it is not coming from a CORS enabled browser.
-	if len(origin) > 0 && origin[0] != "null" {
-		if matchesOrigins(s.cfg.allowOrigin, origin[0]) {
-			w.Header().Set("Access-Control-Allow-Origin", origin[0])
+	isWild := s.cfg.allowOrigin[0] == "*"
+	allowCredentials := s.cfg.HeaderAuth != nil
+
+	if allowCredentials {
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+	}
+
+	if isWild {
+		if allowCredentials {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 		} else {
-			// No matching origin
-			w.Header().Set("Access-Control-Allow-Origin", s.cfg.allowOrigin[0])
-			w.Header().Set("Vary", "Origin")
-			return reserr.ErrForbiddenOrigin
+			w.Header().Set("Access-Control-Allow-Origin", "*")
 		}
+		return
 	}
-	return nil
+
+	if matchesOrigins(s.cfg.allowOrigin, origin) {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Vary", "Origin")
+	}
 }
 
 func (s *Service) apiHandler(w http.ResponseWriter, r *http.Request) {
-	err := s.setCommonHeaders(w, r)
+	s.setCommonHeaders(w, r)
 	if r.Method == "OPTIONS" {
 		w.Header().Set("Access-Control-Allow-Methods", s.cfg.allowMethods)
 		reqHeaders := r.Header["Access-Control-Request-Headers"]
 		if len(reqHeaders) > 0 {
 			w.Header().Set("Access-Control-Allow-Headers", strings.Join(reqHeaders, ", "))
 		}
-		return
-	}
-	if err != nil {
-		httpError(w, err, s.enc)
 		return
 	}
 

@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="license"></a>
+<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"></a>
 <a href="https://goreportcard.com/report/resgateio/resgate"><img src="http://goreportcard.com/badge/github.com/resgateio/resgate" alt="Report Card"></a>
 <a href="https://github.com/resgateio/resgate/actions/workflows/build.yml?query=branch%3Amaster"><img src="https://img.shields.io/github/actions/workflow/status/resgateio/resgate/build.yml?branch=master" alt="Build Status"></a>
 <a href="https://coveralls.io/github/resgateio/resgate?branch=master"><img src="https://coveralls.io/repos/github/resgateio/resgate/badge.svg?branch=master" alt="Coverage"></a>

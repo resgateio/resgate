@@ -86,7 +86,7 @@ Is REQUIRED on error.
 MUST be omitted on success.  
 The value MUST be an [error object](#error-object).
 
-**meta**
+**meta**  
 Metadata about the response. May be omitted.  
 The value MUST be a [meta object](#meta-object).
 
@@ -117,17 +117,17 @@ If the header key is `"Set-Cookie"`, the value will be added to any existing val
 The status code is a subset of the HTTP status codes. Behavior is only defined for redirection (3XX), client error (4XX), and server error (5XX).  
 The gateway MUST respond to the HTTP or WebSocket connection using the given status code, if behavior is defined for it. Otherwise it SHOULD ignore the code and make a fallback to default behavior.
 
-**3XX**
+**3XX**  
 SHOULD result in an immediate response to the client, without subsequent service requests.  
 SHOULD have the `"Location"` header set if the **resource** field is not set on the response.  
 SHOULD result in no content being sent to the client making the request.
 
-**4XX**
+**4XX**  
 SHOULD result in an immediate response to the client, without subsequent service requests.  
 If **error** is set on the response, that error value should be sent in the client response.  
 If no **error** is set on the response, the gateway SHOULD respond to the client with an error matching the code.
 
-**5XX**
+**5XX**  
 SHOULD result in an immediate response to the client, without subsequent service requests.  
 If **error** is set on the response, that error value should be sent in the client response.  
 If no **error** is set on the response, the gateway SHOULD respond to the client with an error matching the code.
@@ -202,7 +202,7 @@ Query part of the [resource ID](res-protocol.md#resource-ids) without the questi
 MUST be omitted if the resource ID has no query.  
 MUST be a string.
 
-**isHttp** 
+**isHttp**  
 Flag telling if the response's [meta object](#meta-object) may contain *status* and *header* members.  
 MAY be omitted if the value is otherwise `false`.  
 MUST be a boolean.
@@ -290,7 +290,7 @@ MUST be a string.
 Method parameters as defined by the service or by the appropriate [pre-defined call method](#pre-defined-call-methods).  
 MAY be omitted.
 
-**isHttp** 
+**isHttp**  
 Flag telling if the response's [meta object](#meta-object) may contain *status* and *header* members.  
 MAY be omitted if the value is otherwise `false`.  
 MUST be a boolean.
@@ -357,7 +357,7 @@ The unmodified Request-URI of the Request-Line (RFC 2616, Section 5.1) as sent b
 May be omitted.  
 MUST be a string.
 
-**isHttp** 
+**isHttp**  
 Flag telling if the response's [meta object](#meta-object) may contain *status* and *header* members.  
 MAY be omitted if the value is otherwise `false`.  
 MUST be a boolean.
@@ -744,4 +744,3 @@ MUST be a string.
 **data**  
 Payload data as described in [resource events](#resource-events).  
 May be omitted if the event requires no payload.
-

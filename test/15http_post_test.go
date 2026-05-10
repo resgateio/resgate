@@ -287,10 +287,10 @@ func TestHTTPPost_AllowOrigin_ExpectedResponse(t *testing.T) {
 		{"http://localhost", "", "*", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "*"}, []string{"Vary", "Access-Control-Allow-Credentials"}, successResponse},
 		{"http://localhost", "", "http://localhost", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"}, []string{"Access-Control-Allow-Credentials"}, successResponse},
 		{"https://resgate.io", "", "http://localhost;https://resgate.io", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "https://resgate.io", "Vary": "Origin"}, []string{"Access-Control-Allow-Credentials"}, successResponse},
-		// Invalid requests
-		{"http://example.com", "", "http://localhost;https://resgate.io", http.StatusForbidden, map[string]string{"Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"}, []string{"Access-Control-Allow-Credentials"}, reserr.ErrForbiddenOrigin},
+		// Disallowed origin
+		{"http://example.com", "", "http://localhost;https://resgate.io", http.StatusOK, nil, []string{"Access-Control-Allow-Origin", "Vary", "Access-Control-Allow-Credentials"}, successResponse},
 		// No Origin header in request
-		{"", "", "*", http.StatusOK, map[string]string{"Access-Control-Allow-Origin": "*"}, []string{"Vary"}, successResponse},
+		{"", "", "*", http.StatusOK, nil, []string{"Access-Control-Allow-Origin", "Vary"}, successResponse},
 		{"", "", "http://localhost", http.StatusOK, nil, []string{"Access-Control-Allow-Origin", "Vary"}, successResponse},
 	}
 
@@ -338,20 +338,20 @@ func TestHTTPPost_HeaderAuth_ExpectedResponse(t *testing.T) {
 		ExpectedHeaders map[string]string // Expected response Headers
 	}{
 		// Without token
-		{requestTimeout, noToken, map[string]string{"Access-Control-Allow-Credentials": "true"}},
-		{reserr.ErrNotFound, noToken, map[string]string{"Access-Control-Allow-Credentials": "true"}},
-		{[]byte(`{]`), noToken, map[string]string{"Access-Control-Allow-Credentials": "true"}},
-		{nil, noToken, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		{requestTimeout, noToken, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "example.com", "Vary": "Origin"}},
+		{reserr.ErrNotFound, noToken, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "example.com", "Vary": "Origin"}},
+		{[]byte(`{]`), noToken, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "example.com", "Vary": "Origin"}},
+		{nil, noToken, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "example.com", "Vary": "Origin"}},
 		// With token
-		{requestTimeout, token, map[string]string{"Access-Control-Allow-Credentials": "true"}},
-		{reserr.ErrNotFound, token, map[string]string{"Access-Control-Allow-Credentials": "true"}},
-		{[]byte(`{]`), token, map[string]string{"Access-Control-Allow-Credentials": "true"}},
-		{nil, token, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		{requestTimeout, token, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "example.com", "Vary": "Origin"}},
+		{reserr.ErrNotFound, token, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "example.com", "Vary": "Origin"}},
+		{[]byte(`{]`), token, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "example.com", "Vary": "Origin"}},
+		{nil, token, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "example.com", "Vary": "Origin"}},
 		// With nil token
-		{requestTimeout, nil, map[string]string{"Access-Control-Allow-Credentials": "true"}},
-		{reserr.ErrNotFound, nil, map[string]string{"Access-Control-Allow-Credentials": "true"}},
-		{[]byte(`{]`), nil, map[string]string{"Access-Control-Allow-Credentials": "true"}},
-		{nil, nil, map[string]string{"Access-Control-Allow-Credentials": "true"}},
+		{requestTimeout, nil, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "example.com", "Vary": "Origin"}},
+		{reserr.ErrNotFound, nil, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "example.com", "Vary": "Origin"}},
+		{[]byte(`{]`), nil, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "example.com", "Vary": "Origin"}},
+		{nil, nil, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "example.com", "Vary": "Origin"}},
 	}
 
 	for i, l := range tbl {

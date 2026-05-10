@@ -18,9 +18,9 @@ func TestHTTPOptions_AllowOrigin_ExpectedResponseHeaders(t *testing.T) {
 		{"http://localhost", "*", map[string]string{"Access-Control-Allow-Origin": "*"}, []string{"Vary"}},
 		{"http://localhost", "http://localhost", map[string]string{"Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"}, nil},
 		{"https://resgate.io", "http://localhost;https://resgate.io", map[string]string{"Access-Control-Allow-Origin": "https://resgate.io", "Vary": "Origin"}, nil},
-		{"http://example.com", "http://localhost;https://resgate.io", map[string]string{"Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"}, nil},
+		{"http://example.com", "http://localhost;https://resgate.io", nil, []string{"Access-Control-Allow-Origin", "Vary"}},
 		// No Origin header in request
-		{"", "*", map[string]string{"Access-Control-Allow-Origin": "*"}, []string{"Vary"}},
+		{"", "*", nil, []string{"Access-Control-Allow-Origin", "Vary"}},
 		{"", "http://localhost", nil, []string{"Access-Control-Allow-Origin", "Vary"}},
 	}
 
@@ -75,11 +75,13 @@ func TestHTTPOptions_RequestHeaders_ExpectedResponseHeaders(t *testing.T) {
 func TestHTTPOptions_HeaderAuth_HasExpectedResponseHeaders(t *testing.T) {
 
 	runTest(t, func(s *Session) {
-		hreq := s.HTTPRequest("OPTIONS", "/api/test/model", nil)
+		hreq := s.HTTPRequest("OPTIONS", "/api/test/model", nil, func(req *http.Request) {
+			req.Header.Set("Origin", "http://localhost")
+		})
 		// Validate http response
 		hreq.GetResponse(t).
 			Equals(t, http.StatusOK, nil).
-			AssertHeaders(t, map[string]string{"Access-Control-Allow-Credentials": "true"})
+			AssertHeaders(t, map[string]string{"Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Origin": "http://localhost", "Vary": "Origin"})
 	}, func(cfg *server.Config) {
 		headerAuth := "vault.method"
 		cfg.HeaderAuth = &headerAuth
