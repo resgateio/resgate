@@ -121,7 +121,7 @@ func (c *Conn) Disconnect() {
 		c.s.dcCh = dcCh
 	}
 
-	c.ws.Close()
+	_ = c.ws.Close()
 	<-c.closeCh
 
 	// Await synchronization
