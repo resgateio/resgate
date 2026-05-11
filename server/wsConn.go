@@ -127,6 +127,11 @@ func (c *wsConn) dispose() {
 	close(c.work)
 	c.mu.Unlock()
 
+	// Explicitly close websocket
+	if c.ws != nil {
+		_ = c.ws.Close()
+	}
+
 	c.serv.cache.RemoveConn(c)
 	c.unsubscribeConn()
 
@@ -185,7 +190,7 @@ func (c *wsConn) Tracef(format string, v ...interface{}) {
 func (c *wsConn) Disconnect(reason string) {
 	if c.ws != nil {
 		c.Tracef("Disconnecting - %s", reason)
-		c.ws.Close()
+		_ = c.ws.Close()
 	}
 }
 

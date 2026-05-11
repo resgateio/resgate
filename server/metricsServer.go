@@ -65,12 +65,12 @@ func (s *Service) startMetricsServer() {
 	go func() {
 		var err error
 		if s.cfg.TLS {
-			err = s.m.ServeTLS(hln, s.cfg.TLSCert, s.cfg.TLSKey)
+			err = metricsServer.ServeTLS(hln, s.cfg.TLSCert, s.cfg.TLSKey)
 		} else {
-			err = s.m.Serve(hln)
+			err = metricsServer.Serve(hln)
 		}
 
-		if err != nil {
+		if err != nil && err != http.ErrServerClosed {
 			s.Stop(err)
 		}
 	}()
