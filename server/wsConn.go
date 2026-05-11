@@ -127,7 +127,7 @@ func (c *wsConn) dispose() {
 	close(c.work)
 	c.mu.Unlock()
 
-	// Explicity close websocket
+	// Explicitly close websocket
 	if c.ws != nil {
 		_ = c.ws.Close()
 	}
