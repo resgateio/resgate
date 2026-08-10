@@ -1,6 +1,9 @@
-FROM golang:1.22.4-alpine3.20 as builder
+FROM --platform=$BUILDPLATFORM golang:1.22.4-alpine3.20 as builder
 
 LABEL maintainer="Samuel Jirenius <samuel@jirenius.com>"
+
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /src/resgate
 
@@ -11,7 +14,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -ldflags "-s -w" -o /resgate
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -v -ldflags "-s -w" -o /resgate
 
 FROM scratch
 COPY --from=builder /resgate /resgate
